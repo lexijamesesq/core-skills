@@ -32,7 +32,7 @@ Edit the **Project State** section:
 - **Waiting For:** Add/remove external blockers as applicable
 - **Decisions Needed:** Add/remove questions blocking progress
 
-For the expected structure, see `~/REDACTED-VAULT-PATH/Claude/System/project-claude-template.md`.
+For the expected structure, see the project template (path configured in global CLAUDE.md > Configuration > `templates.project`).
 
 ### Step 3: Update the Backlog
 
@@ -123,5 +123,5 @@ Before finishing, verify:
 
 ### References
 
-- Full template: `~/REDACTED-VAULT-PATH/Claude/System/project-claude-template.md`
-- Design philosophy: `~/REDACTED-VAULT-PATH/Claude/System/protocols-reference.md`
+- Full template: path configured in global CLAUDE.md > Configuration > `templates.project`
+- Design philosophy: path configured in global CLAUDE.md > Configuration > `references.protocols`
