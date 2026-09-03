@@ -5,8 +5,10 @@ on:
   push:
     branches: [main]
   schedule:
-    # Catches dotty drifting out from under this repo's duplicated content
-    # (LEX-698's staged-deletion window) even between pushes here.
+    # Catches gitleaks-common.sh drifting out from under this repo's one
+    # remaining duplicate (narrowed by LEX-722; the skills/agent/hooks/
+    # statusline duplicates it used to also catch are gone along with
+    # dotty's copies) even between pushes here.
     - cron: '17 13 * * *'
 
 permissions:
