@@ -25,6 +25,40 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 QA_PY="${SCRIPT_DIR}/../../house-qa/qa.py"
 
+# Resolve references.tag_taxonomy_rosters from dotty-private's global
+# CLAUDE.md — the single source of truth for where tag-taxonomy-rosters.md
+# actually lives, never hardcoded here. Unlike a project CLAUDE.md (real
+# YAML frontmatter, the shape statusline.sh's parse_declared_repos() reads),
+# the global CLAUDE.md's Configuration block is a fenced ```yaml section in
+# the body — extract that fence, not frontmatter. Empty output (missing yq,
+# missing file, missing key) is a legitimate "unresolved" signal, not an
+# error — the caller falls back to qa.py's own pre-key vault-relative
+# default.
+resolve_rosters_path() {
+  local claude_md="${HOME}/bin/dotty-private/.claude/CLAUDE.md"
+  [[ -f "$claude_md" ]] || return
+  command -v yq >/dev/null 2>&1 || return
+  local yaml_block value workspace_root
+  yaml_block="$(awk '/^```yaml/{c=1; next} /^```$/{c=0} c' "$claude_md")"
+  value="$(printf '%s\n' "$yaml_block" | yq -r '."references.tag_taxonomy_rosters"' - 2>/dev/null | grep -v '^null$')" || true
+  [[ -z "$value" ]] && return
+  case "$value" in
+    "~"*|/*)
+      # Repo-absolute or already-expanded — expand a leading ~ (no eval).
+      printf '%s\n' "${value/#\~/$HOME}"
+      ;;
+    *)
+      # workspace_root-relative, same convention every other references.*
+      # key uses (see the Configuration block's own header comment).
+      workspace_root="$(printf '%s\n' "$yaml_block" | yq -r '.workspace_root' - 2>/dev/null | grep -v '^null$')"
+      [[ -z "$workspace_root" ]] && workspace_root="${HOME}/Vaults/Notes"
+      workspace_root="${workspace_root/#\~/$HOME}"
+      printf '%s\n' "${workspace_root%/}/$value"
+      ;;
+  esac
+}
+ROSTERS_PATH="$(resolve_rosters_path)"
+
 TARGET="${1:-}"; shift || true
 BASE="origin/HEAD"
 VISIBILITY="public"
@@ -228,14 +262,48 @@ if [[ -n "${BAD}" ]]; then verdict FAIL "sample file(s) with zero placeholder ma
 # ---- Step 3: Universe/fiction scan of changed *.md ---------------------
 step "3. Universe conformance (changed *.md, mechanical)"
 CHANGED_MD=()
-while IFS= read -r f; do
+# -M100%: the git-diff(1) rename-detection threshold, expressed as an
+# explicit percentage — the number alone (-M100) is NOT "100%", it's git's
+# internal fractional scale and behaves close to a 10% threshold; only the
+# %-suffixed form asks for exact-similarity-only detection, and under it
+# R100 means the two blobs are byte-identical (mode changes excepted) — a
+# reordered-lines-only rename does NOT report R100 here, it reports as a
+# separate add+delete pair instead (unlike the bare -M100 form, which
+# scores by line-multiset similarity and could call that "identical" too).
+# A whole-directory rename (e.g. claude/ -> .claude/) makes every file's
+# path change with zero content change — without rename awareness,
+# `--name-only` lists every one of those files as "changed," so a PR that
+# renames a directory gates on its entire pre-existing content, not what
+# the PR actually touched. R100 is excluded from the blocking set below;
+# genuine adds, edits, and below-100%-similarity renames still gate
+# normally.
+#
+# Exception: a file moving OUT of an exempt directory (tests/fixtures/ or
+# reference/, both per qa.py's own exemption logic) must still be scanned
+# even if R100 — the exemption depends on PATH, not content, so a pure
+# rename crossing that boundary needs re-evaluating under its new path,
+# not skipped as if nothing relevant could have changed.
+while IFS=$'\t' read -r status path newpath; do
+  [[ -z "$status" ]] && continue
+  # Absolute-path check: $path alone (e.g. "tests/fixtures/x.md", no
+  # leading component) wouldn't contain the "/tests/fixtures/" substring —
+  # match the same absolute-path form the downstream Python filter below
+  # checks, so a top-level fixtures/reference dir is caught the same as a
+  # nested one.
+  old_abs="${TARGET}/${path}"
+  if [[ "$status" == R100* && "$old_abs" != *"/tests/fixtures/"* && "$old_abs" != *"/reference/"* ]]; then
+    continue
+  fi
+  f="${newpath:-$path}"
   [[ -n "$f" ]] && CHANGED_MD+=("${TARGET}/$f")
-done < <(git -C "${TARGET}" diff --name-only --diff-filter=d "${BASE}...HEAD" -- '*.md' || true)
+done < <(git -C "${TARGET}" diff --name-status -M100% --diff-filter=d "${BASE}...HEAD" -- '*.md' || true)
 if [[ ${#CHANGED_MD[@]} -eq 0 ]]; then
   verdict PASS "no changed markdown in range"
 else
   QA_OUT="$(mktemp)"
-  if python3 "${QA_PY}" "${CHANGED_MD[@]}" --json --vault-root "${VAULT_ROOT}" > "${QA_OUT}" 2>"${QA_OUT}.err"; then
+  QA_ROSTERS_ARGS=()
+  [[ -n "${ROSTERS_PATH}" ]] && QA_ROSTERS_ARGS=(--rosters-path "${ROSTERS_PATH}")
+  if python3 "${QA_PY}" "${CHANGED_MD[@]}" --json --vault-root "${VAULT_ROOT}" "${QA_ROSTERS_ARGS[@]}" > "${QA_OUT}" 2>"${QA_OUT}.err"; then
     FICTION=$(python3 - "${QA_OUT}" <<'PYEOF'
 import json, sys
 r = json.load(open(sys.argv[1]))
