@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# probe.sh — SessionStart probe for the LEX-697 plugin spike.
+# probe.sh — SessionStart probe for the plugin spike.
 # Appends one record to ~/.cache/claude/spike-probe.log:
 #   the registration path (settings vs plugin, inferred from $0), $CLAUDE_PLUGIN_ROOT,
 #   the sorted names of every CLAUDE_* / VAULT_* env var, and the stdin JSON.

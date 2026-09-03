@@ -1,5 +1,5 @@
 {
-  "description": "Estate hooks: the nine Claude Code hook scripts dotty registered in settings.json, packaged as a plugin (LEX-697 spike).",
+  "description": "Estate hooks: the nine Claude Code hook scripts dotty registered in settings.json, packaged as a plugin.",
   "hooks": {
     "PostToolUse": [
       {
