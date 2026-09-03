@@ -1,0 +1,76 @@
+name: CI
+on:
+  pull_request:
+    types: [opened, synchronize]
+  push:
+    branches: [main]
+  schedule:
+    # Catches dotty drifting out from under this repo's duplicated content
+    # (LEX-698's staged-deletion window) even between pushes here.
+    - cron: '17 13 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22'
+      - name: Install Claude Code CLI 2.1.259
+        run: npm install -g @anthropic-ai/claude-code@2.1.259
+
+      - name: claude plugin validate --strict
+        run: claude plugin validate --strict .
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+      - name: Install uv 0.11.22
+        run: pip install uv==0.11.22
+
+      - name: house-qa test suite (35 tests)
+        run: python3 plugins/work-lifecycle/skills/house-qa/tests/run_tests.py
+      - name: linear scripts pytest suite (235 tests)
+        working-directory: plugins/work-lifecycle/skills/linear/scripts
+        run: uvx pytest@9.1.1 tests
+
+      # The hook suites drive the packaged hook scripts directly via bash,
+      # no gitleaks binary required for these four (gh-pr-body-guard's
+      # pre-flight existence check + isolated fixture copies are the only
+      # gitleaks touchpoint, and it degrades to a skipped assertion when the
+      # binary is absent — see the suite's own header).
+      - name: estate-hooks test suites (202 tests)
+        working-directory: plugins/estate-hooks/tests
+        run: |
+          set -euo pipefail
+          for f in *.test.sh; do
+            echo "::group::$f"
+            bash "$f"
+            echo "::endgroup::"
+          done
+
+  drift-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          path: work-lifecycle
+      - name: Checkout dotty main (current HEAD, re-resolved every run)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: lexijamesesq/dotty
+          ref: main
+          path: dotty
+      - name: Run drift check
+        run: bash work-lifecycle/.github/scripts/drift-check.sh dotty work-lifecycle
