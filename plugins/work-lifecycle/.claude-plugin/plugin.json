@@ -1,7 +1,7 @@
 {
-  "name": "estate-hooks",
-  "version": "0.2.0",
-  "description": "The estate's nine Claude Code hook scripts plus a shared gitleaks helper and the statusline, packaged as a plugin.",
+  "name": "work-lifecycle",
+  "version": "0.1.0",
+  "description": "The estate's core work-lifecycle skills plus the attack-kitty verification agent, packaged as a plugin.",
   "author": {
     "name": "Lexi James",
     "url": "https://github.com/lexijamesesq"
@@ -9,8 +9,9 @@
   "repository": "https://github.com/lexijamesesq/work-lifecycle",
   "license": "MIT",
   "keywords": [
-    "hooks",
-    "guards",
+    "skills",
+    "agent",
+    "workflow",
     "estate"
   ],
   "defaultEnabled": false
