@@ -44,11 +44,15 @@ jobs:
         working-directory: plugins/work-lifecycle/skills/linear/scripts
         run: uvx pytest@9.1.1 tests
 
-      # The hook suites drive the packaged hook scripts directly via bash,
-      # no gitleaks binary required for these four (gh-pr-body-guard's
-      # pre-flight existence check + isolated fixture copies are the only
-      # gitleaks touchpoint, and it degrades to a skipped assertion when the
-      # binary is absent — see the suite's own header).
+      # gh-pr-body-guard.test.sh hard-requires the real gitleaks binary on
+      # PATH (a pre-flight existence check + isolated fixture copies) —
+      # same composite dotty's own CI uses, pinned to a commit on dotty's
+      # main so it can't be repointed to an unreviewed branch tip.
+      - name: Setup gitleaks
+        uses: lexijamesesq/dotty/.github/actions/setup-gitleaks@d6552a4ddd2cd6411e0e971df1a6de47628d6f46
+        with:
+          version: '8.30.1'
+
       - name: estate-hooks test suites (202 tests)
         working-directory: plugins/estate-hooks/tests
         run: |
