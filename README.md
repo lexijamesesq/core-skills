@@ -14,10 +14,10 @@ The plugin ships `defaultEnabled: false` on purpose: plugin install state is sha
 
 ## What's Included
 
-| Artifact | Type | What it does |
-|---|---|---|
-| `estate-hooks` | plugin | Nine hook scripts plus a shared gitleaks helper, registered through `hooks/hooks.json`; the statusline ships alongside for portability. |
-| `spike-probe` | plugin | Throwaway probe for the spike: one SessionStart hook that records its environment and stdin, one marker skill. Removed when the spike closes. |
+| Artifact | What it does |
+|---|---|
+| `estate-hooks` | Nine hook scripts plus a shared gitleaks helper, registered through `hooks/hooks.json`; the statusline ships alongside for portability. |
+| `spike-probe` | Throwaway probe for the spike: one SessionStart hook that records its environment and stdin, one marker skill. Removed when the spike closes. |
 
 ## Security
 
