@@ -1,5 +1,5 @@
 {
-  "$comment": "External ground truth for smoke's plugin-hook-serving-integrity probe (LEX-698). Not part of the plugin.json schema — plugin.json's own \"hooks\" key is reserved by Claude Code for hook-config file paths, not this list, and colliding with it broke `claude plugin validate --strict` (27 errors). Kept as a sibling file the probe reads directly instead.",
+  "$comment": "External ground truth for smoke's plugin-hook-serving-integrity probe. Not part of the plugin.json schema — plugin.json's own \"hooks\" key is reserved by Claude Code for hook-config file paths, not this list, and colliding with it broke `claude plugin validate --strict` (27 errors). Kept as a sibling file the probe reads directly instead.",
   "hooks": [
     "pr-cache.sh",
     "vault-mcp-redirect.sh",
