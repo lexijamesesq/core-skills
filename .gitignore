@@ -1,4 +1,5 @@
 .DS_Store
 
-# Operator PII rules (symlink -> the private operator ruleset; created by provision-public-repo.sh)
-.gitleaks-operator-rules.toml
+# Operator PII ruleset for gitleaks is installed at a fixed path by the
+# private blueprint — no longer symlinked into this checkout, so there is
+# nothing under that name for this file to ignore.
