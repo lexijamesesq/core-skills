@@ -3,7 +3,7 @@
 # still byte-identical to dotty's CURRENT main, not frozen at whatever SHA
 # it was extracted from.
 #
-# Why this exists: LEX-698's skills/agent move (and the hooks/statusline
+# Why this exists: the skills/agent move into this repo (and the hooks/statusline
 # packaging before it) is a deliberate temporary duplicate — dotty keeps
 # its own copies until a later cutover ticket removes them. A duplicate
 # that can silently drift out of sync with its source is worse than no
@@ -20,7 +20,7 @@ set -euo pipefail
 DOTTY_CLONE="${1:?usage: drift-check.sh <path-to-fresh-dotty-clone> <path-to-this-repo>}"
 WL_ROOT="${2:?usage: drift-check.sh <path-to-fresh-dotty-clone> <path-to-this-repo>}"
 
-# Skills + the one agent moved by LEX-698, duplicated at
+# Skills + the one agent moved into this repo, duplicated at
 # dotty:.claude/skills/<name> <-> here:plugins/work-lifecycle/skills/<name>.
 # house-qa is deliberately not compared here: the packaged copy carries a
 # path fix dotty's copy will never receive, because dotty's copy is deleted
@@ -44,7 +44,7 @@ HOOK_SCRIPTS=(
 # gh-pr-body-guard.sh's source line is the one documented, intentional
 # packaging delta (a cache can't resolve dotty's "../../git-hooks/" layout,
 # so the packaged copy sources gitleaks-common.sh as a sibling instead) —
-# recorded on LEX-698's originating spike. Every other file must match
+# recorded on this repo's originating spike. Every other file must match
 # dotty's current main exactly.
 EXPECTED_DELTA_FILES=("gh-pr-body-guard.sh")
 
@@ -117,7 +117,7 @@ if [[ "$fail" -ne 0 ]]; then
   echo
   echo "DRIFT DETECTED — dotty main has moved and this repo's duplicate content"
   echo "hasn't been re-synced. Re-copy the drifted file(s) from dotty's current"
-  echo "main and re-verify (see LEX-698's ruling comments bb62d4da / e555d36f"
+  echo "main and re-verify (see this repo's originating spike's ruling comments bb62d4da / e555d36f"
   echo "/ 49d58312 for the disposition each duplicate carries)."
   exit 1
 fi
