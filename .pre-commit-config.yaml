@@ -1,0 +1,24 @@
+# Consumes dotty's fail-closed gitleaks hooks remotely (see dotty's
+# .pre-commit-hooks.yaml for the recipe and why default_stages is required).
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/lexijamesesq/dotty
+    rev: 65ef14722efb1f84e31ad9be5fa0ee6389edb7c6
+    hooks:
+      - id: gitleaks-staged
+      - id: gitleaks-pre-push
+      - id: gitleaks-commit-msg
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-json
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck

@@ -1,0 +1,4 @@
+.DS_Store
+
+# Operator PII rules (symlink -> the private operator ruleset; created by provision-public-repo.sh)
+.gitleaks-operator-rules.toml

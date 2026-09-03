@@ -1,0 +1,12 @@
+{
+  "description": "Spike probe: append the hook's environment and stdin JSON to ~/.cache/claude/spike-probe.log on every SessionStart.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/probe.sh", "timeout": 5 }
+        ]
+      }
+    ]
+  }
+}

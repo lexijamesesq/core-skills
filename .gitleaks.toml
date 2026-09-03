@@ -1,0 +1,13 @@
+# gitleaks config for work-lifecycle (public plugin marketplace).
+# Operator-specific PII rules loaded from .gitleaks-operator-rules.toml
+# (gitignored symlink to the private operator ruleset). Same shape as dotty's;
+# LEX-704 repoints every consumer at the fixed path once LEX-703 lands.
+#
+# No [allowlist] paths block, deliberately — see dotty's .gitleaks.toml for why.
+# [extend] path resolves relative to the PROCESS working directory: run hooks
+# from the repo root.
+
+title = "work-lifecycle gitleaks config"
+
+[extend]
+path = ".gitleaks-operator-rules.toml"

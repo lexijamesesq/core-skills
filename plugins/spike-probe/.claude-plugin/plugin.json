@@ -1,0 +1,8 @@
+{
+  "name": "spike-probe",
+  "version": "0.1.0",
+  "description": "Throwaway probe for the plugin spike: records hook env and stdin; one marker skill.",
+  "author": { "name": "Lexi James", "url": "https://github.com/lexijamesesq" },
+  "license": "MIT",
+  "defaultEnabled": false
+}

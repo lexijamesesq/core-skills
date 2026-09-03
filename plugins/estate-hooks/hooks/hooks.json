@@ -1,0 +1,114 @@
+{
+  "description": "Estate hooks: the nine Claude Code hook scripts dotty registered in settings.json, packaged as a plugin (LEX-697 spike).",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
+            "if": "Bash(gh pr *)",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/vault-mcp-redirect.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Read|Grep|Edit|Write"
+      },
+      {
+        "hooks": [
+          {
+            "command": "echo 'Reminder: run /security-review before creating PRs for substantive changes.'",
+            "if": "Bash(gh pr create *)",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-hook-bypass-guard.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/gh-pr-body-guard.sh",
+            "if": "Bash(gh pr *)",
+            "timeout": 30,
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/linear-transition-guard.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/gated-verb-standalone-guard.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/linear-transition-guard.sh",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "mcp__linear-tactic__linear_updateIssue"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/fix-obsidian-claude-sync.sh",
+            "timeout": 10,
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/profile-symlink-guard.sh",
+            "timeout": 10,
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "startup"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "resume"
+      }
+    ]
+  }
+}
