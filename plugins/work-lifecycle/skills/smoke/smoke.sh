@@ -27,7 +27,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"  # -P: sessions invoke via the profile symlink; walk the physical tree or SKILLS_DIR lands in $HOME
 # Self-location: smoke.sh lives at <skills-dir>/smoke/smoke.sh — its own
 # parent IS the skills dir, in dotty's tree and in a packaged plugin's tree
-# alike. Never assume a literal ".claude" ancestor above it (LEX-698).
+# alike. Never assume a literal ".claude" ancestor above it.
 SKILLS_DIR="$(cd "$HERE/.." && pwd)"
 
 FAIL_COUNT=0

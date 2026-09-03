@@ -13,16 +13,5 @@
     "guards",
     "estate"
   ],
-  "defaultEnabled": false,
-  "hooks": [
-    "pr-cache.sh",
-    "vault-mcp-redirect.sh",
-    "git-hook-bypass-guard.sh",
-    "gh-pr-body-guard.sh",
-    "linear-transition-guard.sh",
-    "gated-verb-standalone-guard.sh",
-    "fix-obsidian-claude-sync.sh",
-    "profile-symlink-guard.sh",
-    "session-init.sh"
-  ]
+  "defaultEnabled": false
 }
