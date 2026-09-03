@@ -24,11 +24,11 @@
 
 set -uo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"  # -P: sessions invoke via the profile symlink; walk the physical tree or SKILLS_DIR lands in $HOME
-# Self-location: smoke.sh lives at <skills-dir>/smoke/smoke.sh — its own
-# parent IS the skills dir, in dotty's tree and in a packaged plugin's tree
-# alike. Never assume a literal ".claude" ancestor above it.
-SKILLS_DIR="$(cd "$HERE/.." && pwd)"
+# No self-location variable (HERE/SKILLS_DIR) needed anymore: every probe
+# resolves its targets from declared state (core.json, plugins.json,
+# installed_plugins.json) rather than a path relative to this script's own
+# location — the LEX-722 rework retired the last probe (5, the old
+# blueprint-coverage) that walked a co-located skills tree.
 
 FAIL_COUNT=0
 RESULT_LINES=()
@@ -42,6 +42,30 @@ report() {
     [[ "$status" == "FAIL" ]] && FAIL_COUNT=$((FAIL_COUNT + 1))
 }
 
+# resolve_estate_hooks_install <profile_dir> — echoes the installPath of
+# estate-hooks@work-lifecycle's scope:user install entry from that profile's
+# installed_plugins.json, or nothing if unresolved. Shared by probe 1 (which
+# needs one real cache to pipe JSON at) and probe 6 (defined further down,
+# which keeps its own inline resolution — this helper exists for probe 1
+# only, to avoid a second divergent implementation).
+PY_RESOLVE_ESTATE_HOOKS_CACHE="$(cat <<'PYEOF'
+import json, os, sys
+path = sys.argv[1]
+try:
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+except Exception:
+    sys.exit(0)
+entries = data.get("plugins", {}).get("estate-hooks@work-lifecycle", [])
+for e in entries:
+    if isinstance(e, dict) and e.get("scope") == "user":
+        p = e.get("installPath", "")
+        if p and os.path.isdir(p):
+            print(p)
+            break
+PYEOF
+)"
+
 # ---------------------------------------------------------------------------
 # Probe 1: hook-tilde-expansion
 #
@@ -50,13 +74,64 @@ report() {
 # 2026-06-02 incident where both vault hooks compared a realpath-resolved
 # absolute path against an UNEXPANDED tilde, so the `case` match never fired
 # and generic tools silently passed through on every vault .md file.
+#
+# Reworked by LEX-722: the hook used to be resolved by a path relative to
+# this script's own location (valid when smoke.sh and the hooks shipped
+# from the same dotty checkout). Post-cutover, hooks ship from the separate
+# estate-hooks@work-lifecycle plugin — this probe was silently broken
+# (confirmed live pre-rework: FAIL, hook missing at a path inside
+# work-lifecycle's own tree that was never where hooks lived). Resolves the
+# hook from the installed estate-hooks cache instead, scoped to a profile
+# where settings "hooks" is the literal {} shape (plugin-served).
 # ---------------------------------------------------------------------------
 probe_hook_tilde_expansion() {
     local name="hook-tilde-expansion"
-    local hook="$SKILLS_DIR/../hooks/vault-mcp-redirect.sh"
+    local profiles_root="${SMOKE_PROFILES_ROOT_OVERRIDE:-$HOME}"
+    local profile_dirs=() d
 
-    # Staleness: the hook this probe pipes JSON at must still exist and be
-    # executable, or every result below is meaningless.
+    for d in "$profiles_root"/.claude-*; do
+        [[ -f "$d/settings.json" ]] || continue
+        local shape
+        shape="$(python3 -c '
+import json, sys
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as f:
+        s = json.load(f)
+except Exception:
+    print("ERROR"); sys.exit()
+print("EMPTY" if s.get("hooks", object()) == {} else "OTHER")
+' "$d/settings.json" 2>/dev/null)"
+        [[ "$shape" == "EMPTY" ]] && profile_dirs+=("$d")
+    done
+
+    # Staleness: no plugin-served profile means nothing live to resolve the
+    # hook from — this is itself the failure this probe exists to catch
+    # post-cutover, not a condition to skip past.
+    if [[ "${#profile_dirs[@]}" -eq 0 ]]; then
+        report FAIL "$name" \
+            "no \$HOME/.claude-* profile has settings.json \"hooks\":{} (staleness — no plugin-served profile to resolve the hook from)"
+        return
+    fi
+
+    local profile_dir="${profile_dirs[0]}"
+    local installed_path="$profile_dir/plugins/installed_plugins.json"
+    if [[ ! -f "$installed_path" ]]; then
+        report FAIL "$name" \
+            "installed_plugins.json missing at $installed_path (staleness)"
+        return
+    fi
+
+    local install_path
+    install_path="$(python3 -c "$PY_RESOLVE_ESTATE_HOOKS_CACHE" "$installed_path" 2>/dev/null)"
+
+    if [[ -z "$install_path" ]]; then
+        report FAIL "$name" \
+            "estate-hooks@work-lifecycle installPath unresolved from $installed_path (staleness — the probed surface moved)"
+        return
+    fi
+
+    local hook="$install_path/hooks/vault-mcp-redirect.sh"
+
     if [[ ! -x "$hook" ]]; then
         report FAIL "$name" \
             "vault-mcp-redirect.sh missing or not executable at $hook (staleness — the probed surface moved)"
@@ -85,7 +160,7 @@ probe_hook_tilde_expansion() {
 
     if [[ "$rc_block" -eq 2 && "$rc_open" -eq 0 ]]; then
         report PASS "$name" \
-            "tilde VAULT_ROOT blocked (exit 2); unset VAULT_ROOT fell open (exit 0)"
+            "resolved via $(basename "$profile_dir")'s estate-hooks cache ($install_path); tilde VAULT_ROOT blocked (exit 2); unset VAULT_ROOT fell open (exit 0)"
     else
         report FAIL "$name" \
             "expected block=2/open=0, got block=$rc_block/open=$rc_open — tilde-expansion regression (2026-06-02 class)"
@@ -127,23 +202,37 @@ probe_lint_suite() {
 # ---------------------------------------------------------------------------
 # Probe 3: hook-registration-integrity
 #
-# Proves every .sh hook a live settings.json registers still exists and is
-# executable. Regression class: a stale registered hook — a settings.json
+# Proves every DECLARED profile (dotty-private's plugins.json — the
+# blueprint's declared-plugin state, read here rather than hardcoded so a
+# third declared profile is picked up automatically) has settings.json
+# "hooks" in the literal {} shape (fully plugin-served, per this ticket's
+# deletion of dotty's hook scripts) AND has no registered .sh hook command
+# still resolving under ~/bin/dotty/.claude — the failure this guards
+# against: a hand-edit or merge mistake reintroducing a path registration
+# while dotty's files still physically exist (a transitional-window or
+# regression case the plain isfile()+executable check can't catch, since a
+# file that legitimately still exists passes it regardless of whether it
+# should be registered by path at all).
+#
+# A $HOME/.claude-* directory that ISN'T one of plugins.json's declared
+# profiles (a backup snapshot, the noise ~/.claude/ profile) is reported
+# informationally and never gates the probe — mirrors probe 6's existing
+# "not applicable" treatment of a non-{} hooks shape.
+#
+# Regression class (pre-rework): a stale registered hook — a settings.json
 # entry pointing at a path that moved or lost its executable bit, invisible
 # until the hook silently failed to fire.
-#
-# Parses with python3, not jq — jq may be at a nonstandard path and is not a
-# hard dependency of this probe.
 # ---------------------------------------------------------------------------
 PY_HOOK_CHECK="$(cat <<'PYEOF'
 import json, os, sys
 
-def check_profile(path):
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    hooks_root = data.get("hooks", {})
-    total = 0
-    bad = []
+DOTTY_PREFIX = os.path.realpath(os.path.expanduser("~/bin/dotty/.claude"))
+
+
+def registered_sh_commands(hooks_root):
+    cmds = []
+    if not isinstance(hooks_root, dict):
+        return cmds
     for _event, entries in hooks_root.items():
         if not isinstance(entries, list):
             continue
@@ -160,37 +249,56 @@ def check_profile(path):
                 if not toks:
                     continue
                 first = toks[0]
-                # A command counts as a file-path command iff its first
-                # token, after ~ expansion, ends in .sh. This filters out
-                # inline commands like `echo '...'`.
                 expanded = os.path.expanduser(first) if first.startswith("~") else first
                 if expanded.endswith(".sh"):
-                    total += 1
-                    ok = os.path.isfile(expanded) and os.access(expanded, os.X_OK)
-                    if not ok:
-                        bad.append(expanded)
-    return total, bad
+                    cmds.append(expanded)
+    return cmds
+
+
+def check_declared_profile(path):
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    hooks_root = data.get("hooks", object())
+    cmds = registered_sh_commands(hooks_root if isinstance(hooks_root, dict) else {})
+    under_dotty = [
+        c for c in cmds
+        if os.path.realpath(c) == DOTTY_PREFIX
+        or os.path.realpath(c).startswith(DOTTY_PREFIX + os.sep)
+    ]
+    problems = []
+    if hooks_root != {}:
+        problems.append('"hooks" is not the literal {} shape')
+    if under_dotty:
+        problems.append("registered command(s) still point under ~/bin/dotty/.claude: " + ", ".join(under_dotty))
+    bad_files = [c for c in cmds if not (os.path.isfile(c) and os.access(c, os.X_OK))]
+    if bad_files:
+        problems.append("registered .sh missing/non-executable: " + ", ".join(bad_files))
+    return problems
+
+
+args = sys.argv[1:]
+sep = args.index("--") if "--" in args else len(args)
+strict_paths = args[:sep]
+other_paths = args[sep + 1:]
 
 overall_bad = False
-for path in sys.argv[1:]:
-    if "personal" in path:
-        label = "personal"
-    elif "professional" in path:
-        label = "professional"
-    else:
-        label = path
+for path in strict_paths:
+    label = os.path.basename(os.path.dirname(path)).replace(".claude-", "")
     try:
-        total, bad = check_profile(path)
+        problems = check_declared_profile(path)
     except Exception as e:
-        print(f"PARSE_ERROR\t{label}\t{e}")
+        print(f"BAD\t{label}\tunreadable: {e}")
         overall_bad = True
         continue
-    ok_count = total - len(bad)
-    if bad:
+    if problems:
         overall_bad = True
-        print(f"BAD\t{label}\t{ok_count}/{total} registered .sh hooks ok — missing/non-executable: {', '.join(bad)}")
+        print(f"BAD\t{label}\t" + "; ".join(problems))
     else:
-        print(f"OK\t{label}\t{ok_count}/{total} registered .sh hooks ok")
+        print(f"OK\t{label}\thooks: {{}} confirmed, no registered .sh under dotty")
+
+for path in other_paths:
+    label = os.path.basename(os.path.dirname(path)).replace(".claude-", "")
+    print(f"SKIP\t{label}\tnot a plugins.json-declared profile — informational only, not gated")
 
 sys.exit(1 if overall_bad else 0)
 PYEOF
@@ -198,29 +306,67 @@ PYEOF
 
 probe_hook_registration_integrity() {
     local name="hook-registration-integrity"
-    local personal="$HOME/.claude-personal/settings.json"
-    local professional="$HOME/.claude-professional/settings.json"
-    local existing=()
+    local plugins_state="${SMOKE_PLUGINS_JSON_OVERRIDE:-$HOME/bin/dotty-private/.claude/blueprint/plugins.json}"
+    local profiles_root="${SMOKE_PROFILES_ROOT_OVERRIDE:-$HOME}"
 
-    [[ -f "$personal" ]] && existing+=("$personal")
-    [[ -f "$professional" ]] && existing+=("$professional")
-
-    # Staleness: at least one profile settings.json must still exist, or
-    # there is nothing live to check registration against.
-    if [[ "${#existing[@]}" -eq 0 ]]; then
+    if [[ ! -f "$plugins_state" ]]; then
         report FAIL "$name" \
-            "neither $personal nor $professional exists (staleness — the probed surface moved)"
+            "plugins.json missing at $plugins_state (staleness — the blueprint state file moved)"
+        return
+    fi
+
+    local declared_profiles
+    declared_profiles="$(python3 -c '
+import json, sys
+state = json.load(open(sys.argv[1]))
+print(" ".join(sorted(state.keys())))
+' "$plugins_state" 2>/dev/null)"
+
+    if [[ -z "$declared_profiles" ]]; then
+        report FAIL "$name" \
+            "0 profiles declared in plugins.json (parse failure or empty state — never a clean pass)"
+        return
+    fi
+
+    local strict_paths=() other_paths=() d prof declared_set=" "
+    for prof in $declared_profiles; do
+        declared_set="$declared_set $prof "
+        local p="$profiles_root/.claude-$prof/settings.json"
+        [[ -f "$p" ]] && strict_paths+=("$p")
+    done
+
+    for d in "$profiles_root"/.claude-*; do
+        [[ -f "$d/settings.json" ]] || continue
+        local base_prof="${d##*/.claude-}"
+        [[ "$declared_set" == *" $base_prof "* ]] && continue
+        other_paths+=("$d/settings.json")
+    done
+
+    if [[ "${#strict_paths[@]}" -eq 0 ]]; then
+        report FAIL "$name" \
+            "none of plugins.json's declared profiles ($declared_profiles) has a live settings.json (staleness)"
         return
     fi
 
     local py_out py_rc
-    py_out="$(python3 -c "$PY_HOOK_CHECK" "${existing[@]}")"
+    # Branched, not a nested "${arr[@]+"${arr[@]}"}" guard — bash 3.2
+    # (macOS's shipped /bin/bash) raises "unbound variable" under `set -u`
+    # when expanding an empty array directly, but the nested-quote guard
+    # idiom itself triggers a separate bash 3.2 parser fault when combined
+    # with this heredoc's surrounding content. strict_paths is always
+    # non-empty here (checked above); only other_paths can legitimately be
+    # empty (no non-declared $HOME/.claude-* directories found).
+    if [[ "${#other_paths[@]}" -eq 0 ]]; then
+        py_out="$(python3 -c "$PY_HOOK_CHECK" "${strict_paths[@]}" -- 2>&1)"
+    else
+        py_out="$(python3 -c "$PY_HOOK_CHECK" "${strict_paths[@]}" -- "${other_paths[@]}" 2>&1)"
+    fi
     py_rc=$?
 
     local detail_parts=() overall_ok=1 line_status label rest
     while IFS=$'\t' read -r line_status label rest; do
         [[ -z "$line_status" ]] && continue
-        if [[ "$line_status" == "OK" ]]; then
+        if [[ "$line_status" == "OK" || "$line_status" == "SKIP" ]]; then
             detail_parts+=("$label: $rest")
         else
             overall_ok=0
@@ -251,10 +397,20 @@ probe_hook_registration_integrity() {
 # agents symlink persisted for two months after its target was deleted, and
 # ~/.git pointed at a tree whose content sat one level down, producing 56
 # phantom deletions visible to any session under $HOME.
+#
+# Reworked by LEX-722: the agents surface's declared key never carried the
+# ".md" suffix core.sh's own resolve_link_name()/link_suffix() appends when
+# WRITING the physical link file — core.json stores the bare key ("attack-
+# kitty"), core.sh writes "attack-kitty.md". This probe read the bare key
+# straight back with no suffix logic of its own, so any real agents entry
+# would have been checked against the wrong filename. Unexercised by live
+# state today (agents is declared empty in both profiles, retired by the
+# cutover), so proven here against a constructed core.json fixture with a
+# fake agent entry, not live state.
 # ---------------------------------------------------------------------------
 probe_core_symlink_integrity() {
     local name="core-symlink-integrity"
-    local state_file="$HOME/bin/dotty-private/.claude/blueprint/core.json"
+    local state_file="${SMOKE_CORE_JSON_OVERRIDE:-$HOME/bin/dotty-private/.claude/blueprint/core.json}"
 
     if [[ ! -f "$state_file" ]]; then
         report FAIL "$name" \
@@ -265,18 +421,20 @@ probe_core_symlink_integrity() {
     local bad=0 checked=0 issues=""
     while IFS=$'\t' read -r profile surface entry_name declared_target; do
         [[ -z "$entry_name" ]] && continue
+        local resolved_name="$entry_name"
+        [[ "$surface" == "agents" ]] && resolved_name="${entry_name}.md"
         local expanded_target="${declared_target/#\~/$HOME}"
-        local link="$HOME/.claude-$profile/$surface/$entry_name"
+        local link="$HOME/.claude-$profile/$surface/$resolved_name"
         checked=$((checked + 1))
 
         if [[ ! -L "$link" ]]; then
-            issues="$issues $profile/$surface/$entry_name(not-a-symlink)"
+            issues="$issues $profile/$surface/$resolved_name(not-a-symlink)"
             bad=$((bad + 1))
         elif [[ "$(readlink "$link")" != "$expanded_target" ]]; then
-            issues="$issues $profile/$surface/$entry_name(wrong-target)"
+            issues="$issues $profile/$surface/$resolved_name(wrong-target)"
             bad=$((bad + 1))
         elif [[ ! -e "$link" ]]; then
-            issues="$issues $profile/$surface/$entry_name(dangling)"
+            issues="$issues $profile/$surface/$resolved_name(dangling)"
             bad=$((bad + 1))
         fi
     done < <(python3 -c '
@@ -300,58 +458,197 @@ for profile, surfaces in sorted(state.items()):
 }
 
 # ---------------------------------------------------------------------------
-# Probe 5: blueprint-coverage
+# Probe 5: plugin-shadow-integrity (was blueprint-coverage)
 #
-# Proves every skill directory in dotty's skills tree has a core-blueprint
-# entry in BOTH profiles — the inverse of probe 4, which checks declared
-# entries resolve. Regression class: the 2026-07-31 incident where wayfinder
-# and prototype shipped in dotty but were never added to core.json, so they
-# loaded nowhere until the operator noticed the skill missing globally.
+# Proves no profile's own (blueprint-managed) skills/ or agents/ directory
+# has a live entry — symlink, dangling symlink, real dir, or file — sharing
+# a name with something an enabled, declared plugin already serves. A
+# shadow silently wins over the plugin (Claude Code resolves a local entry
+# before a plugin one), so an undetected shadow is a skill/agent quietly
+# running stale or wrong content with no visible signal.
+#
+# Reworked by LEX-722: the old check ("every dir in the co-located skills
+# tree has a core.json entry in both profiles") was self-referential — it
+# compared whichever skills/ directory smoke.sh happened to be installed
+# beside against core.json, so running it from a location other than dotty
+# (this repo) produced false "undeclared" positives for every packaged
+# skill, in both profiles (confirmed live pre-rework: 36 false positives).
+# It also inverted the actual post-cutover invariant: dotty's copies no
+# longer need core.json entries at all — a profile's managed dirs must be
+# EMPTY of plugin-served names, not full of declared ones.
+#
+# Reads dotty-private's plugins.json (the declared plugin-id list per
+# profile) rather than hardcoding work-lifecycle/estate-hooks, so it covers
+# any future plugin (e.g. LEX-700's wiki/operator) automatically IF that
+# plugin packages skills/agents at the same top-level skills/ + agents/*.md
+# layout work-lifecycle uses — a design assumption flagged on LEX-700 to
+# confirm when it ships, not a guarantee plugins.json itself establishes.
 # ---------------------------------------------------------------------------
-probe_blueprint_coverage() {
-    local name="blueprint-coverage"
-    local state_file="$HOME/bin/dotty-private/.claude/blueprint/core.json"
-    local skills_dir="$SKILLS_DIR"
+# Written to a temp file, not captured via "$(cat <<'PYEOF' ... )" like this
+# file's other embedded scripts — that pattern reliably makes bash 3.2
+# (macOS's shipped /bin/bash) fail this specific block at RUNTIME with
+# "bad substitution: no closing `)'", despite `bash -n` reporting clean
+# syntax; isolated and reproduced against multiple content variants before
+# concluding it's a bash 3.2 parser defect specific to this heredoc's
+# length/structure combination, not a content bug. A temp file sidesteps
+# heredoc-inside-command-substitution entirely.
+PY_SHADOW_CHECK_FILE="$(mktemp -t smoke-shadow-check)"
+trap 'rm -f "$PY_SHADOW_CHECK_FILE"' EXIT
+cat > "$PY_SHADOW_CHECK_FILE" <<'PYEOF'
+import glob
+import json
+import os
+import sys
 
-    if [[ ! -f "$state_file" ]]; then
+
+def load_json(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def installed_path_for(profile_dir, plugin_id):
+    installed_path = os.path.join(profile_dir, "plugins", "installed_plugins.json")
+    try:
+        installed = load_json(installed_path)
+    except Exception:
+        return None
+    entries = installed.get("plugins", {}).get(plugin_id, [])
+    for e in entries:
+        if isinstance(e, dict) and e.get("scope") == "user":
+            p = e.get("installPath")
+            if p and os.path.isdir(p):
+                return p
+    return None
+
+
+def skill_dirs(install_path):
+    # plugin.json's own "skills" field (a string or array of paths relative
+    # to the plugin root, glob patterns included — e.g. ".claude/skills/*")
+    # is the authoritative attribution when present; a plugin that packages
+    # skills anywhere other than a top-level skills/ dir (the wiki plugin,
+    # LEX-700: ".claude/skills/*") would otherwise be attributed zero
+    # skills by this probe and report a silent, wrong PASS — exactly the
+    # failure class this probe exists to catch. Falls back to the default
+    # skills/* glob only when the field is absent (work-lifecycle's own
+    # plugin.json today: no "skills" key).
+    manifest_path = os.path.join(install_path, ".claude-plugin", "plugin.json")
+    try:
+        manifest = load_json(manifest_path)
+    except Exception:
+        manifest = {}
+    field = manifest.get("skills")
+    if field is None:
+        patterns = [os.path.join(install_path, "skills", "*")]
+    else:
+        values = [field] if isinstance(field, str) else (field if isinstance(field, list) else [])
+        patterns = [os.path.join(install_path, v) for v in values]
+    found = []
+    for pattern in patterns:
+        for match in glob.glob(pattern):
+            base = os.path.basename(match.rstrip("/"))
+            if os.path.isdir(match) and not base.startswith((".", "__")):
+                found.append(base)
+    return found
+
+
+def served_names(install_path):
+    names = set()
+    for name in skill_dirs(install_path):
+        names.add(("skills", name))
+    agents_dir = os.path.join(install_path, "agents")
+    if os.path.isdir(agents_dir):
+        for fn in os.listdir(agents_dir):
+            if fn.endswith(".md"):
+                names.add(("agents", fn[:-3]))
+    return names
+
+
+def main():
+    plugins_state_path, profiles_root = sys.argv[1], sys.argv[2]
+    state = load_json(plugins_state_path)
+
+    checked = 0
+    problems = []
+    unresolved = []
+
+    for profile, decl in sorted(state.items()):
+        profile_dir = os.path.join(profiles_root, f".claude-{profile}")
+        plugin_ids = decl.get("plugins", [])
+        served = set()
+        for pid in plugin_ids:
+            ip = installed_path_for(profile_dir, pid)
+            if not ip:
+                unresolved.append(f"{profile}: plugin {pid} installPath unresolved")
+                continue
+            served |= served_names(ip)
+        for surface, sname in sorted(served):
+            checked += 1
+            filename = sname if surface == "skills" else sname + ".md"
+            live_entry = os.path.join(profile_dir, surface, filename)
+            if os.path.lexists(live_entry):
+                problems.append(f"{profile}: {surface}/{filename} shadows a plugin-served name")
+
+    # checked == 0 is never a clean pass, whether it's a parse/empty-state
+    # failure or every declared plugin's installPath went unresolved (a
+    # broken/missing install — unresolved entries must not silently mask
+    # this the way "checked == 0 and not unresolved" used to let them).
+    if checked == 0:
+        for u in unresolved:
+            print("FAIL\t" + u)
+        if not unresolved:
+            print("ERROR\t0 plugin-served names discovered from plugins.json - parse failure or empty declared state")
+        sys.exit(1)
+
+    for u in unresolved:
+        print("WARN\t" + u)
+
+    if problems:
+        for p in problems:
+            print("FAIL\t" + p)
+        sys.exit(1)
+
+    print(f"OK\t{checked} plugin-served names checked across declared profiles, zero live shadows")
+    sys.exit(0)
+
+
+main()
+PYEOF
+
+probe_plugin_shadow_integrity() {
+    local name="plugin-shadow-integrity"
+    local plugins_state="${SMOKE_PLUGINS_JSON_OVERRIDE:-$HOME/bin/dotty-private/.claude/blueprint/plugins.json}"
+    local profiles_root="${SMOKE_PROFILES_ROOT_OVERRIDE:-$HOME}"
+
+    if [[ ! -f "$plugins_state" ]]; then
         report FAIL "$name" \
-            "core.json missing at $state_file (staleness — the blueprint state file moved)"
+            "plugins.json missing at $plugins_state (staleness — the blueprint state file moved)"
         return
     fi
-    if [[ ! -d "$skills_dir" ]]; then
-        report FAIL "$name" \
-            "skills dir missing at $skills_dir (staleness — the skills tree moved)"
-        return
-    fi
 
-    local missing py_rc
-    missing="$(python3 -c '
-import json, os, sys
-state = json.load(open(sys.argv[1]))
-dirs = sorted(
-    d for d in os.listdir(sys.argv[2])
-    if os.path.isdir(os.path.join(sys.argv[2], d)) and not d.startswith(("__", "."))
-)
-gaps = []
-for profile, surfaces in sorted(state.items()):
-    declared = set(surfaces.get("skills", {}))
-    for d in dirs:
-        if d not in declared:
-            gaps.append(f"{profile}:{d}")
-print(" ".join(gaps))
-' "$state_file" "$skills_dir" 2>&1)"
+    local py_out py_rc
+    py_out="$(python3 "$PY_SHADOW_CHECK_FILE" "$plugins_state" "$profiles_root" 2>&1)"
     py_rc=$?
 
-    if (( py_rc != 0 )); then
-        report FAIL "$name" \
-            "core.json or skills tree unreadable: ${missing:-unknown error}"
-        return
-    fi
+    local detail_parts=() overall_ok=1 line_status rest
+    while IFS=$'\t' read -r line_status rest; do
+        [[ -z "$line_status" ]] && continue
+        if [[ "$line_status" == "OK" || "$line_status" == "WARN" ]]; then
+            detail_parts+=("$rest")
+        else
+            overall_ok=0
+            detail_parts+=("$line_status $rest")
+        fi
+    done <<<"$py_out"
 
-    if [[ -z "$missing" ]]; then
-        report PASS "$name" "every dotty skill dir declared in both profiles"
+    local joined="" part
+    for part in "${detail_parts[@]}"; do
+        [[ -z "$joined" ]] && joined="$part" || joined="$joined; $part"
+    done
+
+    if [[ "$py_rc" -eq 0 && "$overall_ok" -eq 1 ]]; then
+        report PASS "$name" "$joined"
     else
-        report FAIL "$name" "undeclared in core.json: $missing"
+        report FAIL "$name" "$joined"
     fi
 }
 
@@ -566,14 +863,160 @@ probe_plugin_hook_serving() {
 }
 
 # ---------------------------------------------------------------------------
+# Probe 7: plugin-enablement-integrity (new)
+#
+# Proves every plugin dotty-private's plugins.json declares, per profile, is
+# actually enabled (enabledPlugins[<id>] is true) AND actually installed
+# (installed_plugins.json carries a scope:user entry for it) — the
+# declared-vs-live check probe 6 already runs for one hardcoded id
+# (estate-hooks@work-lifecycle), generalized here across the full declared
+# list so LEX-700's wiki/operator plugins are covered with no further edit
+# to THIS probe (same plugins.json-reading design as probe 5's rework).
+#
+# Also asserts, once (not per-plugin): both profiles' `plugins` links
+# resolve (via readlink) to the same single real directory, and that
+# directory is not itself inside a git working tree — the a5 disposition
+# from LEX-699's inventory (`5d07df74`): the shared cache must be a real
+# directory outside any checkout, not left inside dotty-private's tree.
+#
+# Regression class this closes: nothing before this ticket asserted the
+# FULL declared-plugin set is enabled+installed across every profile in one
+# place — probe 6 only ever checked estate-hooks; a silently-disabled
+# work-lifecycle (or a future wiki/operator) had no probe naming it.
+# ---------------------------------------------------------------------------
+PY_ENABLEMENT_CHECK="$(cat <<'PYEOF'
+import json, os, sys
+
+
+def load_json(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def main():
+    plugins_state_path, profiles_root = sys.argv[1], sys.argv[2]
+    state = load_json(plugins_state_path)
+
+    checked = 0
+    problems = []
+
+    for profile, decl in sorted(state.items()):
+        profile_dir = os.path.join(profiles_root, f".claude-{profile}")
+        settings_path = os.path.join(profile_dir, "settings.json")
+        try:
+            settings = load_json(settings_path)
+        except Exception as e:
+            problems.append(f"{profile}: settings.json unreadable: {e}")
+            continue
+        installed_path = os.path.join(profile_dir, "plugins", "installed_plugins.json")
+        try:
+            installed = load_json(installed_path)
+        except Exception as e:
+            problems.append(f"{profile}: installed_plugins.json unreadable: {e}")
+            continue
+
+        enabled_map = settings.get("enabledPlugins", {})
+        for pid in decl.get("plugins", []):
+            checked += 1
+            if enabled_map.get(pid) is not True:
+                problems.append(f"{profile}: {pid} enabledPlugins is {enabled_map.get(pid)!r}, not true")
+                continue
+            entries = installed.get("plugins", {}).get(pid, [])
+            user_entries = [e for e in entries if isinstance(e, dict) and e.get("scope") == "user"]
+            if not user_entries:
+                problems.append(f"{profile}: {pid} enabled but installed_plugins.json has no scope:user entry")
+
+    if checked == 0:
+        print("ERROR\t0 declared plugins checked (parse failure or empty declared state — never a clean pass)")
+        sys.exit(1)
+
+    if problems:
+        for p in problems:
+            print("FAIL\t" + p)
+        sys.exit(1)
+
+    print(f"OK\t{checked} declared-plugin enablement checks passed across declared profiles")
+    sys.exit(0)
+
+
+main()
+PYEOF
+)"
+
+probe_plugin_enablement_integrity() {
+    local name="plugin-enablement-integrity"
+    local plugins_state="${SMOKE_PLUGINS_JSON_OVERRIDE:-$HOME/bin/dotty-private/.claude/blueprint/plugins.json}"
+    local profiles_root="${SMOKE_PROFILES_ROOT_OVERRIDE:-$HOME}"
+
+    if [[ ! -f "$plugins_state" ]]; then
+        report FAIL "$name" \
+            "plugins.json missing at $plugins_state (staleness — the blueprint state file moved)"
+        return
+    fi
+
+    local py_out py_rc
+    py_out="$(python3 -c "$PY_ENABLEMENT_CHECK" "$plugins_state" "$profiles_root" 2>&1)"
+    py_rc=$?
+
+    local detail_parts=() overall_ok=1 line_status rest
+    while IFS=$'\t' read -r line_status rest; do
+        [[ -z "$line_status" ]] && continue
+        if [[ "$line_status" == "OK" ]]; then
+            detail_parts+=("$rest")
+        else
+            overall_ok=0
+            detail_parts+=("$line_status $rest")
+        fi
+    done <<<"$py_out"
+
+    # The shared-cache symlink check runs once, not per plugin — both
+    # profiles must point at the same real directory outside any checkout.
+    local personal_link="${SMOKE_PROFILES_ROOT_OVERRIDE:-$HOME}/.claude-personal/plugins"
+    local professional_link="${SMOKE_PROFILES_ROOT_OVERRIDE:-$HOME}/.claude-professional/plugins"
+    local personal_target="" professional_target="" symlink_problem=""
+
+    if [[ -L "$personal_link" ]]; then personal_target="$(readlink "$personal_link")"; fi
+    if [[ -L "$professional_link" ]]; then professional_target="$(readlink "$professional_link")"; fi
+
+    if [[ -z "$personal_target" || -z "$professional_target" ]]; then
+        symlink_problem="one or both of $personal_link / $professional_link is not a symlink"
+    elif [[ "$personal_target" != "$professional_target" ]]; then
+        symlink_problem="plugins links diverge: $personal_target vs $professional_target"
+    elif [[ ! -d "$personal_target" ]]; then
+        symlink_problem="shared target $personal_target is not a real directory"
+    elif git -C "$personal_target" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        symlink_problem="shared target $personal_target is inside a git working tree"
+    fi
+
+    if [[ -n "$symlink_problem" ]]; then
+        overall_ok=0
+        detail_parts+=("shared plugins dir: $symlink_problem")
+    else
+        detail_parts+=("shared plugins dir: $personal_target (real, outside any git working tree, both profiles agree)")
+    fi
+
+    local joined="" part
+    for part in "${detail_parts[@]}"; do
+        [[ -z "$joined" ]] && joined="$part" || joined="$joined; $part"
+    done
+
+    if [[ "$py_rc" -eq 0 && "$overall_ok" -eq 1 ]]; then
+        report PASS "$name" "$joined"
+    else
+        report FAIL "$name" "$joined"
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # Run all probes, print results, summarize, exit.
 # ---------------------------------------------------------------------------
 probe_hook_tilde_expansion
 probe_lint_suite
 probe_hook_registration_integrity
 probe_core_symlink_integrity
-probe_blueprint_coverage
+probe_plugin_shadow_integrity
 probe_plugin_hook_serving
+probe_plugin_enablement_integrity
 
 for line in "${RESULT_LINES[@]}"; do
     printf '%s\n' "$line"
