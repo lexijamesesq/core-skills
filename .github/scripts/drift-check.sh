@@ -22,20 +22,23 @@ WL_ROOT="${2:?usage: drift-check.sh <path-to-fresh-dotty-clone> <path-to-this-re
 
 # Skills + the one agent moved by LEX-698, duplicated at
 # dotty:.claude/skills/<name> <-> here:plugins/work-lifecycle/skills/<name>.
+# house-qa is deliberately not compared here: the packaged copy carries a
+# path fix dotty's copy will never receive, because dotty's copy is deleted
+# by the next slice in this series.
 SKILLS=(
   linear traffic-cone wayfinder vertical-slice grilling prototype
-  domain-modeling research dispatch attack-kitty house-qa publish smoke
+  domain-modeling research dispatch attack-kitty publish smoke
   sample-universe github-readme project-state session-start session-closeout
 )
 
-# Hook scripts + statusline duplicated by the earlier estate-hooks spike,
+# Hook scripts duplicated by the earlier estate-hooks spike,
 # dotty:.claude/hooks/<name> <-> here:plugins/estate-hooks/hooks/<name>,
 # except gitleaks-common.sh which sources from dotty's separate git-hooks/.
 HOOK_SCRIPTS=(
   pr-cache.sh vault-mcp-redirect.sh git-hook-bypass-guard.sh
   gh-pr-body-guard.sh linear-transition-guard.sh
   gated-verb-standalone-guard.sh fix-obsidian-claude-sync.sh
-  profile-symlink-guard.sh session-init.sh
+  session-init.sh
 )
 
 # gh-pr-body-guard.sh's source line is the one documented, intentional
@@ -105,10 +108,6 @@ for hook in "${HOOK_SCRIPTS[@]}"; do
     "$WL_ROOT/plugins/estate-hooks/hooks/$hook" \
     "$allow"
 done
-
-diff_one "statusline.sh" \
-  "$DOTTY_CLONE/.claude/statusline/statusline.sh" \
-  "$WL_ROOT/plugins/estate-hooks/statusline/statusline.sh"
 
 diff_one "gitleaks-common.sh" \
   "$DOTTY_CLONE/git-hooks/gitleaks-common.sh" \
