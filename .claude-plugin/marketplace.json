@@ -15,13 +15,6 @@
       "description": "The estate's nine Claude Code hook scripts plus a shared gitleaks helper and the statusline, packaged as a plugin.",
       "license": "MIT",
       "repository": "https://github.com/lexijamesesq/work-lifecycle"
-    },
-    {
-      "name": "spike-probe",
-      "source": "./plugins/spike-probe",
-      "description": "Throwaway probe for the plugin spike: records hook env and stdin; one marker skill. Deleted when the spike closes.",
-      "license": "MIT",
-      "repository": "https://github.com/lexijamesesq/work-lifecycle"
     }
   ]
 }
