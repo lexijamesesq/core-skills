@@ -29,8 +29,57 @@ QA_PY="${SCRIPT_DIR}/../../house-qa/qa.py"
 # resolver the actual pre-commit/pre-push hooks use (fixed path first, no
 # checkout-relative fallback). Without this, a bare `--config .gitleaks.toml`
 # load FTLs on any repo whose checkout-relative symlink is gone.
+#
+# gitleaks-common.sh has two homes: dotty's own git-hooks/ (this script's own
+# checkout, when gate-mechanical.sh happens to run from one) and the
+# estate-hooks plugin's packaged copy — the only one that survives once
+# dotty's is gone (LEX-722). The old hardcoded ../../../../git-hooks/ walk
+# assumed this script always lived inside a dotty-shaped checkout; from the
+# work-lifecycle plugin cache that path doesn't exist at all (SCRIPT_DIR/../..
+# is the plugin's OWN root, which has no git-hooks/ sibling — estate-hooks is
+# a separate plugin). Same-repo checked first (cheap, no lookup needed); the
+# installed estate-hooks cache is the general case a packaged copy always has.
+resolve_gitleaks_common() {
+    local same_repo="${SCRIPT_DIR}/../../../../git-hooks/gitleaks-common.sh"
+    if [[ -r "$same_repo" ]]; then
+        printf '%s' "$same_repo"
+        return 0
+    fi
+    local py_check installed_path
+    py_check='
+import json, os, sys
+for profile_dir in sys.argv[1:]:
+    p = os.path.join(profile_dir, "plugins", "installed_plugins.json")
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        continue
+    for e in data.get("plugins", {}).get("estate-hooks@work-lifecycle", []):
+        if isinstance(e, dict) and e.get("scope") == "user":
+            ip = e.get("installPath")
+            if ip and os.path.isdir(ip):
+                print(ip)
+                sys.exit(0)
+sys.exit(1)
+'
+    installed_path="$(python3 -c "$py_check" "$HOME"/.claude-* 2>/dev/null)" || true
+    if [[ -n "$installed_path" && -r "$installed_path/hooks/gitleaks-common.sh" ]]; then
+        printf '%s' "$installed_path/hooks/gitleaks-common.sh"
+        return 0
+    fi
+    return 1
+}
+
+GITLEAKS_COMMON="$(resolve_gitleaks_common)" || {
+    echo "gate-mechanical.sh: cannot locate gitleaks-common.sh — checked" >&2
+    echo "  ${SCRIPT_DIR}/../../../../git-hooks/gitleaks-common.sh" >&2
+    echo "  and every \$HOME/.claude-*'s installed estate-hooks@work-lifecycle cache." >&2
+    echo "Reinstall estate-hooks, or run gate-mechanical.sh from a checkout with git-hooks/." >&2
+    exit 2
+}
 # shellcheck source=/dev/null
-source "${SCRIPT_DIR}/../../../../git-hooks/gitleaks-common.sh"
+source "$GITLEAKS_COMMON"
 
 # references.* key resolution (rosters, private-vocab): shared with
 # playbooks/gate.md § Criteria 3's own documented hand-run qa.py example, so

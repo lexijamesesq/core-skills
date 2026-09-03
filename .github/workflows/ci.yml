@@ -80,3 +80,25 @@ jobs:
           path: dotty
       - name: Run drift check
         run: bash work-lifecycle/.github/scripts/drift-check.sh dotty work-lifecycle
+
+  standalone-check:
+    # Deliberately does NOT check dotty out — identity (drift-check, above)
+    # and portability (this job) are different questions; this one only
+    # proves the packaged copies work with dotty simply absent from the
+    # runner, the same way an installed plugin cache is absent it on any
+    # real machine.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          path: work-lifecycle
+      # gh-pr-body-guard.sh's fixed-path check invokes the real gitleaks
+      # binary — same composite dotty's own CI and this repo's
+      # validate-and-test job use.
+      - name: Setup gitleaks
+        uses: lexijamesesq/dotty/.github/actions/setup-gitleaks@d6552a4ddd2cd6411e0e971df1a6de47628d6f46
+        with:
+          version: '8.30.1'
+      - name: Run standalone check
+        run: bash work-lifecycle/.github/scripts/standalone-check.sh work-lifecycle
