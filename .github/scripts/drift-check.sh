@@ -3,7 +3,7 @@
 # still byte-identical to dotty's CURRENT main, not frozen at whatever SHA
 # it was extracted from.
 #
-# Why this exists: LEX-698's skills/agent move (and the hooks/statusline
+# Why this exists: the skills/agent move into this repo (and the hooks/statusline
 # packaging before it) is a deliberate temporary duplicate — dotty keeps
 # its own copies until a later cutover ticket removes them. A duplicate
 # that can silently drift out of sync with its source is worse than no
@@ -20,28 +20,31 @@ set -euo pipefail
 DOTTY_CLONE="${1:?usage: drift-check.sh <path-to-fresh-dotty-clone> <path-to-this-repo>}"
 WL_ROOT="${2:?usage: drift-check.sh <path-to-fresh-dotty-clone> <path-to-this-repo>}"
 
-# Skills + the one agent moved by LEX-698, duplicated at
+# Skills + the one agent moved into this repo, duplicated at
 # dotty:.claude/skills/<name> <-> here:plugins/work-lifecycle/skills/<name>.
+# house-qa is deliberately not compared here: the packaged copy carries a
+# path fix dotty's copy will never receive, because dotty's copy is deleted
+# by the next slice in this series.
 SKILLS=(
   linear traffic-cone wayfinder vertical-slice grilling prototype
-  domain-modeling research dispatch attack-kitty house-qa publish smoke
+  domain-modeling research dispatch attack-kitty publish smoke
   sample-universe github-readme project-state session-start session-closeout
 )
 
-# Hook scripts + statusline duplicated by the earlier estate-hooks spike,
+# Hook scripts duplicated by the earlier estate-hooks spike,
 # dotty:.claude/hooks/<name> <-> here:plugins/estate-hooks/hooks/<name>,
 # except gitleaks-common.sh which sources from dotty's separate git-hooks/.
 HOOK_SCRIPTS=(
   pr-cache.sh vault-mcp-redirect.sh git-hook-bypass-guard.sh
   gh-pr-body-guard.sh linear-transition-guard.sh
   gated-verb-standalone-guard.sh fix-obsidian-claude-sync.sh
-  profile-symlink-guard.sh session-init.sh
+  session-init.sh
 )
 
 # gh-pr-body-guard.sh's source line is the one documented, intentional
 # packaging delta (a cache can't resolve dotty's "../../git-hooks/" layout,
 # so the packaged copy sources gitleaks-common.sh as a sibling instead) —
-# recorded on LEX-698's originating spike. Every other file must match
+# recorded on this repo's originating spike. Every other file must match
 # dotty's current main exactly.
 EXPECTED_DELTA_FILES=("gh-pr-body-guard.sh")
 
@@ -106,10 +109,6 @@ for hook in "${HOOK_SCRIPTS[@]}"; do
     "$allow"
 done
 
-diff_one "statusline.sh" \
-  "$DOTTY_CLONE/.claude/statusline/statusline.sh" \
-  "$WL_ROOT/plugins/estate-hooks/statusline/statusline.sh"
-
 diff_one "gitleaks-common.sh" \
   "$DOTTY_CLONE/git-hooks/gitleaks-common.sh" \
   "$WL_ROOT/plugins/estate-hooks/hooks/gitleaks-common.sh"
@@ -118,7 +117,7 @@ if [[ "$fail" -ne 0 ]]; then
   echo
   echo "DRIFT DETECTED — dotty main has moved and this repo's duplicate content"
   echo "hasn't been re-synced. Re-copy the drifted file(s) from dotty's current"
-  echo "main and re-verify (see LEX-698's ruling comments bb62d4da / e555d36f"
+  echo "main and re-verify (see this repo's originating spike's ruling comments bb62d4da / e555d36f"
   echo "/ 49d58312 for the disposition each duplicate carries)."
   exit 1
 fi
