@@ -265,7 +265,16 @@ tracked_stripped=$(printf '%s\n' "${TRACKED}" | while read -r p; do b=$(basename
 # Sample shapes come in two conventions: *.sample.* and *.example.* — strip
 # either marker to get the basename the sample stands in for.
 sample_basenames=$(printf '%s\n' "${TRACKED}" | { grep -E '\.(sample|example)\.' || true; } | while read -r p; do basename "$p"; done | sed -E 's/\.(sample|example)(\.[^.]+)$/\2/' | sort -u)
-refs=$(printf '%s\n' "${TRACKED}" | sed "s|^|${TARGET}/|" | xargs -I{} cat {} 2>/dev/null \
+# `cat` errors loudly on a tracked entry that's a symlink to a directory
+# (git tracks the link, not its target's contents) -- found live on LEX-702:
+# a repo with a symlinked plugin-component subset (later moved to real
+# files, but the class of bug stands for any tracked directory-symlink)
+# made this step's `xargs -I{} cat {}` fail, and under this script's
+# `pipefail` the whole scaffold check aborted silently mid-run with no
+# verdict for this step. Filtered to regular files (symlinks to a regular
+# file still resolve and get scanned; only a directory target is skipped).
+refs=$(printf '%s\n' "${TRACKED}" | sed "s|^|${TARGET}/|" \
+  | { while IFS= read -r f; do [[ -f "$f" ]] && cat "$f"; done; true; } \
   | { grep -ohE '\bCLAUDE\.md\b|\bsettings(\.[A-Za-z]+)*\.json\b|\b[A-Za-z0-9_-]*config\.(json|ya?ml)\b' || true; } \
   | sed -E 's/^\.//' | sort -u)
 missing=""
