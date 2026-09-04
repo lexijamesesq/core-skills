@@ -5,7 +5,7 @@ description: >
   local protection layers (a PreToolUse hook, the lint fixture suite, every
   hook a live settings.json registers, every hook a plugin serves in its
   place) prove it is wired RIGHT NOW, not that it was wired the day it
-  shipped. Eight probes, grown by regression (two declared, operator-approved
+  shipped. Nine probes, grown by regression (two declared, operator-approved
   exceptions) — each one exists because a real silent-misconfiguration
   incident bit before it existed, or (probes 7 and 8) closes a coverage gap
   the ticket that added it named explicitly. Reports only;
@@ -19,7 +19,7 @@ Domain check for Mac-side configuration health. The estate's protection layers �
 
 ## Identity
 
-This skill owns ONE thing: proving eight specific local surfaces are wired correctly at the moment it runs. It does not scan for new problems, does not audit the whole harness, and does not fix anything it finds.
+This skill owns ONE thing: proving nine specific local surfaces are wired correctly at the moment it runs. It does not scan for new problems, does not audit the whole harness, and does not fix anything it finds.
 
 - **Mechanical only** — the bundled `smoke.sh` is the entire implementation: read-only, no network, no credentials, no writes. Every probe exercises the real surface (pipes real JSON at the real hook, runs the real fixture suite, parses the real live `settings.json`) — never a re-derivation from memory of what the surface *should* do.
 - **Grows by regression, with two declared exceptions.** A probe is added only after a real silent-misconfiguration incident bites — except probes 7 and 8, each added not from an incident but from a coverage gap a HITL-approved ticket named explicitly when it required new wiring this skill needed to cover. Probe 7: probe 6 audits enablement for exactly one hardcoded plugin id, and nothing before probe 7 asserted the FULL declared-plugin set (every id the blueprint's `plugins.json` names) is enabled and installed, in every profile — that gap is the kind every other probe here exists to close after the fact, closed before the incident by the same estate substrate map ruling that mandated this skill's rework. Probe 8: the thin-layer rules/CLAUDE.md move's own spec named "`/smoke` gains one probe asserting the two files are real and declared" before the always-on rules and global CLAUDE.md moved off a live symlink/`@`-import onto declared state — the ticket that built the new surface is the map-ruled justification for the probe that proves it, the same footing probe 7 stands on. Both declared here as the growth rule's operator-approved exceptions, not a silent departure from it.
@@ -34,8 +34,9 @@ This skill owns ONE thing: proving eight specific local surfaces are wired corre
 | `plugin-hook-serving-integrity` | when a profile's guards run from `estate-hooks@work-lifecycle` instead of `settings.json` directly, the plugin is enabled AND its installed cache still serves every hook the plugin declares | 2026-09-02 — a plugin-packaging spike found that enabling/disabling a Claude Code plugin only mutates `enabledPlugins` in `settings.json`; nothing audited it, so a silently disabled plugin would drop all nine guard hooks with zero visible signal |
 | `plugin-enablement-integrity` | every plugin the blueprint's `plugins.json` declares, per profile, is enabled AND installed — generalizing probe 6's one-hardcoded-id check across the full declared set — plus, once, that both profiles' `plugins` link resolves to the same real directory outside any git working tree | declared exception, not an incident — see the growth-rule note above |
 | `rules-claude-md-integrity` | both the always-on `ways-of-working.md` rule and the global `CLAUDE.md`, in both profiles, are real files (not a symlink or an `@`-import) whose content matches their declared source — the pinned dotty tag for the rule, dotty-private's own `.claude/CLAUDE.md` for the global file | declared exception, not an incident — the thin-layer move's own spec named this probe before the surface it checks existed; see the growth-rule note above |
+| `plugin-marketplace-currency` | every marketplace this estate declares an `autoUpdate` value for (settings-declared `extraKnownMarketplaces`) resolves to that exact value in the live runtime registry (`known_marketplaces.json`) — the CLI's own highest-precedence gate for its background plugin auto-update pass — plus the `traffic-cone` PATH shim still points at the currently installed `work-lifecycle` | 2026-09-04 — LEX-694 postclose-e2e review: both Mini profiles served `work-lifecycle` 0.3.1 while 0.4.0 was already released, `/smoke` reported 8/8 against that two-versions-stale install, and no probe here asserted currency at all — only that whatever was installed was enabled and structurally wired |
 
-Do not add a ninth probe without a new failure (or a map-ruled exception, declared here the way probes 7 and 8's are) to justify it.
+Do not add a tenth probe without a new failure (or a map-ruled exception, declared here the way probes 7 and 8's are) to justify it.
 
 ## Intent
 
@@ -58,7 +59,7 @@ Do not add a ninth probe without a new failure (or a map-ruled exception, declar
 - **Steering:** cadence is deliberately NOT scheduled. The Mac carries no wall-clock automation by estate ruling (unlike the Pi's cron-driven lanes), so invocation is an operator-initiated convention: run at session-start for any infrastructure-touching session, and after any infrastructure change (a hook edit, a `settings.json` edit, a `lint.py` change). Nothing enforces this — the discipline is the caller's.
 
 **Decision authority.**
-- **Autonomous:** running all eight probes; reporting PASS/FAIL per probe plus a summary line.
+- **Autonomous:** running all nine probes; reporting PASS/FAIL per probe plus a summary line.
 - **Escalate:** every FAIL — `/smoke` never remediates its own findings; the caller reads the detail and edits the broken surface directly.
 
 **Stop rules.**
@@ -76,7 +77,7 @@ Do not add a ninth probe without a new failure (or a map-ruled exception, declar
 - Does NOT fix anything it finds — report only, same discipline as `/lint-knowledge` and `/house-qa`.
 - Does NOT run on any schedule or session boundary automatically — invocation is always explicit, per the cadence convention above.
 - Does NOT replace `/lint-knowledge`'s periodic content-health pass — `lint-suite` here only proves the *test suite* still passes, not that the corpus itself is clean; run `/lint-knowledge` separately for that.
-- Does NOT audit MCP servers or general plugin state — of the blueprint's plugin domain this skill checks only the two specific gaps probes 6 and 7 close (a plugin silently disabled while a profile depends on it to serve hooks; the full declared-plugin set not enabled+installed per profile); everything else `/system-blueprint` governs stays `/system-blueprint`'s. The permanent, general-purpose audit for plugin state is a separate later effort — probes 6 and 7 are the interim detectors.
+- Does NOT audit MCP servers or general plugin state — of the blueprint's plugin domain this skill checks only the three specific gaps probes 6, 7, and 9 close (a plugin silently disabled while a profile depends on it to serve hooks; the full declared-plugin set not enabled+installed per profile; the marketplace auto-update mechanism not actually armed despite being declared); everything else `/system-blueprint` governs stays `/system-blueprint`'s. The permanent, general-purpose audit for plugin state is a separate later effort — probes 6, 7, and 9 are the interim detectors.
 
 ## References
 
@@ -89,3 +90,4 @@ Do not add a ninth probe without a new failure (or a map-ruled exception, declar
 - `~/.claude-*/settings.json`, `~/.claude-*/plugins/installed_plugins.json`, and the resolved `estate-hooks@work-lifecycle` cache's `.claude-plugin/plugin.json` + `hooks/hooks.json` — probe 6's targets.
 - `~/.claude-*/plugins/installed_plugins.json` (every plugins.json-declared id) and `~/.claude-personal/plugins` / `~/.claude-professional/plugins` (the shared-cache symlink) — probe 7's targets.
 - `~/bin/dotty-private/.claude/blueprint/ways-of-working.json` (the pin: tag, path, sha256), `~/bin/dotty-private/.claude/CLAUDE.md` (the declared global CLAUDE.md), `~/bin/dotty` (resolves the pinned tag's content), and `~/.claude-*/rules/ways-of-working.md` / `~/.claude-*/CLAUDE.md` (the installed files) — probe 8's targets.
+- `~/.claude-*/settings.json` (`extraKnownMarketplaces`, the declared `autoUpdate` per marketplace), `~/.claude-*/plugins/known_marketplaces.json` (the live runtime registry probe 9 checks it against), and `~/.local/bin/traffic-cone` (the shim symlink, checked against `installed_plugins.json`'s `work-lifecycle@work-lifecycle` scope:user `installPath`) — probe 9's targets. Does NOT compare against the marketplace's highest release tag despite that being closer to a full currency check — the CLI's own marketplace clones are shallow with no tag refs, and a network fetch is out of this skill's no-network scope; see `smoke.sh`'s probe 9 header for the reasoning and the rejected local-HEAD alternative.

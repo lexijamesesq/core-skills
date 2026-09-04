@@ -1187,6 +1187,202 @@ probe_rules_claude_md_integrity() {
 }
 
 # ---------------------------------------------------------------------------
+# Probe 9: plugin-marketplace-currency (new — incident-driven, LEX-694
+# postclose-e2e review: both Mini profiles served work-lifecycle 0.3.1 while
+# 0.4.0 was already released, and this suite reported 8/8 against that
+# two-versions-stale install — nothing here asserted currency at all, only
+# that whatever was installed was enabled and structurally wired. LEX-739
+# built the actual currency mechanism (settings-declared `autoUpdate` on
+# `extraKnownMarketplaces`, the CLI's own highest-precedence gate for its
+# background plugin-marketplace updater) and this probe closes the same gap
+# probe 7 closed for enablement: prove the mechanism is actually armed, not
+# just that today's versions happen to match.
+#
+# Two checks, one name (probe 7's precedent: one PASS/FAIL for one question
+# — "is the currency mechanism live" — reads better than split names a
+# caller has to individually chase):
+#
+# (a) Mechanism check, the load-bearing one. Reads live known_marketplaces.
+#     json (never `claude plugin marketplace list --json`, which projects
+#     name/source/repo/installLocation and NOT lastUpdated/autoUpdate —
+#     verified live, LEX-739 pressure-test) against each profile's live
+#     settings.json extraKnownMarketplaces (the declared, highest-precedence
+#     source). Every marketplace WE declare an autoUpdate value for must
+#     show that exact value in the runtime registry — true for the three
+#     public marketplaces, an explicit false for operator (its background
+#     pass has no credential path regardless of transport; false documents
+#     that as a decision). This is the check that would have caught the
+#     original incident before it happened: the registry showed no
+#     autoUpdate key on ANY marketplace, for either profile, until this
+#     mechanism existed.
+# (b) traffic-cone shim currency (Done When #7 — no code defect found in the
+#     shim slice itself at LEX-739's pressure-test, but the operator gap is
+#     real: the shim needs an explicit re-run to re-resolve after ANY
+#     version change, and autoUpdate means a version can now change with no
+#     operator-invoked apply/bootstrap at all to remind them). Re-derives
+#     the shim's own resolution (traffic-cone-shim.sh's header, this
+#     script's existing cross-repo-path precedent from probes 7/8) and
+#     compares against the live symlink target.
+#
+# What this probe deliberately does NOT do: compare an installed plugin's
+# version/commit against the marketplace's highest RELEASE TAG, despite that
+# being this ticket's original ask. Verified live against all three public
+# marketplace clones on this machine: the CLI's own marketplace clones
+# (`known_marketplaces.json[name].installLocation`) are shallow (`git
+# rev-parse --is-shallow-repository` true, depth 4-15) and carry NO tag refs
+# at all — there is no local, network-free way to learn "the highest tag"
+# from them. The one local-only alternative (raw commit SHA vs. the clone's
+# HEAD) was built, run against live state, and thrown out: it fires on every
+# ordinary untagged commit merged to a marketplace's default branch since
+# the last release — the normal, constant state of an actively developed
+# repo, not a staleness signal — which would make this probe cry wolf almost
+# always. A true tag comparison needs a `git fetch --tags` (network) this
+# script's own no-network rule forbids, or trusting the marketplace clone's
+# own state (which the mechanism check in (a) already covers the cause of,
+# more reliably: prove the puller is armed, don't reimplement the puller's
+# own network check with a strictly worse, offline substitute).
+# ---------------------------------------------------------------------------
+PY_MARKETPLACE_CURRENCY_CHECK="$(cat <<'PYEOF'
+import json
+import os
+import sys
+
+
+def load_json(path):
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def main():
+    profiles_root, plugins_state_path = sys.argv[1], sys.argv[2]
+    plugins_state = load_json(plugins_state_path)
+
+    problems = []
+    checked_mechanism = 0
+
+    shim_path = os.path.join(profiles_root, ".local", "bin", "traffic-cone")
+    shim_checked = False
+
+    for profile in sorted(plugins_state.keys()):
+        profile_dir = os.path.join(profiles_root, f".claude-{profile}")
+        settings_path = os.path.join(profile_dir, "settings.json")
+        known_mkts_path = os.path.join(profile_dir, "plugins", "known_marketplaces.json")
+        installed_path = os.path.join(profile_dir, "plugins", "installed_plugins.json")
+
+        try:
+            settings = load_json(settings_path)
+        except Exception as e:
+            problems.append(f"{profile}: settings.json unreadable: {e}")
+            continue
+        try:
+            known_mkts = load_json(known_mkts_path)
+        except Exception as e:
+            problems.append(f"{profile}: known_marketplaces.json unreadable: {e}")
+            continue
+
+        declared_mkts = settings.get("extraKnownMarketplaces", {})
+
+        # (a) mechanism: every marketplace WE declare autoUpdate for must
+        # resolve to that exact value in the live registry.
+        for name, entry in declared_mkts.items():
+            if not isinstance(entry, dict) or "autoUpdate" not in entry:
+                continue  # not one of ours (e.g. cloudflare) -- no opinion
+            checked_mechanism += 1
+            want = entry["autoUpdate"]
+            have = known_mkts.get(name, {}).get("autoUpdate")
+            if have is not want:
+                problems.append(
+                    f"{profile}: marketplace {name} declares autoUpdate={want!r} but the "
+                    f"live registry resolves it to {have!r} (mechanism not armed)"
+                )
+
+        # (b) traffic-cone shim currency, once (not per profile — one shim,
+        # one PATH). work-lifecycle@work-lifecycle's scope:user installPath
+        # is the shim's declared resolution target (traffic-cone-shim.sh
+        # header); check it against whichever profile resolves first.
+        if not shim_checked:
+            try:
+                installed = load_json(installed_path)
+            except Exception as e:
+                problems.append(f"{profile}: installed_plugins.json unreadable: {e}")
+                continue
+            wl_entries = installed.get("plugins", {}).get("work-lifecycle@work-lifecycle", [])
+            wl_user = [e for e in wl_entries if isinstance(e, dict) and e.get("scope") == "user"]
+            if wl_user:
+                shim_checked = True
+                want_target = os.path.join(
+                    wl_user[0].get("installPath", ""), "skills", "traffic-cone", "scripts", "traffic-cone"
+                )
+                if not os.path.islink(shim_path):
+                    problems.append(f"traffic-cone shim: {shim_path} is not a symlink (or missing)")
+                else:
+                    have_target = os.readlink(shim_path)
+                    if os.path.normpath(have_target) != os.path.normpath(want_target):
+                        problems.append(
+                            f"traffic-cone shim: {shim_path} -> {have_target}, but the currently "
+                            f"installed work-lifecycle resolves to {want_target} (re-run the "
+                            f"traffic-cone-shim slice)"
+                        )
+
+    if checked_mechanism == 0:
+        print("ERROR\t0 marketplace autoUpdate declarations checked (parse failure or nothing declared)")
+        sys.exit(1)
+
+    if problems:
+        for p in problems:
+            print("FAIL\t" + p)
+        sys.exit(1)
+
+    print(
+        f"OK\t{checked_mechanism} marketplace autoUpdate declarations armed correctly, "
+        f"traffic-cone shim current"
+    )
+    sys.exit(0)
+
+
+main()
+PYEOF
+)"
+
+probe_plugin_marketplace_currency() {
+    local name="plugin-marketplace-currency"
+    local plugins_state="${SMOKE_PLUGINS_JSON_OVERRIDE:-$HOME/bin/dotty-private/.claude/blueprint/plugins.json}"
+    local profiles_root="${SMOKE_PROFILES_ROOT_OVERRIDE:-$HOME}"
+
+    if [[ ! -f "$plugins_state" ]]; then
+        report FAIL "$name" \
+            "plugins.json missing at $plugins_state (staleness — the blueprint state file moved)"
+        return
+    fi
+
+    local py_out py_rc
+    py_out="$(python3 -c "$PY_MARKETPLACE_CURRENCY_CHECK" "$profiles_root" "$plugins_state" 2>&1)"
+    py_rc=$?
+
+    local detail_parts=() overall_ok=1 line_status rest
+    while IFS=$'\t' read -r line_status rest; do
+        [[ -z "$line_status" ]] && continue
+        if [[ "$line_status" == "OK" ]]; then
+            detail_parts+=("$rest")
+        else
+            overall_ok=0
+            detail_parts+=("$line_status $rest")
+        fi
+    done <<<"$py_out"
+
+    local joined="" part
+    for part in "${detail_parts[@]}"; do
+        [[ -z "$joined" ]] && joined="$part" || joined="$joined; $part"
+    done
+
+    if [[ "$py_rc" -eq 0 && "$overall_ok" -eq 1 ]]; then
+        report PASS "$name" "$joined"
+    else
+        report FAIL "$name" "$joined"
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # Run all probes, print results, summarize, exit.
 # ---------------------------------------------------------------------------
 probe_hook_tilde_expansion
@@ -1197,6 +1393,7 @@ probe_plugin_shadow_integrity
 probe_plugin_hook_serving
 probe_plugin_enablement_integrity
 probe_rules_claude_md_integrity
+probe_plugin_marketplace_currency
 
 for line in "${RESULT_LINES[@]}"; do
     printf '%s\n' "$line"
