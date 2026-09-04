@@ -1,6 +1,6 @@
 ---
 name: release-dotty
-description: Cut dotty's own CalVer release and bump every consumer's pin to it, as one local, operator-invoked act. Triggers on "/release-dotty", "release dotty", "cut a dotty release", or "bump consumers to the new dotty tag".
+description: Cut dotty's own calendar-versioned release and bump every consumer's pin to it, as one local, operator-invoked act. Triggers on "/release-dotty", "release dotty", "cut a dotty release", or "bump consumers to the new dotty tag".
 ---
 
 # release-dotty
@@ -9,7 +9,7 @@ The pre-commit channel's release step: dotty's exported hooks (`.pre-commit-hook
 
 ## Intent
 
-**Objective.** After a merge to dotty `main` that changes an export, cut one CalVer tag by a written, deterministic sequence rule, then open a bump PR in every repo whose `.pre-commit-config.yaml` pins dotty's exports — enumerated at run time, never a fixed list.
+**Objective.** After a merge to dotty `main` that changes an export, cut one date-based tag by a written, deterministic sequence rule, then open a bump PR in every repo whose `.pre-commit-config.yaml` pins dotty's exports — enumerated at run time, never a fixed list.
 
 **Decision authority.** Autonomous: computing the tag, running the refuse checks, discovering consumers. Escalate: the consumer bump PRs touch every consumer's gitleaks hook chain — operator approval before invoking this skill for real, not just before opening the PRs.
 
@@ -22,7 +22,7 @@ The pre-commit channel's release step: dotty's exported hooks (`.pre-commit-hook
 ## The mechanism
 
 1. **Preconditions** — refuse unless the dotty checkout is clean, on `main`, and matches `origin/main`.
-2. **Re-entry** — if `HEAD` already carries a CalVer tag (a prior run cut the tag but didn't finish), skip straight to the bump phase for consumers still lagging it. The Release itself is still checked and cut independently of the tag either way (`gh release view || gh release create`) — a failure between the two must never leave a tag with no Release.
+2. **Re-entry** — if `HEAD` already carries a date-based tag (a prior run cut the tag but didn't finish), skip straight to the bump phase for consumers still lagging it. The Release itself is still checked and cut independently of the tag either way (`gh release view || gh release create`) — a failure between the two must never leave a tag with no Release.
 3. **Due check** — if a tag already exists and no export changed since it, exit cleanly: nothing to release.
 4. **Tag computation** — first tag of a UTC day is `vYYYY.MM.DD`; later ones append `-N`, N the next integer (compared numerically) after the highest existing suffix for that date, bare tag counting as `-1`. Refuses on an already-existing computed tag (checked against origin, not local state — a local cache can be stale) or a same-day tag that doesn't fit the scheme.
 5. **Consumer discovery** — grep `~/bin`, `~/Agents`, `~/Repos` for `.pre-commit-config.yaml` pinning `https://github.com/lexijamesesq/dotty`, deduplicated by resolved remote URL (a worktree of an already-found repo doesn't double-count). hazel's `deploy` branch is excluded by name — it follows `dev` by the operator's own deploy, never a bump PR.
