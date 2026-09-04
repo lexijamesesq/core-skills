@@ -547,13 +547,13 @@ class CreateRelationTests(unittest.TestCase):
 
 class DecisionsDocHelperTests(unittest.TestCase):
     def test_is_decisions_doc_matches_em_dash(self):
-        self.assertTrue(lb.is_decisions_doc({"title": "Decisions — Estate substrate"}))
+        self.assertTrue(lb.is_decisions_doc({"title": "Decisions — Test Map"}))
 
     def test_is_decisions_doc_matches_plain_hyphen(self):
-        self.assertTrue(lb.is_decisions_doc({"title": "Decisions - Estate substrate"}))
+        self.assertTrue(lb.is_decisions_doc({"title": "Decisions - Test Map"}))
 
     def test_is_decisions_doc_false_for_other_titles(self):
-        self.assertFalse(lb.is_decisions_doc({"title": "Notes — Estate substrate"}))
+        self.assertFalse(lb.is_decisions_doc({"title": "Notes — Test Map"}))
 
     def test_entry_link_extracts_url(self):
         self.assertEqual(
@@ -628,7 +628,8 @@ class DecisionsAppendTests(unittest.TestCase):
         second attempt re-fetches (now sees the interloper's entry as the
         live base) and succeeds, with BOTH entries present in the final
         content — proving the interloper's entry survives rather than being
-        silently dropped the way LEX-708/696/710/718 were."""
+        silently dropped the way an unguarded whole-content overwrite once
+        dropped one."""
         interloper_entry = "[Interloper decision](https://linear.app/a/issue/LEX-2/interloper) — landed first."
         c0 = "[Older decision](https://linear.app/a/issue/LEX-0/older) — the first one.\n"
         c_after_interloper = c0.rstrip() + "\n\n" + interloper_entry + "\n"
@@ -693,39 +694,39 @@ class DecisionsAppendCliTests(unittest.TestCase):
     def test_cli_decisions_append_success(self):
         entry_path = self._entry_file(self.ENTRY)
         script_responses([
-            {"stdout": {"data": {"issue": {"id": "map-uuid", "identifier": "LEX-694", "title": "Estate substrate",
+            {"stdout": {"data": {"issue": {"id": "map-uuid", "identifier": "ACR-1", "title": "Test Map",
                                             "state": {"name": "Todo", "type": "unstarted"}, "project": None,
                                             "labels": {"nodes": []}, "parent": None, "delegate": None,
                                             "assignee": None, "team": {"key": "LEX"},
                                             "inverseRelations": {"nodes": []}}}}, "returncode": 0},
             {"stdout": {"data": {"issue": {"documents": {"nodes": []}}}}, "returncode": 0},
             {"stdout": {"data": {"documentCreate": {"success": True,
-                                                      "document": {"id": "doc-1", "title": "Decisions — Estate substrate",
+                                                      "document": {"id": "doc-1", "title": "Decisions — Test Map",
                                                                    "content": self.ENTRY + "\n"}}}}, "returncode": 0},
             {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Estate substrate", "archivedAt": None, "content": self.ENTRY + "\n"},
+                {"id": "doc-1", "title": "Decisions — Test Map", "archivedAt": None, "content": self.ENTRY + "\n"},
             ]}}}}, "returncode": 0},
         ])
-        code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "decisions-append", "LEX-694", "--entry-file", entry_path])
+        code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "decisions-append", "ACR-1", "--entry-file", entry_path])
         self.assertEqual(code, lb.EXIT_OK)
 
     def test_cli_decisions_append_duplicate_exits_seven(self):
         entry_path = self._entry_file(self.ENTRY)
         script_responses([
-            {"stdout": {"data": {"issue": {"id": "map-uuid", "identifier": "LEX-694", "title": "Estate substrate",
+            {"stdout": {"data": {"issue": {"id": "map-uuid", "identifier": "ACR-1", "title": "Test Map",
                                             "state": {"name": "Todo", "type": "unstarted"}, "project": None,
                                             "labels": {"nodes": []}, "parent": None, "delegate": None,
                                             "assignee": None, "team": {"key": "LEX"},
                                             "inverseRelations": {"nodes": []}}}}, "returncode": 0},
             {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Estate substrate", "archivedAt": None, "content": self.ENTRY + "\n"},
+                {"id": "doc-1", "title": "Decisions — Test Map", "archivedAt": None, "content": self.ENTRY + "\n"},
             ]}}}}, "returncode": 0},
         ])
-        code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "decisions-append", "LEX-694", "--entry-file", entry_path])
+        code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "decisions-append", "ACR-1", "--entry-file", entry_path])
         self.assertEqual(code, lb.EXIT_DUPLICATE_ENTRY)
 
     def test_cli_decisions_append_missing_entry_file_is_config_gap(self):
-        code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "decisions-append", "LEX-694",
+        code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "decisions-append", "ACR-1",
                          "--entry-file", "/nonexistent/path/entry.md"])
         self.assertEqual(code, lb.EXIT_CONFIG_GAP)
 

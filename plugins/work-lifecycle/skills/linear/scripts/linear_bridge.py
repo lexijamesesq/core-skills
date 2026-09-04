@@ -598,7 +598,7 @@ def _update_decisions_doc(bridge_cmd_parts, doc_id, content):
 def decisions_append(bridge_cmd_parts, map_uuid, map_title, entry_text, max_attempts=DECISIONS_APPEND_MAX_ATTEMPTS):
     """Append one decision entry to the map's Decisions document, creating
     it (titled `Decisions — <map_title>`) on the map's first recorded
-    decision. Makes LEX-716's incident-driven interim hand sequence
+    decision. Makes the interim hand sequence this primitive replaces
     mechanical: fetch immediately before write, refuse a duplicate entry
     link, append, write, read back, and verify the pre-write content is an
     exact prefix of what's now stored AND the new entry is present.
@@ -607,11 +607,13 @@ def decisions_append(bridge_cmd_parts, map_uuid, map_title, entry_text, max_atte
     window between this call's fetch and its own read-back — retries by
     re-fetching current reality and re-appending against it, up to
     `max_attempts` times, so two closers in the same window don't drop each
-    other the way LEX-708/696/710/718 did.
+    other's entries the way a whole-content overwrite with no such check
+    once did.
 
     Two residual races this loop does not structurally close (both named on
-    LEX-716, neither closable without a server-side compare-and-swap Linear's
-    schema doesn't expose): (a) two writers racing the map's very first
+    the ticket that built it, neither closable without a server-side
+    compare-and-swap Linear's schema doesn't expose): (a) two writers racing
+    the map's very first
     decision could each find no doc and both `documentCreate`, producing two
     same-titled docs — a first-decision-only window, never hit by the
     receipted incidents, all of which raced an *existing* doc; (b) a writer's
