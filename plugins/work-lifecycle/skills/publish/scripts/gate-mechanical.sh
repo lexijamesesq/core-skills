@@ -29,42 +29,75 @@ QA_PY="${SCRIPT_DIR}/../../house-qa/qa.py"
 # resolver the actual pre-commit/pre-push hooks use (fixed path first, no
 # checkout-relative fallback). Without this, a bare `--config .gitleaks.toml`
 # load FTLs on any repo whose checkout-relative symlink is gone.
-# shellcheck source=/dev/null
-source "${SCRIPT_DIR}/../../../../git-hooks/gitleaks-common.sh"
-
-# Resolve references.tag_taxonomy_rosters from dotty-private's global
-# CLAUDE.md — the single source of truth for where tag-taxonomy-rosters.md
-# actually lives, never hardcoded here. Unlike a project CLAUDE.md (real
-# YAML frontmatter, the shape statusline.sh's parse_declared_repos() reads),
-# the global CLAUDE.md's Configuration block is a fenced ```yaml section in
-# the body — extract that fence, not frontmatter. Empty output (missing yq,
-# missing file, missing key) is a legitimate "unresolved" signal, not an
-# error — the caller falls back to qa.py's own pre-key vault-relative
-# default.
-resolve_rosters_path() {
-  local claude_md="${HOME}/bin/dotty-private/.claude/CLAUDE.md"
-  [[ -f "$claude_md" ]] || return
-  command -v yq >/dev/null 2>&1 || return
-  local yaml_block value workspace_root
-  yaml_block="$(awk '/^```yaml/{c=1; next} /^```$/{c=0} c' "$claude_md")"
-  value="$(printf '%s\n' "$yaml_block" | yq -r '."references.tag_taxonomy_rosters"' - 2>/dev/null | grep -v '^null$')" || true
-  [[ -z "$value" ]] && return
-  case "$value" in
-    "~"*|/*)
-      # Repo-absolute or already-expanded — expand a leading ~ (no eval).
-      printf '%s\n' "${value/#\~/$HOME}"
-      ;;
-    *)
-      # workspace_root-relative, same convention every other references.*
-      # key uses (see the Configuration block's own header comment).
-      workspace_root="$(printf '%s\n' "$yaml_block" | yq -r '.workspace_root' - 2>/dev/null | grep -v '^null$')"
-      [[ -z "$workspace_root" ]] && workspace_root="${HOME}/Vaults/Notes"
-      workspace_root="${workspace_root/#\~/$HOME}"
-      printf '%s\n' "${workspace_root%/}/$value"
-      ;;
-  esac
+#
+# gitleaks-common.sh has two homes: dotty's own git-hooks/ (this script's own
+# checkout, when gate-mechanical.sh happens to run from one) and the
+# estate-hooks plugin's packaged copy — the only one that survives once
+# dotty's own copy is retired. The old hardcoded ../../../../git-hooks/ walk
+# assumed this script always lived inside a dotty-shaped checkout; from the
+# work-lifecycle plugin cache that path doesn't exist at all (SCRIPT_DIR/../..
+# is the plugin's OWN root, which has no git-hooks/ sibling — estate-hooks is
+# a separate plugin). Same-repo checked first (cheap, no lookup needed); the
+# installed estate-hooks cache is the general case a packaged copy always has.
+resolve_gitleaks_common() {
+    local same_repo="${SCRIPT_DIR}/../../../../git-hooks/gitleaks-common.sh"
+    if [[ -r "$same_repo" ]]; then
+        printf '%s' "$same_repo"
+        return 0
+    fi
+    local py_check installed_path
+    py_check='
+import json, os, sys
+for profile_dir in sys.argv[1:]:
+    p = os.path.join(profile_dir, "plugins", "installed_plugins.json")
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        continue
+    for e in data.get("plugins", {}).get("estate-hooks@work-lifecycle", []):
+        if isinstance(e, dict) and e.get("scope") == "user":
+            ip = e.get("installPath")
+            if ip and os.path.isdir(ip):
+                print(ip)
+                sys.exit(0)
+sys.exit(1)
+'
+    installed_path="$(python3 -c "$py_check" "$HOME"/.claude-* 2>/dev/null)" || true
+    if [[ -n "$installed_path" && -r "$installed_path/hooks/gitleaks-common.sh" ]]; then
+        printf '%s' "$installed_path/hooks/gitleaks-common.sh"
+        return 0
+    fi
+    return 1
 }
-ROSTERS_PATH="$(resolve_rosters_path)"
+
+GITLEAKS_COMMON="$(resolve_gitleaks_common)" || {
+    echo "gate-mechanical.sh: cannot locate gitleaks-common.sh — checked" >&2
+    echo "  ${SCRIPT_DIR}/../../../../git-hooks/gitleaks-common.sh" >&2
+    echo "  and every \$HOME/.claude-*'s installed estate-hooks@work-lifecycle cache." >&2
+    echo "Reinstall estate-hooks, or run gate-mechanical.sh from a checkout with git-hooks/." >&2
+    exit 2
+}
+# shellcheck source=/dev/null
+source "$GITLEAKS_COMMON"
+
+# references.* key resolution (rosters, private-vocab): shared with
+# playbooks/gate.md § Criteria 3's own documented hand-run qa.py example, so
+# the two can never drift out of sync — see resolve-references-key.sh.
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/resolve-references-key.sh"
+
+# yq is a prerequisite of resolve_references_key (Brewfile-declared).
+# Its absence must never silently degrade a resolved path to a
+# caller's own broken pre-key default — check once, here, ahead of every
+# resolve_references_key call below.
+resolve_references_key_check_yq || exit 2
+
+ROSTERS_PATH="$(resolve_references_key references.tag_taxonomy_rosters)"
+# Optional: operator employer/product vocabulary for the
+# fiction-detection check. Unset/unresolved is fine -- qa.py's
+# --private-vocab-path already no-ops on an empty/missing path.
+PRIVATE_VOCAB_PATH="$(resolve_references_key references.qa_private_vocab)"
 
 TARGET="${1:-}"; shift || true
 BASE="origin/HEAD"
@@ -306,6 +339,7 @@ else
   QA_OUT="$(mktemp)"
   QA_ROSTERS_ARGS=()
   [[ -n "${ROSTERS_PATH}" ]] && QA_ROSTERS_ARGS=(--rosters-path "${ROSTERS_PATH}")
+  [[ -n "${PRIVATE_VOCAB_PATH}" ]] && QA_ROSTERS_ARGS+=(--private-vocab-path "${PRIVATE_VOCAB_PATH}")
   if python3 "${QA_PY}" "${CHANGED_MD[@]}" --json --vault-root "${VAULT_ROOT}" "${QA_ROSTERS_ARGS[@]}" > "${QA_OUT}" 2>"${QA_OUT}.err"; then
     FICTION=$(python3 - "${QA_OUT}" <<'PYEOF'
 import json, sys
