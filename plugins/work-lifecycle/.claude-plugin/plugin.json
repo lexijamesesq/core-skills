@@ -1,6 +1,6 @@
 {
   "name": "work-lifecycle",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "The estate's core work-lifecycle skills plus the attack-kitty verification agent, packaged as a plugin.",
   "author": {
     "name": "Lexi James",
