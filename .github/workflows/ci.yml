@@ -6,7 +6,7 @@ on:
     branches: [main]
   schedule:
     # Catches gitleaks-common.sh drifting out from under this repo's one
-    # remaining duplicate (narrowed by LEX-722; the skills/agent/hooks/
+    # remaining duplicate (narrowed once dotty's own copies were retired; the skills/agent/hooks/
     # statusline duplicates it used to also catch are gone along with
     # dotty's copies) even between pushes here.
     - cron: '17 13 * * *'

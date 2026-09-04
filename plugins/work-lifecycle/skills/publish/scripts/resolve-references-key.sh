@@ -5,11 +5,11 @@
 # resolve_references_key <key>. The one source of truth for this resolution:
 # gate-mechanical.sh sources it for --rosters-path/--private-vocab-path, and
 # playbooks/gate.md § Criteria 3's own documented hand-run qa.py example
-# sources it too, so the two can never drift out of sync again (LEX-718 --
-# the prior duplicated, hand-typed form in gate.md is exactly what drifted).
+# sources it too, so the two can never drift out of sync again (the prior
+# duplicated, hand-typed form in gate.md is exactly what drifted).
 #
 # Prerequisite: `yq`, to parse the global CLAUDE.md's Configuration block.
-# `yq` is Brewfile-declared (LEX-708) -- its absence must fail loud, never
+# `yq` is Brewfile-declared -- its absence must fail loud, never
 # silently degrade a resolved path to a caller's own broken pre-key default.
 # Callers of this file are expected to `set -euo pipefail` themselves; this
 # file only defines a function, it does not exit on its own when sourced.
@@ -18,7 +18,7 @@ resolve_references_key_check_yq() {
   if ! command -v yq >/dev/null 2>&1; then
     echo "resolve_references_key: missing prerequisite 'yq' — required to resolve" >&2
     echo "  references.* keys (e.g. tag_taxonomy_rosters) from dotty-private's" >&2
-    echo "  global CLAUDE.md. yq is Brewfile-declared (LEX-708); install it" >&2
+    echo "  global CLAUDE.md. yq is Brewfile-declared; install it" >&2
     echo "  ('brew install yq') and re-run." >&2
     return 1
   fi

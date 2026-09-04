@@ -60,7 +60,7 @@ Zero WARNING+ `unlisted-fiction-entity` findings and zero HIGH `fiction-continui
 
 Branch-introduced scoping applies here too — see the codified decision above.
 
-**Never hand-type `--rosters-path`.** A hand-typed path drifts out of sync with wherever the rosters file actually lives (LEX-718: this exact form, without `--rosters-path`, silently fell back to `qa.py`'s own pre-key default — a vault path deleted since LEX-714 — and failed loud with a misleading "not found" instead of a working check). Source `resolve-references-key.sh` (the same resolver `gate-mechanical.sh` uses) and resolve it live:
+**Never hand-type `--rosters-path`.** A hand-typed path drifts out of sync with wherever the rosters file actually lives (a prior incident: this exact form, without `--rosters-path`, silently fell back to `qa.py`'s own pre-key default — a vault path that no longer existed — and failed loud with a misleading "not found" instead of a working check). Source `resolve-references-key.sh` (the same resolver `gate-mechanical.sh` uses) and resolve it live:
 
 ```bash
 GATE_SCRIPTS="<target_repo>/.claude/skills/publish/scripts"

@@ -2,18 +2,18 @@
 # standalone-check.sh — proves the packaged copies run correctly with NO
 # dotty checkout present, not merely that they are byte-identical to one.
 #
-# Why this exists (LEX-722 Phase 0): drift-check.sh (narrowed by the same
-# ticket) only ever asked "does this repo's copy match dotty's?" — identity,
-# not portability. Three hooks/scripts silently depended on running from
-# INSIDE a dotty checkout (a repo-relative walk, or dotty's OWN repo as a
-# zero-config fallback) and broke the moment they ran from this plugin's
-# installed cache instead — gh-pr-body-guard.sh (blocked gh pr create
-# outside a repo with its own .gitleaks.toml), gate-mechanical.sh (the
-# /publish gate crashed sourcing gitleaks-common.sh), and the traffic-cone
-# wrapper (couldn't find cone_preflight.py). All three were fixed in the
-# same series that adds this check. This check is what proves they STAY
-# fixed: run from THIS checkout alone, no dotty anywhere on the machine
-# (this script never checks dotty out and never references a dotty path).
+# Why this exists: drift-check.sh (narrowed in the same series) only ever
+# asked "does this repo's copy match dotty's?" — identity, not portability.
+# Three hooks/scripts silently depended on running from INSIDE a dotty
+# checkout (a repo-relative walk, or dotty's OWN repo as a zero-config
+# fallback) and broke the moment they ran from this plugin's installed
+# cache instead — gh-pr-body-guard.sh (blocked gh pr create outside a
+# repo with its own .gitleaks.toml), gate-mechanical.sh (the /publish gate
+# crashed sourcing gitleaks-common.sh), and the traffic-cone wrapper
+# (couldn't find cone_preflight.py). All three were fixed in the same
+# series that adds this check. This check is what proves they STAY fixed:
+# run from THIS checkout alone, no dotty anywhere on the machine (this
+# script never checks dotty out and never references a dotty path).
 #
 # Exit 0 iff every check below passes.
 set -euo pipefail
@@ -129,7 +129,7 @@ fi
 if [[ "$FAIL" -ne 0 ]]; then
     echo
     echo "STANDALONE CHECK FAILED — a packaged copy depends on something dotty"
-    echo "supplies that this repo's own cache does not. See LEX-722 Phase 0."
+    echo "supplies that this repo's own cache does not."
     exit 1
 fi
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """traffic-cone — the gate interface for a ticket's lifecycle transitions.
 
-Packaged copy (LEX-722 Phase 0): ships here, inside the work-lifecycle plugin's
+Packaged copy: ships here, inside the work-lifecycle plugin's
 traffic-cone skill, rather than at a repo root — a plugin cache has no PATH
 entry of its own, so a thin shim installed by dotty-private's blueprint at
 $HOME/.local/bin/traffic-cone points at whichever version this resolves to

@@ -3,7 +3,7 @@
 # dotty is byte-identical to dotty's CURRENT main, not frozen at whatever
 # SHA it was extracted from.
 #
-# Narrowed by LEX-722: this repo used to duplicate dotty's 18 packaged
+# Narrowed after dotty's own copies were retired: this repo used to duplicate dotty's 18 packaged
 # skills, the attack-kitty agent, nine hook scripts, and the statusline —
 # all deliberate temporary duplicates pending dotty's own cutover-deletion
 # slice. That slice ran; dotty's copies are gone, so every one of those

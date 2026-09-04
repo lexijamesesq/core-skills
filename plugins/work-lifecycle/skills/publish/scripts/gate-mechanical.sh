@@ -33,7 +33,7 @@ QA_PY="${SCRIPT_DIR}/../../house-qa/qa.py"
 # gitleaks-common.sh has two homes: dotty's own git-hooks/ (this script's own
 # checkout, when gate-mechanical.sh happens to run from one) and the
 # estate-hooks plugin's packaged copy — the only one that survives once
-# dotty's is gone (LEX-722). The old hardcoded ../../../../git-hooks/ walk
+# dotty's own copy is retired. The old hardcoded ../../../../git-hooks/ walk
 # assumed this script always lived inside a dotty-shaped checkout; from the
 # work-lifecycle plugin cache that path doesn't exist at all (SCRIPT_DIR/../..
 # is the plugin's OWN root, which has no git-hooks/ sibling — estate-hooks is
@@ -87,14 +87,14 @@ source "$GITLEAKS_COMMON"
 # shellcheck source=/dev/null
 source "${SCRIPT_DIR}/resolve-references-key.sh"
 
-# yq is a prerequisite of resolve_references_key (Brewfile-declared,
-# LEX-708). Its absence must never silently degrade a resolved path to a
+# yq is a prerequisite of resolve_references_key (Brewfile-declared).
+# Its absence must never silently degrade a resolved path to a
 # caller's own broken pre-key default — check once, here, ahead of every
 # resolve_references_key call below.
 resolve_references_key_check_yq || exit 2
 
 ROSTERS_PATH="$(resolve_references_key references.tag_taxonomy_rosters)"
-# Optional (LEX-718): operator employer/product vocabulary for the
+# Optional: operator employer/product vocabulary for the
 # fiction-detection check. Unset/unresolved is fine -- qa.py's
 # --private-vocab-path already no-ops on an empty/missing path.
 PRIVATE_VOCAB_PATH="$(resolve_references_key references.qa_private_vocab)"

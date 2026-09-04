@@ -27,7 +27,7 @@ set -uo pipefail
 # No self-location variable (HERE/SKILLS_DIR) needed anymore: every probe
 # resolves its targets from declared state (core.json, plugins.json,
 # installed_plugins.json) rather than a path relative to this script's own
-# location — the LEX-722 rework retired the last probe (5, the old
+# location — this rework retired the last probe (5, the old
 # blueprint-coverage) that walked a co-located skills tree.
 
 FAIL_COUNT=0
@@ -75,7 +75,7 @@ PYEOF
 # absolute path against an UNEXPANDED tilde, so the `case` match never fired
 # and generic tools silently passed through on every vault .md file.
 #
-# Reworked by LEX-722: the hook used to be resolved by a path relative to
+# Reworked: the hook used to be resolved by a path relative to
 # this script's own location (valid when smoke.sh and the hooks shipped
 # from the same dotty checkout). Post-cutover, hooks ship from the separate
 # estate-hooks@work-lifecycle plugin — this probe was silently broken
@@ -398,7 +398,7 @@ print(" ".join(sorted(state.keys())))
 # ~/.git pointed at a tree whose content sat one level down, producing 56
 # phantom deletions visible to any session under $HOME.
 #
-# Reworked by LEX-722: the agents surface's declared key never carried the
+# Reworked: the agents surface's declared key never carried the
 # ".md" suffix core.sh's own resolve_link_name()/link_suffix() appends when
 # WRITING the physical link file — core.json stores the bare key ("attack-
 # kitty"), core.sh writes "attack-kitty.md". This probe read the bare key
@@ -467,7 +467,7 @@ for profile, surfaces in sorted(state.items()):
 # before a plugin one), so an undetected shadow is a skill/agent quietly
 # running stale or wrong content with no visible signal.
 #
-# Reworked by LEX-722: the old check ("every dir in the co-located skills
+# Reworked: the old check ("every dir in the co-located skills
 # tree has a core.json entry in both profiles") was self-referential — it
 # compared whichever skills/ directory smoke.sh happened to be installed
 # beside against core.json, so running it from a location other than dotty
@@ -479,10 +479,10 @@ for profile, surfaces in sorted(state.items()):
 #
 # Reads dotty-private's plugins.json (the declared plugin-id list per
 # profile) rather than hardcoding work-lifecycle/estate-hooks, so it covers
-# any future plugin (e.g. LEX-700's wiki/operator) automatically IF that
-# plugin packages skills/agents at the same top-level skills/ + agents/*.md
-# layout work-lifecycle uses — a design assumption flagged on LEX-700 to
-# confirm when it ships, not a guarantee plugins.json itself establishes.
+# any future plugin (e.g. a future wiki/operator plugin) automatically IF
+# that plugin packages skills/agents at the same top-level skills/ +
+# agents/*.md layout work-lifecycle uses — a design assumption to confirm
+# when such a plugin ships, not a guarantee plugins.json itself establishes.
 # ---------------------------------------------------------------------------
 # Written to a temp file, not captured via "$(cat <<'PYEOF' ... )" like this
 # file's other embedded scripts — that pattern reliably makes bash 3.2
@@ -525,8 +525,8 @@ def skill_dirs(install_path):
     # plugin.json's own "skills" field (a string or array of paths relative
     # to the plugin root, glob patterns included — e.g. ".claude/skills/*")
     # is the authoritative attribution when present; a plugin that packages
-    # skills anywhere other than a top-level skills/ dir (the wiki plugin,
-    # LEX-700: ".claude/skills/*") would otherwise be attributed zero
+    # skills anywhere other than a top-level skills/ dir (a wiki plugin
+    # serving from ".claude/skills/*") would otherwise be attributed zero
     # skills by this probe and report a silent, wrong PASS — exactly the
     # failure class this probe exists to catch. Falls back to the default
     # skills/* glob only when the field is absent (work-lifecycle's own
@@ -870,16 +870,16 @@ probe_plugin_hook_serving() {
 # (installed_plugins.json carries a scope:user entry for it) — the
 # declared-vs-live check probe 6 already runs for one hardcoded id
 # (estate-hooks@work-lifecycle), generalized here across the full declared
-# list so LEX-700's wiki/operator plugins are covered with no further edit
+# list so a future wiki/operator plugin is covered with no further edit
 # to THIS probe (same plugins.json-reading design as probe 5's rework).
 #
 # Also asserts, once (not per-plugin): both profiles' `plugins` links
 # resolve (via readlink) to the same single real directory, and that
-# directory is not itself inside a git working tree — the a5 disposition
-# from LEX-699's inventory (`5d07df74`): the shared cache must be a real
-# directory outside any checkout, not left inside dotty-private's tree.
+# directory is not itself inside a git working tree — per the cutover's own
+# inventory disposition (comment `5d07df74`): the shared cache must be a
+# real directory outside any checkout, not left inside dotty-private's tree.
 #
-# Regression class this closes: nothing before this ticket asserted the
+# Regression class this closes: nothing before this rework asserted the
 # FULL declared-plugin set is enabled+installed across every profile in one
 # place — probe 6 only ever checked estate-hooks; a silently-disabled
 # work-lifecycle (or a future wiki/operator) had no probe naming it.
