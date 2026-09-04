@@ -63,7 +63,7 @@ Full rubric, commands, and verdict schema live in `playbooks/gate.md`. Each step
 
 ## Push/PR flow (only on PASS)
 
-Per global CLAUDE.md § GitHub: branch → commit → push → PR → merge for public repos, every step still prompting via `permissions.ask`; direct push for `dotty-private` and other declared-private repos. This skill orchestrates up to the verdict — it does not touch push/PR mechanics or bypass a single prompt.
+Per global CLAUDE.md § GitHub: branch → commit → push → PR → merge for every repo, public and private alike, every step still prompting via `permissions.ask` — `dotty-private` enforces PR-only via a branch-protection ruleset like the rest, no direct-push exception. This skill orchestrates up to the verdict — it does not touch push/PR mechanics or bypass a single prompt.
 
 ## What this skill does NOT do
 
