@@ -18,8 +18,8 @@ concurrency:
   # A push-to-main run must never be cancelled or replaced while pending —
   # GitHub's default queue holds one pending run per group and *replaces*
   # it, which would silently drop a version-bump's release run in favor of
-  # a later no-bump push (LEX-701, receipted 47d673a9/9f0e930b). Keying on
-  # github.sha for non-PR events gives every commit its own group slot;
+  # a later no-bump push. Keying on github.sha for non-PR events gives
+  # every commit its own group slot;
   # cancel-in-progress stays true only for PR events, which still want
   # superseding pushes to cancel the stale run.
   group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
@@ -111,7 +111,7 @@ jobs:
         run: bash work-lifecycle/.github/scripts/standalone-check.sh work-lifecycle
 
   release-check:
-    # PR-time check, no writes — LEX-701. Required by this repo's
+    # PR-time check, no writes. Required by this repo's
     # branch-protection ruleset (added alongside this job, strict), so a
     # merge that changes a plugin's content without bumping its version is
     # blocked, not just reported red after the fact. Deliberately no
@@ -136,7 +136,7 @@ jobs:
           exit "$FAILED"
 
   release-tag:
-    # Push-time, main only — LEX-701. Cuts a tag + GitHub Release for any
+    # Push-time, main only. Cuts a tag + GitHub Release for any
     # plugin whose declared version isn't tagged yet. Idempotent (safe to
     # re-run; see tag-plugin-release.sh). contents: write scoped to this
     # job only — every other job in this workflow stays contents: read.
@@ -151,6 +151,15 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+
+      # claude plugin tag creates an annotated tag (-m), which needs a
+      # committer identity; a fresh runner checkout has none configured.
+      # Standard github-actions[bot] identity, same as GitHub's own
+      # first-party actions use for automated commits/tags.
+      - name: Configure git identity for the release commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
