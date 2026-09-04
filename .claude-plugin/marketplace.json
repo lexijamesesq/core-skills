@@ -1,12 +1,12 @@
 {
   "$schema": "https://code.claude.com/schemas/marketplace.json",
-  "name": "work-lifecycle",
+  "name": "core",
   "owner": {
     "name": "Lexi James",
     "url": "https://github.com/lexijamesesq"
   },
   "metadata": {
-    "description": "Operator-owned marketplace for the estate's Claude Code harness plugins."
+    "description": "The marketplace for the estate's Claude Code harness: the core session-mechanics plugin and the hooks plugin."
   },
   "plugins": [
     {
@@ -14,14 +14,14 @@
       "source": "./plugins/estate-hooks",
       "description": "The estate's eight Claude Code hook scripts plus a shared gitleaks helper, packaged as a plugin.",
       "license": "MIT",
-      "repository": "https://github.com/lexijamesesq/work-lifecycle"
+      "repository": "https://github.com/lexijamesesq/core-skills"
     },
     {
-      "name": "work-lifecycle",
-      "source": "./plugins/work-lifecycle",
-      "description": "The estate's core work-lifecycle skills plus the attack-kitty verification agent, packaged as a plugin.",
+      "name": "core",
+      "source": "./plugins/core",
+      "description": "The estate's core session-mechanics skills plus the attack-kitty verification agent, packaged as a plugin.",
       "license": "MIT",
-      "repository": "https://github.com/lexijamesesq/work-lifecycle"
+      "repository": "https://github.com/lexijamesesq/core-skills"
     }
   ]
 }

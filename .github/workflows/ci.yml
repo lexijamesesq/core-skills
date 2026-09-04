@@ -47,10 +47,8 @@ jobs:
       - name: Install uv 0.11.22
         run: pip install uv==0.11.22
 
-      - name: house-qa test suite (35 tests)
-        run: python3 plugins/work-lifecycle/skills/house-qa/tests/run_tests.py
       - name: linear scripts pytest suite (235 tests)
-        working-directory: plugins/work-lifecycle/skills/linear/scripts
+        working-directory: plugins/core/skills/linear/scripts
         run: uvx pytest@9.1.1 tests
 
       # gh-pr-body-guard.test.sh hard-requires the real gitleaks binary on
@@ -78,7 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          path: work-lifecycle
+          path: core-skills
       - name: Checkout dotty main (current HEAD, re-resolved every run)
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -86,7 +84,7 @@ jobs:
           ref: main
           path: dotty
       - name: Run drift check
-        run: bash work-lifecycle/.github/scripts/drift-check.sh dotty work-lifecycle
+        run: bash core-skills/.github/scripts/drift-check.sh dotty core-skills
 
   standalone-check:
     # Deliberately does NOT check dotty out — identity (drift-check, above)
@@ -99,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          path: work-lifecycle
+          path: core-skills
       # gh-pr-body-guard.sh's fixed-path check invokes the real gitleaks
       # binary — same composite dotty's own CI and this repo's
       # validate-and-test job use.
@@ -108,7 +106,7 @@ jobs:
         with:
           version: '8.30.1'
       - name: Run standalone check
-        run: bash work-lifecycle/.github/scripts/standalone-check.sh work-lifecycle
+        run: bash core-skills/.github/scripts/standalone-check.sh core-skills
 
   release-check:
     # PR-time check, no writes. Required by this repo's
@@ -131,7 +129,7 @@ jobs:
         run: |
           set -uo pipefail
           FAILED=0
-          bash .github/scripts/check-plugin-version.sh plugins/work-lifecycle work-lifecycle || FAILED=1
+          bash .github/scripts/check-plugin-version.sh plugins/core core || FAILED=1
           bash .github/scripts/check-plugin-version.sh plugins/estate-hooks estate-hooks || FAILED=1
           exit "$FAILED"
 
@@ -173,6 +171,6 @@ jobs:
         run: |
           set -uo pipefail
           FAILED=0
-          bash .github/scripts/tag-plugin-release.sh plugins/work-lifecycle work-lifecycle || FAILED=1
+          bash .github/scripts/tag-plugin-release.sh plugins/core core || FAILED=1
           bash .github/scripts/tag-plugin-release.sh plugins/estate-hooks estate-hooks || FAILED=1
           exit "$FAILED"
