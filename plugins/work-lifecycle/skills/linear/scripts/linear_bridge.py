@@ -610,13 +610,12 @@ def decisions_append(bridge_cmd_parts, map_uuid, map_title, entry_text, max_atte
     other's entries the way a whole-content overwrite with no such check
     once did.
 
-    Two residual races this loop does not structurally close (both named on
-    the ticket that built it, neither closable without a server-side
-    compare-and-swap Linear's schema doesn't expose): (a) two writers racing
-    the map's very first
-    decision could each find no doc and both `documentCreate`, producing two
-    same-titled docs — a first-decision-only window, never hit by the
-    receipted incidents, all of which raced an *existing* doc; (b) a writer's
+    Two residual races this loop does not structurally close (neither
+    closable without a server-side compare-and-swap Linear's schema doesn't
+    expose): (a) two writers racing the map's very first decision could each
+    find no doc and both `documentCreate`, producing two same-titled docs —
+    a first-decision-only window, never hit by the receipted incidents, all
+    of which raced an *existing* doc; (b) a writer's
     own read-back can complete and report verified before a second writer's
     write lands, so the second write clobbers the first with no further
     check on either side — narrower (sub-second, both writers' full
