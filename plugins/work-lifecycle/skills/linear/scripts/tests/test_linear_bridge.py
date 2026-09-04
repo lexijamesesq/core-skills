@@ -658,6 +658,47 @@ class DecisionsAppendTests(unittest.TestCase):
         self.assertTrue(result["verified"])
         self.assertEqual(result["attempt"], 2)  # proves the first attempt's read-back failed and it retried
 
+    def test_verified_true_when_readback_has_linear_autolink_wrapping(self):
+        """Receipted regression: Linear stores a bare URL inside a markdown
+        link target wrapped as `<url>`, not `url` — content this module
+        never asked for. A read-back reporting that wrapped form is a
+        successful write, not a mismatch; raw string comparison used to
+        report `verified: False` here and cascade into a false
+        DuplicateEntryError on the retry, even though the append had already
+        landed correctly on attempt 1."""
+        wrapped_link = self.ENTRY.replace(
+            "(https://linear.app/a/issue/LEX-1/is-x-true)",
+            "(<https://linear.app/a/issue/LEX-1/is-x-true>)",
+        )
+        script_responses([
+            {"stdout": {"data": {"issue": {"documents": {"nodes": []}}}}, "returncode": 0},
+            {"stdout": {"data": {"documentCreate": {"success": True,
+                                                      "document": {"id": "doc-1", "title": "Decisions — Map",
+                                                                   "content": wrapped_link + "\n"}}}}, "returncode": 0},
+            {"stdout": {"data": {"issue": {"documents": {"nodes": [
+                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": wrapped_link + "\n"},
+            ]}}}}, "returncode": 0},
+        ])
+        result = lb.decisions_append(STUB_CMD, "map-uuid", "Map", self.ENTRY)
+        self.assertTrue(result["verified"])
+        self.assertEqual(result["attempt"], 1)  # must not need a retry to recover from Linear's own formatting
+
+    def test_duplicate_check_tolerates_linear_autolink_wrapping(self):
+        """Same wrapping, checked on the duplicate-refusal path: an existing
+        entry stored with the URL angle-bracketed must still be recognized
+        as the same entry, not treated as absent."""
+        wrapped_link = self.ENTRY.replace(
+            "(https://linear.app/a/issue/LEX-1/is-x-true)",
+            "(<https://linear.app/a/issue/LEX-1/is-x-true>)",
+        )
+        script_responses([
+            {"stdout": {"data": {"issue": {"documents": {"nodes": [
+                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": wrapped_link + "\n"},
+            ]}}}}, "returncode": 0},
+        ])
+        with self.assertRaises(lb.DuplicateEntryError):
+            lb.decisions_append(STUB_CMD, "map-uuid", "Map", self.ENTRY)
+
     def test_retries_exhausted_raises_after_max_attempts(self):
         c0 = "[Older decision](https://linear.app/a/issue/LEX-0/older) — the first one.\n"
         mismatched = "[Someone else](https://linear.app/a/issue/LEX-3/someone-else) — always in the way.\n"

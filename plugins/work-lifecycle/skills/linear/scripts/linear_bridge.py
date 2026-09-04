@@ -563,6 +563,23 @@ def _entry_link(entry_text):
     return m.group(1)
 
 
+AUTOLINK_WRAP_RE = re.compile(r"<(https?://[^\s>]+)>")
+
+
+def _normalize_autolinks(text):
+    """Undo Linear's own markdown normalization on stored document content:
+    a bare URL inside a `(...)` link target round-trips through
+    documentCreate/documentUpdate wrapped as `(<url>)`, not `(url)` — content
+    this module never asked for and doesn't control. Comparing a freshly
+    authored entry (never wrapped) against a freshly read-back one (Linear's
+    wrapped form) with raw string equality is a false mismatch, not a real
+    one; strip the wrapper from both sides before every entry-identity or
+    entry-presence comparison so this specific round-trip transform can't
+    surface as a false verification failure (receipted: a real append that
+    landed correctly was reported as a duplicate-refused no-op)."""
+    return AUTOLINK_WRAP_RE.sub(r"\1", text)
+
+
 def _create_decisions_doc(bridge_cmd_parts, map_uuid, title, content):
     """documentCreate, content passed as a GraphQL variable (never
     string-interpolated — decision entries are freeform markdown that can
@@ -631,7 +648,7 @@ def decisions_append(bridge_cmd_parts, map_uuid, map_title, entry_text, max_atte
         doc = _find_decisions_doc(bridge_cmd_parts, map_uuid)
         base_content = (doc.get("content") or "") if doc else ""
 
-        if entry_link in base_content:
+        if entry_link in _normalize_autolinks(base_content):
             raise DuplicateEntryError(
                 f"entry link {entry_link!r} already present in the Decisions document — refusing duplicate append",
                 existing_content=base_content,
@@ -649,7 +666,7 @@ def decisions_append(bridge_cmd_parts, map_uuid, map_title, entry_text, max_atte
         observed_content = (readback_doc.get("content") or "") if readback_doc else ""
 
         prefix_ok = observed_content.startswith(base_content)
-        entry_present = entry_text in observed_content
+        entry_present = _normalize_autolinks(entry_text) in _normalize_autolinks(observed_content)
         if prefix_ok and entry_present:
             return {
                 "verified": True,
