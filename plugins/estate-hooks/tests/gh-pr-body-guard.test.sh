@@ -206,6 +206,21 @@ run_iso_bare_rules() { # <json> <rules-file>   (own repo NOT a repo; env-var ove
         XDG_CONFIG_HOME="${XDG_OVERRIDE:-$XDG_CONFIG_HOME}" bash "$ISO_BARE_HOOK" >/dev/null 2>"$ERRFILE"
     RC=$?
 }
+# NOXDG variant: own repo NOT a repo AND the fixed-path ruleset is genuinely
+# absent (an empty scratch dir, not the suite's global fixture) — path 3 now
+# resolves the fixed path directly, so isolating "nothing resolves" or "path 4
+# alone" requires suppressing path 3 too, not just repo-unreachability.
+XDG_EMPTY="$TMP/xdg-empty"; mkdir -p "$XDG_EMPTY"
+run_iso_bare_noxdg() { # <json>   (own repo NOT a repo; fixed path absent; no env var)
+    printf '%s' "$1" | env -u GITLEAKS_OPERATOR_RULES PATH="$PATH" \
+        XDG_CONFIG_HOME="$XDG_EMPTY" bash "$ISO_BARE_HOOK" >/dev/null 2>"$ERRFILE"
+    RC=$?
+}
+run_iso_bare_rules_noxdg() { # <json> <rules-file>   (own repo NOT a repo; fixed path absent; env-var override)
+    printf '%s' "$1" | env GITLEAKS_OPERATOR_RULES="$2" PATH="$PATH" \
+        XDG_CONFIG_HOME="$XDG_EMPTY" bash "$ISO_BARE_HOOK" >/dev/null 2>"$ERRFILE"
+    RC=$?
+}
 
 # Build a PATH bin dir containing every tool the hook uses EXCEPT one (for the
 # missing-dependency tests). Platform-independent — no assumptions about /usr/bin.
@@ -364,43 +379,61 @@ section "ruleset path 2: 'cd <REPO> && gh pr create' clean body from a non-repo 
 run_hook "$(mkjson "cd $REPO && gh pr create --title \"x\" --body \"entirely clean\"" "$NOREPO")"
 assert_eq "cd-prefix clean exits 0 (allow)" "0" "$RC"
 
-# --- Path 3: the guard's OWN repo (zero-config). Isolated copy whose HERE/../..
-# IS a provisioned repo (synthetic ruleset); the real hook runs identical code. --
-section "ruleset path 3: own repo resolves from a non-repo cwd (no cd, no env) -> canary blocks"
+# --- Path 3: the machine's fixed-path operator ruleset (zero-config, repo-
+# independent — reworked from "own repo must be a
+# provisioned checkout" to "the fixed path is installed", so it resolves
+# identically whether or not HERE/../.. is a repo at all). own-repo-provisioned
+# and own-repo-bare copies behave the SAME now — both prove the fixed path
+# wins independent of repo structure, which is the point of the fix. -----------
+section "ruleset path 3 (fixed path): own repo IS a provisioned checkout too -> canary blocks"
 run_iso_prov "$(mkjson "gh pr create --title \"x\" --body \"leak $CANARY\"" "$NOREPO")"
-assert_eq "own-repo canary exits 2 (block — path 3 resolved, then scanned)" "2" "$RC"
-grep -q "aws-access-token" "$ERRFILE" && pass "own-repo scan reports the rule id" || fail "own-repo scan reports the rule id" "$(cat "$ERRFILE")"
+assert_eq "own-repo-provisioned canary exits 2 (block — path 3 resolved, then scanned)" "2" "$RC"
+grep -q "aws-access-token" "$ERRFILE" && pass "own-repo-provisioned scan reports the rule id" || fail "own-repo-provisioned scan reports the rule id" "$(cat "$ERRFILE")"
 
-section "ruleset path 3: own repo resolves, clean body -> PASSES (zero-config, no over-block)"
+section "ruleset path 3 (fixed path): own repo IS a provisioned checkout too, clean body -> PASSES"
 run_iso_prov "$(mkjson 'gh pr create --title "x" --body "entirely clean"' "$NOREPO")"
-assert_eq "own-repo clean exits 0 (allow)" "0" "$RC"
+assert_eq "own-repo-provisioned clean exits 0 (allow)" "0" "$RC"
 
-# --- Genuine fail-closed: own repo NOT reachable AND no cd AND no env var. -------
-section "no ruleset: own repo unreachable, no cd, no env -> BLOCK (names all four ways)"
+section "ruleset path 3 (fixed path): own repo is NOT a repo at all -> STILL resolves, canary blocks"
 run_iso_bare "$(mkjson "gh pr create --title \"x\" --body \"leak $CANARY\"" "$NOREPO")"
+assert_eq "own-repo-bare canary exits 2 (block — fixed path resolved regardless of repo structure)" "2" "$RC"
+grep -q "aws-access-token" "$ERRFILE" && pass "own-repo-bare scan reports the rule id" || fail "own-repo-bare scan reports the rule id" "$(cat "$ERRFILE")"
+
+section "ruleset path 3 (fixed path): own repo is NOT a repo, clean body -> PASSES"
+run_iso_bare "$(mkjson 'gh pr create --title "x" --body "entirely clean"' "$NOREPO")"
+assert_eq "own-repo-bare clean exits 0 (allow)" "0" "$RC"
+
+# --- Genuine fail-closed: own repo NOT reachable AND fixed path NOT installed
+# AND no cd AND no env var. Needs the *_noxdg runners — run_iso_bare alone no
+# longer isolates this (path 3 resolves via the suite's global XDG fixture
+# regardless of repo structure, which is exactly what the fix above proves). --
+section "no ruleset: own repo unreachable, fixed path absent, no cd, no env -> BLOCK (names all four ways)"
+run_iso_bare_noxdg "$(mkjson "gh pr create --title \"x\" --body \"leak $CANARY\"" "$NOREPO")"
 assert_eq "no-ruleset exits 2 (block)" "2" "$RC"
 grep -qi "could not locate the operator gitleaks ruleset" "$ERRFILE" && pass "names the no-ruleset cause" || fail "names the no-ruleset cause" "$(cat "$ERRFILE")"
 grep -q "gitleaks-rules apply" "$ERRFILE" && pass "names the blueprint install" || fail "names the blueprint install" "none"
 grep -q "GITLEAKS_OPERATOR_RULES" "$ERRFILE" && pass "names the override" || fail "names the override" "none"
 grep -qi "cd <repo" "$ERRFILE" && pass "names the cd-prefix way" || fail "names the cd-prefix way" "none"
 
-section "no ruleset: 'cd /nonexistent && gh pr create' with own repo unreachable -> BLOCK"
-run_iso_bare "$(mkjson 'cd /nonexistent && gh pr create --title "x" --body "y"' "$NOREPO")"
+section "no ruleset: 'cd /nonexistent && gh pr create' with own repo unreachable, fixed path absent -> BLOCK"
+run_iso_bare_noxdg "$(mkjson 'cd /nonexistent && gh pr create --title "x" --body "y"' "$NOREPO")"
 assert_eq "cd-nonexistent exits 2 (block)" "2" "$RC"
 grep -qi "could not locate the operator gitleaks ruleset" "$ERRFILE" && pass "falls through to the no-ruleset block" || fail "falls through to the no-ruleset block" "$(cat "$ERRFILE")"
 
-# --- Path 4: GITLEAKS_OPERATOR_RULES override (only when paths 1-3 fail). --------
-section "ruleset path 4: env var override when own repo unreachable -> canary blocks"
-run_iso_bare_rules "$(mkjson "gh pr create --title \"x\" --body \"leak $CANARY\"" "$NOREPO")" "$OPRULES"
+# --- Path 4: GITLEAKS_OPERATOR_RULES override (only when paths 1-3 fail, so
+# these need the fixed path absent too — the suite's global XDG fixture would
+# otherwise resolve at path 3 before path 4 is ever consulted). ------------------
+section "ruleset path 4: env var override when own repo unreachable and fixed path absent -> canary blocks"
+run_iso_bare_rules_noxdg "$(mkjson "gh pr create --title \"x\" --body \"leak $CANARY\"" "$NOREPO")" "$OPRULES"
 assert_eq "env-var override canary exits 2 (block — path 4 scanned)" "2" "$RC"
 grep -q "aws-access-token" "$ERRFILE" && pass "override scan reports the rule id" || fail "override scan reports the rule id" "$(cat "$ERRFILE")"
 
 section "ruleset path 4: env var override clean body -> PASSES (no over-block)"
-run_iso_bare_rules "$(mkjson 'gh pr create --title "x" --body "entirely clean"' "$NOREPO")" "$OPRULES"
+run_iso_bare_rules_noxdg "$(mkjson 'gh pr create --title "x" --body "entirely clean"' "$NOREPO")" "$OPRULES"
 assert_eq "env-var override clean exits 0 (allow)" "0" "$RC"
 
 section "ruleset path 4: env var override pointing at a nonexistent file -> BLOCK (fail-closed)"
-run_iso_bare_rules "$(mkjson "gh pr create --title \"x\" --body \"leak $CANARY\"" "$NOREPO")" "$TMP/no-such-rules.toml"
+run_iso_bare_rules_noxdg "$(mkjson "gh pr create --title \"x\" --body \"leak $CANARY\"" "$NOREPO")" "$TMP/no-such-rules.toml"
 assert_eq "env-var override missing exits 2 (block)" "2" "$RC"
 grep -q "GITLEAKS_OPERATOR_RULES" "$ERRFILE" && pass "names the env var" || fail "names the env var" "$(cat "$ERRFILE")"
 grep -qi "unreadable" "$ERRFILE" && pass "names the unreadable reason" || fail "names the unreadable reason" "none"
@@ -460,8 +493,10 @@ run_hook "$(mkjson "cd $CR1 && cd $CR1/abssub && gh pr create --title \"x\" --bo
 assert_eq "abs-mid-chain canary exits 2 (block)" "2" "$RC"
 grep -q "aws-access-token" "$ERRFILE" && pass "absolute target replaced (canary in /abs/body.md found)" || fail "absolute target replaced" "$(cat "$ERRFILE")"
 
+# Fixed path absent (noxdg) so this isolates the cd-chain property itself
+# (never guess a directory) rather than incidentally re-testing path 3.
 section "chained cd: a mid-chain cd that fails to resolve -> resolve NOTHING -> fall through -> BLOCK"
-run_iso_bare "$(mkjson "cd $CR1 && cd nonexistent && gh pr create --title \"x\" --body \"clean\"" "$NOREPO")"
+run_iso_bare_noxdg "$(mkjson "cd $CR1 && cd nonexistent && gh pr create --title \"x\" --body \"clean\"" "$NOREPO")"
 assert_eq "chain-fails exits 2 (block)" "2" "$RC"
 grep -qi "could not locate the operator gitleaks ruleset" "$ERRFILE" && pass "chain-fails falls through (no guessed dir)" || fail "chain-fails falls through" "$(cat "$ERRFILE")"
 
