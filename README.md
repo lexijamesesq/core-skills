@@ -43,6 +43,7 @@ Checks that run before anything leaves the machine.
 | `/publish` | Skill | Runs every check a repo must pass before it ships — scans, conformance, review |
 | `/house-qa` | Skill + Script | Judges whether a new file reads like it belongs beside the ones already there |
 | `/github-readme` | Skill | Writes or refreshes a README for a skill, agent, rule, or project |
+| `/release-dotty` | Skill + Script | Cuts dotty's own calendar-versioned release and bumps every consumer's pin to it, as one local, operator-invoked act |
 | `/sample-universe` | Skill | Supplies the fictional company that public examples borrow their names from |
 
 #### Authoring and machine state
