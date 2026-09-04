@@ -53,10 +53,10 @@ The default lives here in the playbook, not in the caller — that way ad-hoc in
 
    **If pagination fails partway through**, do not proceed on the partial set — an incomplete topology can misjudge the all-closed invariant (a member fetched on a page that never arrived looks absent, not open). Abort the pass, report what was fetched, and let the next run retry clean.
 
-4. **Run the archive-sweep script.** Run `.claude/skills/linear/scripts/archive-sweep.py`, passing it the full topology response assembled in Step 3 (every page's `nodes` concatenated into one list, matching the script's expected `{"data":{"issues":{"nodes":[...]}}}` shape) via stdin or a file argument, plus the current hold level:
+4. **Run the archive-sweep script.** Run `<skill-base-dir>/scripts/archive-sweep.py`, passing it the full topology response assembled in Step 3 (every page's `nodes` concatenated into one list, matching the script's expected `{"data":{"issues":{"nodes":[...]}}}` shape) via stdin or a file argument, plus the current hold level:
 
    ```
-   python3 .claude/skills/linear/scripts/archive-sweep.py --hold-hours <H> [--now <today>] [--exclude-roots <root_id>,<root_id>,...] < topology.json
+   python3 <skill-base-dir>/scripts/archive-sweep.py --hold-hours <H> [--now <today>] [--exclude-roots <root_id>,<root_id>,...] < topology.json
    ```
 
    The script rebuilds cluster topology and checks eligibility at hold `H`, then prints the candidate list as JSON to stdout. It is pure data processing — it never calls the Linear API. **If the script exits non-zero**, do not proceed on partial or guessed output — treat it like a pagination failure (see Failure modes): abort the pass, report the script's stderr, and let the next run retry against a fresh fetch.

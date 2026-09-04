@@ -7,8 +7,8 @@ entry of its own, so a thin shim installed by dotty-private's blueprint at
 $HOME/.local/bin/traffic-cone points at whichever version this resolves to
 (see the shim's own header). SCRIPTS below resolves cone_preflight.py from
 its sibling `linear/scripts` in the SAME cache tree — a plugin-relative path,
-never a dotty one, so this keeps working once dotty's own copy (and its
-`.claude/skills/linear/scripts/`) is gone.
+never a dotty-checkout one, so this keeps working once dotty's own copy is
+gone.
 
 Call a verb; the gate runs its own checks and executes, returning a verdict.
 For the transitions below you never assemble the underlying `cone_preflight.py`
