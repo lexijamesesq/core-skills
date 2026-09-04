@@ -34,7 +34,7 @@
 # an indeterminate target must BLOCK, never silently pass):
 #   * jq / python3 missing   -> BLOCK (cannot parse the invocation / its args).
 #   * gitleaks missing       -> BLOCK (via gl_preflight; names the install).
-#   * no ruleset located (payload-cwd / cd-prefix / fixed-path / env var) -> BLOCK.
+#   * no ruleset located (payload-cwd / cd-prefix / own-repo / env var) -> BLOCK.
 #   * located .gitleaks.toml broken ([extend] unresolvable) -> BLOCK (gl_preflight).
 #   * GITLEAKS_OPERATOR_RULES set but unreadable -> BLOCK.
 #   * --body-file / -F unresolvable, no arg, or unparsable command -> BLOCK.
@@ -49,17 +49,15 @@
 # the operator RULESET, not any particular checkout — so it locates one four ways
 # (see "LOCATE THE OPERATOR RULESET" below), first hit wins:
 #   1. the payload cwd's repo          2. a `cd <path> && ...` prefix's repo
-#   3. the machine's fixed-path operator ruleset (gl_fixed_rules_path) — works
-#      regardless of which repo, checkout, or plugin cache this hook itself
-#      runs from; the only path that needs zero repo context at all
+#   3. the guard's OWN repo (this file ships in the tooling repo, which carries
+#      the .gitleaks.toml [extend]ing the fixed-path operator ruleset resolved
+#      by gl_preflight)
 #   4. $GITLEAKS_OPERATOR_RULES        else -> BLOCK
 # Paths 1-3 need NO configuration on a provisioned machine; path 4 is an override
 # for an UNPROVISIONED machine and is never required. (An env var would have to be
 # hand-set in two places — profile + shell — which is the drift this epic kills.)
-# Paths 1-2 locate a repo CONFIG whose extend the fixed-path resolver still
-# rewrites via gl_preflight; path 3 builds a synthetic config directly from the
-# fixed path — see git-hooks/gitleaks-common.sh (or its packaged copy in
-# estate-hooks/hooks/) for the resolution contract.
+# Paths 1-3 locate a repo CONFIG; the operator ruleset it extends is resolved by
+# gl_preflight — see git-hooks/gitleaks-common.sh for the resolution contract.
 # Fail-closed is UNCHANGED: once a ruleset is located, a missing binary, a broken
 # config, or any finding still BLOCKS.
 #
@@ -256,29 +254,16 @@ if [[ -z "$CFG_DIR" && -n "$CD_DIR" ]]; then
     fi
 fi
 
-# Path 3 — the machine's fixed-path operator ruleset (zero configuration),
-# via gl_fixed_rules_path/gl_preflight (gitleaks-common.sh, sourced above).
-# Reworked: the original Path 3 assumed HERE/../.. was a
-# proper dotty checkout carrying a tracked .gitleaks.toml — true only while
-# this hook ran from dotty's own copy. Once estate-hooks packages this hook
-# (its installed cache has no .git and no .gitleaks.toml at all), that check
-# always failed, and any session outside a repo with its own .gitleaks.toml
-# (the vault, most of all) hit the "no ruleset found" BLOCK unconditionally —
-# reintroducing the same self-location class already fixed elsewhere in this
-# repo (qa.py/smoke.sh), because HERE/../.. is not portable across
-# a checkout vs. a packaged plugin cache. The fixed path IS portable: it is
-# installed once, machine-wide, independent of which repo (or plugin cache)
-# this hook happens to run from — the same signal Path 4's env-var override
-# already used, just unconditional instead of gated behind a variable.
+# Path 3 — the guard's OWN repo (zero configuration). This hook ships in the
+# public tooling repo, which carries a tracked .gitleaks.toml whose [extend] is
+# resolved by gl_preflight against the fixed-path operator ruleset (installed by
+# the blueprint's gitleaks-rules apply). HERE is .../<repo>/.claude/hooks, so
+# HERE/../.. is the repo root. This makes the guard work from ANY session on a
+# provisioned machine with no env var and no cd.
 if [[ -z "$CFG_DIR" ]]; then
-    _fixed="$(gl_fixed_rules_path)"
-    if [[ -r "$_fixed" ]]; then
-        _fixed_dir="$(cd "$(dirname "$_fixed")" && pwd)"
-        WRAPPER_TMP="$(mktemp)"
-        printf 'title = "pr-guard fixed-path wrapper"\n[extend]\npath = "%s"\n' \
-            "$_fixed_dir/$(basename "$_fixed")" > "$WRAPPER_TMP"
-        CFG_DIR="$_fixed_dir"; CFG="$WRAPPER_TMP"
-        RULESET_DESC="fixed-path operator ruleset: $_fixed"
+    if _root="$(repo_with_config "$HERE/../..")"; then
+        CFG_DIR="$_root"; CFG="$CONFIG"
+        RULESET_DESC="guard's own repo: $_root"
     fi
 fi
 
@@ -303,19 +288,20 @@ if [[ -z "$CFG_DIR" && -n "${GITLEAKS_OPERATOR_RULES:-}" ]]; then
     RULESET_DESC="GITLEAKS_OPERATOR_RULES: $_rabs"
 fi
 
-# None resolved -> BLOCK. On a provisioned machine this should not happen:
-# path 3 alone needs no configuration. Name all four ways.
+# None resolved -> BLOCK. On a provisioned machine this should not happen: paths
+# 1-3 need no configuration. Name all four ways.
 if [[ -z "$CFG_DIR" ]]; then
     block "PR-guard BLOCKED: could not locate the operator gitleaks ruleset" \
         "A PR title/body can carry secrets, employer/product names, private" \
         "URLs, email, or infra paths, and must be scanned before it is public." \
-        "No ruleset was found. On a provisioned machine path 3 needs NO config;" \
-        "reaching this usually means the fixed-path ruleset itself is not" \
-        "installed on this machine. Satisfy ANY one of:" \
+        "No ruleset was found. On a provisioned machine paths 1-3 need NO config;" \
+        "reaching this usually means the guard's own repo is not a proper dotty" \
+        "checkout (its tracked .gitleaks.toml is unreadable from here). Satisfy" \
+        "ANY one of:" \
         "  1. Publish from a session rooted in a repo that has .gitleaks.toml." \
         "  2. Prefix the command:  cd <repo-with-.gitleaks.toml> && gh pr create ..." \
-        "  3. Install the operator ruleset via the blueprint (gitleaks-rules apply) —" \
-        "     works from any session, any repo, once installed." \
+        "  3. Run this from a proper dotty checkout, with the operator ruleset" \
+        "     installed via the blueprint (gitleaks-rules apply)." \
         "  4. (override, unprovisioned machines only) export GITLEAKS_OPERATOR_RULES." \
         "(payload cwd was: $ORIG_CWD)"
 fi

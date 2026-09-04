@@ -85,8 +85,22 @@ rm -rf "$scratch_repo"
 # 2. gate-mechanical.sh's gitleaks-common.sh resolver finds a copy with NO
 #    ../../../../git-hooks/ sibling present — proves the estate-hooks-cache
 #    fallback fires, not just the same-repo path.
+#
+# Needs its own scratch $HOME/.claude-*/plugins/installed_plugins.json
+# fixture — the resolver's fallback globs "$HOME"/.claude-*, and this
+# check must prove the FALLBACK MECHANISM works, not that it happens to
+# find a real machine's real install (which a CI runner never has, and a
+# dev machine has only by accident of its own local state — exactly the
+# gap that let this check pass locally while failing in CI the first
+# time). Points the fixture's installPath at this same scratch copy of
+# plugins/estate-hooks, so the check is fully self-contained.
 # ---------------------------------------------------------------------------
 GATE_SCRIPTS="$WL_ROOT/plugins/work-lifecycle/skills/publish/scripts"
+SCRATCH_HOME="$WL_ROOT/scratch-home"
+mkdir -p "$SCRATCH_HOME/.claude-fake/plugins"
+cat > "$SCRATCH_HOME/.claude-fake/plugins/installed_plugins.json" <<EOF
+{"plugins": {"estate-hooks@work-lifecycle": [{"scope": "user", "installPath": "$WL_ROOT/plugins/estate-hooks"}]}}
+EOF
 resolver_probe="$(mktemp)"
 cat > "$resolver_probe" <<EOF
 set -euo pipefail
@@ -94,7 +108,7 @@ SCRIPT_DIR="/nonexistent/no/such/checkout/scripts"
 $(sed -n '/^resolve_gitleaks_common()/,/^}/p' "$GATE_SCRIPTS/gate-mechanical.sh")
 resolve_gitleaks_common
 EOF
-if resolved="$(bash "$resolver_probe" 2>/tmp/standalone-resolver-out.$$)"; then
+if resolved="$(HOME="$SCRATCH_HOME" bash "$resolver_probe" 2>/tmp/standalone-resolver-out.$$)"; then
     if [[ -r "$resolved" ]]; then
         check "gate-mechanical.sh's gitleaks-common.sh resolver falls back to the estate-hooks cache" 0
     else
