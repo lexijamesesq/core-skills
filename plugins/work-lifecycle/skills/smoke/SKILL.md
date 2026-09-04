@@ -5,8 +5,10 @@ description: >
   local protection layers (a PreToolUse hook, the lint fixture suite, every
   hook a live settings.json registers, every hook a plugin serves in its
   place) prove it is wired RIGHT NOW, not that it was wired the day it
-  shipped. Six probes, grown by regression only — each one exists because a
-  real silent-misconfiguration incident bit before it existed. Reports only;
+  shipped. Seven probes, grown by regression (one declared, operator-approved
+  exception) — each one exists because a real silent-misconfiguration
+  incident bit before it existed, or (probe 7 only) closes a coverage gap
+  the ticket that added it named explicitly. Reports only;
   never fixes. Triggers on "/smoke", "run smoke", "smoke test the config",
   "check the hooks are wired".
 ---
@@ -17,21 +19,22 @@ Domain check for Mac-side configuration health. The estate's protection layers �
 
 ## Identity
 
-This skill owns ONE thing: proving six specific local surfaces are wired correctly at the moment it runs. It does not scan for new problems, does not audit the whole harness, and does not fix anything it finds.
+This skill owns ONE thing: proving seven specific local surfaces are wired correctly at the moment it runs. It does not scan for new problems, does not audit the whole harness, and does not fix anything it finds.
 
 - **Mechanical only** — the bundled `smoke.sh` is the entire implementation: read-only, no network, no credentials, no writes. Every probe exercises the real surface (pipes real JSON at the real hook, runs the real fixture suite, parses the real live `settings.json`) — never a re-derivation from memory of what the surface *should* do.
-- **Grows by regression, never speculatively.** A probe is added only after a real silent-misconfiguration incident bites. Six probes, six incidents:
+- **Grows by regression, with one declared exception.** A probe is added only after a real silent-misconfiguration incident bites — except probe 7, added not from an incident but from a coverage gap the estate substrate map named explicitly when it required this rework: probe 6 audits enablement for exactly one hardcoded plugin id, and nothing before probe 7 asserted the FULL declared-plugin set (every id the blueprint's `plugins.json` names) is enabled and installed, in every profile. That gap is the kind every other probe here exists to close after the fact; probe 7 closes it before the silent-disablement incident, by the same map ruling that mandated this skill's rework — declared here as the growth rule's one operator-approved exception, not a silent departure from it.
 
 | Probe | Proves | Incident that added it |
 |---|---|---|
 | `hook-tilde-expansion` | `vault-mcp-redirect.sh` still expands a tilde-form `VAULT_ROOT` before the realpath comparison | 2026-06-02 — both vault-aware hooks compared a `realpath`-resolved absolute path against an *unexpanded* tilde in `VAULT_ROOT`, so the `case` match never fired; generic tools silently passed through unblocked on every vault `.md` file until caught |
 | `lint-suite` | `lint.py`'s fixture suite still passes | a false-green fixture class plus a python-version drift that changed check behavior between machines — both surfaced only by re-running the suite, never by reading the script |
-| `hook-registration-integrity` | every `.sh` hook a live `settings.json` registers still exists and is executable | a stale registered hook — an entry pointing at a path that had moved or lost its executable bit, invisible until the hook silently failed to fire |
+| `hook-registration-integrity` | every `.sh` hook a declared profile's `settings.json` registers still exists and is executable, with `hooks` the literal `{}` shape and no registration pointing under a deleted checkout path | a stale registered hook — an entry pointing at a path that had moved or lost its executable bit, invisible until the hook silently failed to fire |
 | `core-symlink-integrity` | every per-entry symlink the core blueprint slice declares exists, is a symlink, and resolves to its declared target | 2026-07-18 — a dangling agents symlink persisted two months after its target was deleted, and `~/.git` pointed at a tree whose content sat one level down, producing 56 phantom deletions visible to any session under `$HOME` |
-| `blueprint-coverage` | every skill directory in dotty's skills tree has a core-blueprint entry in both profiles | 2026-07-31 — wayfinder and prototype shipped in dotty but were never added to `core.json`, so they loaded nowhere until the operator noticed the skill missing globally |
+| `plugin-shadow-integrity` | no profile's own `skills/`/`agents/` directory has a live entry sharing a name with something an enabled, declared plugin already serves | 2026-09-03 — the prior form of this probe (`blueprint-coverage`) was self-referential (compared whichever skills tree it happened to run beside against `core.json`) and produced 36 false "undeclared" positives once probed from a location other than the source checkout; reworked to the correct post-cutover invariant, a live shadow silently winning over the plugin it shadows |
 | `plugin-hook-serving-integrity` | when a profile's guards run from `estate-hooks@work-lifecycle` instead of `settings.json` directly, the plugin is enabled AND its installed cache still serves every hook the plugin declares | 2026-09-02 — a plugin-packaging spike found that enabling/disabling a Claude Code plugin only mutates `enabledPlugins` in `settings.json`; nothing audited it, so a silently disabled plugin would drop all nine guard hooks with zero visible signal |
+| `plugin-enablement-integrity` | every plugin the blueprint's `plugins.json` declares, per profile, is enabled AND installed — generalizing probe 6's one-hardcoded-id check across the full declared set — plus, once, that both profiles' `plugins` link resolves to the same real directory outside any git working tree | declared exception, not an incident — see the growth-rule note above |
 
-Do not add a seventh probe without a new failure to justify it.
+Do not add an eighth probe without a new failure (or a map-ruled exception, declared here the way probe 7's is) to justify it.
 
 ## Intent
 
@@ -54,7 +57,7 @@ Do not add a seventh probe without a new failure to justify it.
 - **Steering:** cadence is deliberately NOT scheduled. The Mac carries no wall-clock automation by estate ruling (unlike the Pi's cron-driven lanes), so invocation is an operator-initiated convention: run at session-start for any infrastructure-touching session, and after any infrastructure change (a hook edit, a `settings.json` edit, a `lint.py` change). Nothing enforces this — the discipline is the caller's.
 
 **Decision authority.**
-- **Autonomous:** running all six probes; reporting PASS/FAIL per probe plus a summary line.
+- **Autonomous:** running all seven probes; reporting PASS/FAIL per probe plus a summary line.
 - **Escalate:** every FAIL — `/smoke` never remediates its own findings; the caller reads the detail and edits the broken surface directly.
 
 **Stop rules.**
@@ -72,7 +75,7 @@ Do not add a seventh probe without a new failure to justify it.
 - Does NOT fix anything it finds — report only, same discipline as `/lint-knowledge` and `/house-qa`.
 - Does NOT run on any schedule or session boundary automatically — invocation is always explicit, per the cadence convention above.
 - Does NOT replace `/lint-knowledge`'s periodic content-health pass — `lint-suite` here only proves the *test suite* still passes, not that the corpus itself is clean; run `/lint-knowledge` separately for that.
-- Does NOT audit MCP servers or general plugin state — of the blueprint's plugin domain this skill checks only the one specific gap probe 6 closes (a plugin silently disabled while a profile depends on it to serve hooks); everything else `/system-blueprint` governs stays `/system-blueprint`'s. The permanent, general-purpose audit for plugin state is a separate later effort — probe 6 is the interim detector.
+- Does NOT audit MCP servers or general plugin state — of the blueprint's plugin domain this skill checks only the two specific gaps probes 6 and 7 close (a plugin silently disabled while a profile depends on it to serve hooks; the full declared-plugin set not enabled+installed per profile); everything else `/system-blueprint` governs stays `/system-blueprint`'s. The permanent, general-purpose audit for plugin state is a separate later effort — probes 6 and 7 are the interim detectors.
 
 ## References
 
@@ -80,5 +83,7 @@ Do not add a seventh probe without a new failure to justify it.
 - `../../hooks/vault-mcp-redirect.sh` — probe 1's target.
 - `~/Repos/wiki/.claude/skills/lint-knowledge/tests/run_tests.py` — probe 2's target (the lint suite ships in the companion wiki repo, outside the vault).
 - `~/.claude-personal/settings.json`, `~/.claude-professional/settings.json` — probe 3's targets.
-- `~/bin/dotty-private/.claude/blueprint/core.json` — probes 4 and 5's declared state; probe 5 also walks dotty's skills tree.
+- `~/bin/dotty-private/.claude/blueprint/core.json` — probe 4's declared state.
+- `~/bin/dotty-private/.claude/blueprint/plugins.json` — probes 5 and 7's declared-plugin-per-profile state; probe 5 also walks each declared plugin's installed cache (its `.claude-plugin/plugin.json` `skills` field when present, else `skills/*`, plus `agents/*.md`) and each profile's own `skills/`/`agents/` dirs.
 - `~/.claude-*/settings.json`, `~/.claude-*/plugins/installed_plugins.json`, and the resolved `estate-hooks@work-lifecycle` cache's `.claude-plugin/plugin.json` + `hooks/hooks.json` — probe 6's targets.
+- `~/.claude-*/plugins/installed_plugins.json` (every plugins.json-declared id) and `~/.claude-personal/plugins` / `~/.claude-professional/plugins` (the shared-cache symlink) — probe 7's targets.

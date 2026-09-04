@@ -863,7 +863,10 @@ probe_plugin_hook_serving() {
 }
 
 # ---------------------------------------------------------------------------
-# Probe 7: plugin-enablement-integrity (new)
+# Probe 7: plugin-enablement-integrity (new — SKILL.md's one declared
+# growth-rule exception, added from a named coverage gap rather than an
+# incident; see SKILL.md's Identity section for why that's not a silent
+# departure from "grows by regression only")
 #
 # Proves every plugin dotty-private's plugins.json declares, per profile, is
 # actually enabled (enabledPlugins[<id>] is true) AND actually installed
@@ -875,9 +878,18 @@ probe_plugin_hook_serving() {
 #
 # Also asserts, once (not per-plugin): both profiles' `plugins` links
 # resolve (via readlink) to the same single real directory, and that
-# directory is not itself inside a git working tree — per the cutover's own
-# inventory disposition (comment `5d07df74`): the shared cache must be a
-# real directory outside any checkout, not left inside dotty-private's tree.
+# directory is not itself inside a git working tree — the shared plugin
+# cache was deliberately moved out of dotty-private's own checkout into
+# ~/.local/share/claude-estate/plugins during the cutover specifically so
+# that a `git clean`/checkout-reset in dotty-private could never take the
+# installed cache both profiles depend on down with it; this assertion is
+# what would have caught the cache silently drifting back inside a
+# checkout. Bundled into this probe rather than split into an eighth: both
+# checks answer the same question ("is the plugin channel fully live and
+# structurally sound for every profile"), so one PASS/FAIL name for both is
+# more legible than two names for one invariant — a caller reading FAIL
+# plugin-enablement-integrity always gets the same next step, "read the
+# detail line," regardless of which half tripped.
 #
 # Regression class this closes: nothing before this rework asserted the
 # FULL declared-plugin set is enabled+installed across every profile in one
