@@ -5,9 +5,9 @@ description: >
   local protection layers (a PreToolUse hook, the lint fixture suite, every
   hook a live settings.json registers, every hook a plugin serves in its
   place) prove it is wired RIGHT NOW, not that it was wired the day it
-  shipped. Seven probes, grown by regression (one declared, operator-approved
-  exception) — each one exists because a real silent-misconfiguration
-  incident bit before it existed, or (probe 7 only) closes a coverage gap
+  shipped. Eight probes, grown by regression (two declared, operator-approved
+  exceptions) — each one exists because a real silent-misconfiguration
+  incident bit before it existed, or (probes 7 and 8) closes a coverage gap
   the ticket that added it named explicitly. Reports only;
   never fixes. Triggers on "/smoke", "run smoke", "smoke test the config",
   "check the hooks are wired".
@@ -19,10 +19,10 @@ Domain check for Mac-side configuration health. The estate's protection layers �
 
 ## Identity
 
-This skill owns ONE thing: proving seven specific local surfaces are wired correctly at the moment it runs. It does not scan for new problems, does not audit the whole harness, and does not fix anything it finds.
+This skill owns ONE thing: proving eight specific local surfaces are wired correctly at the moment it runs. It does not scan for new problems, does not audit the whole harness, and does not fix anything it finds.
 
 - **Mechanical only** — the bundled `smoke.sh` is the entire implementation: read-only, no network, no credentials, no writes. Every probe exercises the real surface (pipes real JSON at the real hook, runs the real fixture suite, parses the real live `settings.json`) — never a re-derivation from memory of what the surface *should* do.
-- **Grows by regression, with one declared exception.** A probe is added only after a real silent-misconfiguration incident bites — except probe 7, added not from an incident but from a coverage gap the estate substrate map named explicitly when it required this rework: probe 6 audits enablement for exactly one hardcoded plugin id, and nothing before probe 7 asserted the FULL declared-plugin set (every id the blueprint's `plugins.json` names) is enabled and installed, in every profile. That gap is the kind every other probe here exists to close after the fact; probe 7 closes it before the silent-disablement incident, by the same map ruling that mandated this skill's rework — declared here as the growth rule's one operator-approved exception, not a silent departure from it.
+- **Grows by regression, with two declared exceptions.** A probe is added only after a real silent-misconfiguration incident bites — except probes 7 and 8, each added not from an incident but from a coverage gap a HITL-approved ticket named explicitly when it required new wiring this skill needed to cover. Probe 7: probe 6 audits enablement for exactly one hardcoded plugin id, and nothing before probe 7 asserted the FULL declared-plugin set (every id the blueprint's `plugins.json` names) is enabled and installed, in every profile — that gap is the kind every other probe here exists to close after the fact, closed before the incident by the same estate substrate map ruling that mandated this skill's rework. Probe 8: the thin-layer rules/CLAUDE.md move's own spec named "`/smoke` gains one probe asserting the two files are real and declared" before the always-on rules and global CLAUDE.md moved off a live symlink/`@`-import onto declared state — the ticket that built the new surface is the map-ruled justification for the probe that proves it, the same footing probe 7 stands on. Both declared here as the growth rule's operator-approved exceptions, not a silent departure from it.
 
 | Probe | Proves | Incident that added it |
 |---|---|---|
@@ -33,8 +33,9 @@ This skill owns ONE thing: proving seven specific local surfaces are wired corre
 | `plugin-shadow-integrity` | no profile's own `skills/`/`agents/` directory has a live entry sharing a name with something an enabled, declared plugin already serves | 2026-09-03 — the prior form of this probe (`blueprint-coverage`) was self-referential (compared whichever skills tree it happened to run beside against `core.json`) and produced 36 false "undeclared" positives once probed from a location other than the source checkout; reworked to the correct post-cutover invariant, a live shadow silently winning over the plugin it shadows |
 | `plugin-hook-serving-integrity` | when a profile's guards run from `estate-hooks@work-lifecycle` instead of `settings.json` directly, the plugin is enabled AND its installed cache still serves every hook the plugin declares | 2026-09-02 — a plugin-packaging spike found that enabling/disabling a Claude Code plugin only mutates `enabledPlugins` in `settings.json`; nothing audited it, so a silently disabled plugin would drop all nine guard hooks with zero visible signal |
 | `plugin-enablement-integrity` | every plugin the blueprint's `plugins.json` declares, per profile, is enabled AND installed — generalizing probe 6's one-hardcoded-id check across the full declared set — plus, once, that both profiles' `plugins` link resolves to the same real directory outside any git working tree | declared exception, not an incident — see the growth-rule note above |
+| `rules-claude-md-integrity` | both the always-on `ways-of-working.md` rule and the global `CLAUDE.md`, in both profiles, are real files (not a symlink or an `@`-import) whose content matches their declared source — the pinned dotty tag for the rule, dotty-private's own `.claude/CLAUDE.md` for the global file | declared exception, not an incident — the thin-layer move's own spec named this probe before the surface it checks existed; see the growth-rule note above |
 
-Do not add an eighth probe without a new failure (or a map-ruled exception, declared here the way probe 7's is) to justify it.
+Do not add a ninth probe without a new failure (or a map-ruled exception, declared here the way probes 7 and 8's are) to justify it.
 
 ## Intent
 
@@ -57,7 +58,7 @@ Do not add an eighth probe without a new failure (or a map-ruled exception, decl
 - **Steering:** cadence is deliberately NOT scheduled. The Mac carries no wall-clock automation by estate ruling (unlike the Pi's cron-driven lanes), so invocation is an operator-initiated convention: run at session-start for any infrastructure-touching session, and after any infrastructure change (a hook edit, a `settings.json` edit, a `lint.py` change). Nothing enforces this — the discipline is the caller's.
 
 **Decision authority.**
-- **Autonomous:** running all seven probes; reporting PASS/FAIL per probe plus a summary line.
+- **Autonomous:** running all eight probes; reporting PASS/FAIL per probe plus a summary line.
 - **Escalate:** every FAIL — `/smoke` never remediates its own findings; the caller reads the detail and edits the broken surface directly.
 
 **Stop rules.**
@@ -87,3 +88,4 @@ Do not add an eighth probe without a new failure (or a map-ruled exception, decl
 - `~/bin/dotty-private/.claude/blueprint/plugins.json` — probes 5 and 7's declared-plugin-per-profile state; probe 5 also walks each declared plugin's installed cache (its `.claude-plugin/plugin.json` `skills` field when present, else `skills/*`, plus `agents/*.md`) and each profile's own `skills/`/`agents/` dirs.
 - `~/.claude-*/settings.json`, `~/.claude-*/plugins/installed_plugins.json`, and the resolved `estate-hooks@work-lifecycle` cache's `.claude-plugin/plugin.json` + `hooks/hooks.json` — probe 6's targets.
 - `~/.claude-*/plugins/installed_plugins.json` (every plugins.json-declared id) and `~/.claude-personal/plugins` / `~/.claude-professional/plugins` (the shared-cache symlink) — probe 7's targets.
+- `~/bin/dotty-private/.claude/blueprint/ways-of-working.json` (the pin: tag, path, sha256), `~/bin/dotty-private/.claude/CLAUDE.md` (the declared global CLAUDE.md), `~/bin/dotty` (resolves the pinned tag's content), and `~/.claude-*/rules/ways-of-working.md` / `~/.claude-*/CLAUDE.md` (the installed files) — probe 8's targets.
