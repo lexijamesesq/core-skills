@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # check-plugin-version.sh <plugin_dir> <plugin_name>
 #
-# PR-time check (no writes) — LEX-701. Compares the plugin's tree against
+# PR-time check (no writes). Compares the plugin's tree against
 # its highest existing tag, not the tag matching the declared version, so
 # the check stays live even if the push-time tagger is behind (a merged-but-
 # untagged version still trips a later mismatch instead of a free pass).

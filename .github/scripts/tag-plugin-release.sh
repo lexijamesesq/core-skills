@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tag-plugin-release.sh <plugin_dir> <plugin_name>
 #
-# Push-time (main only) — LEX-701. If the plugin's declared version isn't
+# Push-time (main only). If the plugin's declared version isn't
 # tagged on origin yet, cuts the tag and a GitHub Release. Idempotent and
 # re-entrant: the tag-exists check is remote-authoritative
 # (git ls-remote), and the Release is checked and created independently of
