@@ -98,3 +98,4 @@ Every hook here is a guard or a session bootstrap that runs on tool calls and se
 ## License
 
 MIT. See [LICENSE](LICENSE).
+verify ruleset applies
