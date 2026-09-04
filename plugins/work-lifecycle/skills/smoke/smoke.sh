@@ -418,9 +418,44 @@ probe_core_symlink_integrity() {
         return
     fi
 
+    # A parse/structure failure is staleness (report FAIL, never silently
+    # treated as "zero entries"); a clean parse with zero entries is a real,
+    # expected state since the thin-layer rules/CLAUDE.md move — core.sh
+    # dropped the rules surface entirely, and skills/agents are both
+    # legitimately {} once every skill and the agent ship from plugins. The
+    # two cases share no output shape: STRUCTURE_ERROR only prints on a
+    # parse/shape failure, never alongside a real (possibly zero-length)
+    # entry list, so bash never has to guess which case it's in.
+    local py_out py_rc
+    py_out="$(python3 -c '
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        state = json.load(f)
+    if not isinstance(state, dict) or not {"personal", "professional"} <= state.keys():
+        raise ValueError("missing personal/professional top-level keys")
+    for profile in ("personal", "professional"):
+        if not isinstance(state[profile], dict):
+            raise ValueError(f"{profile} is not an object")
+except Exception as e:
+    print(f"STRUCTURE_ERROR\t{e}")
+    sys.exit(1)
+for profile, surfaces in sorted(state.items()):
+    for surface, entries in sorted(surfaces.items()):
+        for name, target in sorted(entries.items()):
+            print(f"ENTRY\t{profile}\t{surface}\t{name}\t{target}")
+' "$state_file")"
+    py_rc=$?
+
+    if [[ "$py_rc" -ne 0 ]]; then
+        report FAIL "$name" \
+            "core.json failed to parse or has an unexpected shape: ${py_out#*$'\t'} (staleness — the declared-state schema moved)"
+        return
+    fi
+
     local bad=0 checked=0 issues=""
-    while IFS=$'\t' read -r profile surface entry_name declared_target; do
-        [[ -z "$entry_name" ]] && continue
+    while IFS=$'\t' read -r tag profile surface entry_name declared_target; do
+        [[ "$tag" != "ENTRY" ]] && continue
         local resolved_name="$entry_name"
         [[ "$surface" == "agents" ]] && resolved_name="${entry_name}.md"
         local expanded_target="${declared_target/#\~/$HOME}"
@@ -437,20 +472,9 @@ probe_core_symlink_integrity() {
             issues="$issues $profile/$surface/$resolved_name(dangling)"
             bad=$((bad + 1))
         fi
-    done < <(python3 -c '
-import json, sys
-with open(sys.argv[1]) as f:
-    state = json.load(f)
-for profile, surfaces in sorted(state.items()):
-    for surface, entries in sorted(surfaces.items()):
-        for name, target in sorted(entries.items()):
-            print(f"{profile}\t{surface}\t{name}\t{target}")
-' "$state_file")
+    done <<<"$py_out"
 
-    if [[ "$checked" -eq 0 ]]; then
-        report FAIL "$name" \
-            "0 declared entries read from core.json (parse failure or empty state — never a clean pass)"
-    elif [[ "$bad" -eq 0 ]]; then
+    if [[ "$bad" -eq 0 ]]; then
         report PASS "$name" "$checked declared symlinks verified"
     else
         report FAIL "$name" "$bad/$checked broken:$issues"
@@ -1020,6 +1044,136 @@ probe_plugin_enablement_integrity() {
 }
 
 # ---------------------------------------------------------------------------
+# Probe 8: rules-claude-md-integrity (new — SKILL.md's second declared
+# growth-rule exception. Not an incident either: the thin-layer rules/
+# CLAUDE.md move is itself the map-ruled justification, the same footing
+# probe 7 stands on — a HITL-approved ticket's own Done When named this
+# probe before it existed, which is what licenses an eighth probe without a
+# prior silent-misconfiguration bite.)
+#
+# Proves both always-on-rule and global-CLAUDE.md artifacts, in both
+# profiles, are real installed files matching their declared source — not
+# merely present. Two failure classes this closes: (a) either file reverting
+# to a symlink/`@`-import (the exact live-checkout-dependency this move
+# retired — an older or mid-rebase dotty/dotty-private checkout would again
+# silently change what a session loads), and (b) either file drifting from
+# its declared source without anyone noticing (the blueprint's `capture`
+# verb already reports this per-slice; this probe is the same check folded
+# into the one place a session actually runs before trusting its own inputs).
+# ---------------------------------------------------------------------------
+PY_RULES_CLAUDE_MD_CHECK="$(cat <<'PYEOF'
+import hashlib
+import json
+import os
+import subprocess
+import sys
+
+
+def sha256_of(path):
+    try:
+        with open(path, "rb") as f:
+            return hashlib.sha256(f.read()).hexdigest()
+    except Exception:
+        return None
+
+
+def main():
+    profiles_root, dotty_repo, blueprint_dir = sys.argv[1], sys.argv[2], sys.argv[3]
+
+    pin_path = f"{blueprint_dir}/ways-of-working.json"
+    try:
+        with open(pin_path, "r", encoding="utf-8") as f:
+            pin = json.load(f)
+    except Exception as e:
+        print(f"ERROR\tways-of-working.json unreadable at {pin_path}: {e}")
+        sys.exit(1)
+
+    tag, rel_path, want_sha = pin.get("tag"), pin.get("path"), pin.get("sha256")
+    try:
+        pinned_content = subprocess.run(
+            ["git", "-C", dotty_repo, "show", f"{tag}:{rel_path}"],
+            capture_output=True, check=True,
+        ).stdout
+    except Exception as e:
+        print(f"ERROR\tcould not resolve {tag}:{rel_path} in {dotty_repo}: {e}")
+        sys.exit(1)
+    pinned_sha = hashlib.sha256(pinned_content).hexdigest()
+    if pinned_sha != want_sha:
+        print(f"FAIL\tpinned tag content sha256 {pinned_sha} does not match declared {want_sha} in {pin_path}")
+
+    claude_md_declared = f"{blueprint_dir}/../CLAUDE.md"
+    claude_md_sha = sha256_of(claude_md_declared)
+    if claude_md_sha is None:
+        print(f"ERROR\tdeclared CLAUDE.md unreadable at {claude_md_declared}")
+        sys.exit(1)
+
+    checked = 0
+    for profile in ("personal", "professional"):
+        for label, installed_path, want in (
+            ("rules/ways-of-working.md", f"{profiles_root}/.claude-{profile}/rules/ways-of-working.md", want_sha),
+            ("CLAUDE.md", f"{profiles_root}/.claude-{profile}/CLAUDE.md", claude_md_sha),
+        ):
+            checked += 1
+            if os.path.islink(installed_path):
+                print(f"FAIL\t{profile}/{label} is a symlink (readlink {os.readlink(installed_path)}), not a real file")
+                continue
+            have = sha256_of(installed_path)
+            if have is None:
+                print(f"FAIL\t{profile}/{label} missing or unreadable at {installed_path}")
+            elif have != want:
+                print(f"FAIL\t{profile}/{label} sha256 {have} does not match declared {want}")
+
+    if checked == 0:
+        print("ERROR\t0 files checked (never a clean pass)")
+        sys.exit(1)
+    sys.exit(0)
+
+
+main()
+PYEOF
+)"
+
+probe_rules_claude_md_integrity() {
+    local name="rules-claude-md-integrity"
+    local profiles_root="${SMOKE_PROFILES_ROOT_OVERRIDE:-$HOME}"
+    local dotty_repo="${SMOKE_DOTTY_REPO_OVERRIDE:-$HOME/bin/dotty}"
+    local blueprint_dir="${SMOKE_BLUEPRINT_DIR_OVERRIDE:-$HOME/bin/dotty-private/.claude/blueprint}"
+
+    if [[ ! -f "$blueprint_dir/ways-of-working.json" ]]; then
+        report FAIL "$name" \
+            "ways-of-working.json missing at $blueprint_dir (staleness — the blueprint slice moved)"
+        return
+    fi
+
+    local py_out
+    py_out="$(python3 -c "$PY_RULES_CLAUDE_MD_CHECK" "$profiles_root" "$dotty_repo" "$blueprint_dir" 2>&1)"
+    local py_rc=$?
+
+    local detail_parts=() overall_ok=1 line_status rest
+    while IFS=$'\t' read -r line_status rest; do
+        [[ -z "$line_status" ]] && continue
+        if [[ "$line_status" == "OK" ]]; then
+            detail_parts+=("$rest")
+        else
+            overall_ok=0
+            detail_parts+=("$line_status $rest")
+        fi
+    done <<<"$py_out"
+
+    local joined="" part
+    for part in "${detail_parts[@]}"; do
+        [[ -z "$joined" ]] && joined="$part" || joined="$joined; $part"
+    done
+    [[ -z "$joined" ]] && joined="4 files checked in each of 2 profiles, all matched declared source"
+
+    if [[ "$py_rc" -eq 0 && "$overall_ok" -eq 1 ]]; then
+        report PASS "$name" "$joined"
+    else
+        report FAIL "$name" "$joined"
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # Run all probes, print results, summarize, exit.
 # ---------------------------------------------------------------------------
 probe_hook_tilde_expansion
@@ -1029,6 +1183,7 @@ probe_core_symlink_integrity
 probe_plugin_shadow_integrity
 probe_plugin_hook_serving
 probe_plugin_enablement_integrity
+probe_rules_claude_md_integrity
 
 for line in "${RESULT_LINES[@]}"; do
     printf '%s\n' "$line"
