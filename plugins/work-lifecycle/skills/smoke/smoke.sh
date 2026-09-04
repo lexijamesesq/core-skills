@@ -1098,8 +1098,9 @@ def main():
         print(f"ERROR\tcould not resolve {tag}:{rel_path} in {dotty_repo}: {e}")
         sys.exit(1)
     pinned_sha = hashlib.sha256(pinned_content).hexdigest()
+    problems = []
     if pinned_sha != want_sha:
-        print(f"FAIL\tpinned tag content sha256 {pinned_sha} does not match declared {want_sha} in {pin_path}")
+        problems.append(f"pinned tag content sha256 {pinned_sha} does not match declared {want_sha} in {pin_path}")
 
     claude_md_declared = f"{blueprint_dir}/../CLAUDE.md"
     claude_md_sha = sha256_of(claude_md_declared)
@@ -1115,17 +1116,29 @@ def main():
         ):
             checked += 1
             if os.path.islink(installed_path):
-                print(f"FAIL\t{profile}/{label} is a symlink (readlink {os.readlink(installed_path)}), not a real file")
+                problems.append(f"{profile}/{label} is a symlink (readlink {os.readlink(installed_path)}), not a real file")
                 continue
             have = sha256_of(installed_path)
             if have is None:
-                print(f"FAIL\t{profile}/{label} missing or unreadable at {installed_path}")
+                problems.append(f"{profile}/{label} missing or unreadable at {installed_path}")
             elif have != want:
-                print(f"FAIL\t{profile}/{label} sha256 {have} does not match declared {want}")
+                problems.append(f"{profile}/{label} sha256 {have} does not match declared {want}")
 
     if checked == 0:
         print("ERROR\t0 files checked (never a clean pass)")
         sys.exit(1)
+
+    # Always print at least one line on stdout, even on a clean pass — an
+    # empty stdout leaves the bash side with a genuinely empty array to
+    # iterate, which macOS's shipped bash (3.2, pre the 4.4 empty-array fix)
+    # treats as an unbound variable under `set -u` and crashes the whole
+    # script, not just this probe. Caught in testing: smoke.sh's own first
+    # run against a fully-migrated (fully passing) profile crashed here.
+    if problems:
+        for p in problems:
+            print(f"FAIL\t{p}")
+        sys.exit(1)
+    print(f"OK\t{checked} files checked across 2 profiles, all matched declared source")
     sys.exit(0)
 
 
