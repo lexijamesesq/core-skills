@@ -4,14 +4,14 @@
 #
 # Why this exists: drift-check.sh (narrowed in the same series) only ever
 # asked "does this repo's copy match dotty's?" — identity, not portability.
-# Three hooks/scripts silently depended on running from INSIDE a dotty
+# Two hooks/scripts here silently depended on running from INSIDE a dotty
 # checkout (a repo-relative walk, or dotty's OWN repo as a zero-config
 # fallback) and broke the moment they ran from this plugin's installed
 # cache instead — gh-pr-body-guard.sh (blocked gh pr create outside a
-# repo with its own .gitleaks.toml), gate-mechanical.sh (the /publish gate
-# crashed sourcing gitleaks-common.sh), and the traffic-cone wrapper
-# (couldn't find cone_preflight.py). All three were fixed in the same
-# series that adds this check. This check is what proves they STAY fixed:
+# repo with its own .gitleaks.toml) and the traffic-cone wrapper (couldn't
+# find cone_preflight.py). Both were fixed in the same series that adds
+# this check; the /publish gate's resolver, which had the same class of
+# bug, now lives and is checked in publish-skills. This proves they STAY fixed:
 # run from THIS checkout alone, no dotty anywhere on the machine (this
 # script never checks dotty out and never references a dotty path).
 #
@@ -82,50 +82,10 @@ fi
 rm -rf "$scratch_repo"
 
 # ---------------------------------------------------------------------------
-# 2. gate-mechanical.sh's gitleaks-common.sh resolver finds a copy with NO
-#    ../../../../git-hooks/ sibling present — proves the estate-hooks-cache
-#    fallback fires, not just the same-repo path.
-#
-# Needs its own scratch $HOME/.claude-*/plugins/installed_plugins.json
-# fixture — the resolver's fallback globs "$HOME"/.claude-*, and this
-# check must prove the FALLBACK MECHANISM works, not that it happens to
-# find a real machine's real install (which a CI runner never has, and a
-# dev machine has only by accident of its own local state — exactly the
-# gap that let this check pass locally while failing in CI the first
-# time). Points the fixture's installPath at this same scratch copy of
-# plugins/estate-hooks, so the check is fully self-contained.
-# ---------------------------------------------------------------------------
-GATE_SCRIPTS="$WL_ROOT/plugins/work-lifecycle/skills/publish/scripts"
-SCRATCH_HOME="$WL_ROOT/scratch-home"
-mkdir -p "$SCRATCH_HOME/.claude-fake/plugins"
-cat > "$SCRATCH_HOME/.claude-fake/plugins/installed_plugins.json" <<EOF
-{"plugins": {"estate-hooks@work-lifecycle": [{"scope": "user", "installPath": "$WL_ROOT/plugins/estate-hooks"}]}}
-EOF
-resolver_probe="$(mktemp)"
-cat > "$resolver_probe" <<EOF
-set -euo pipefail
-SCRIPT_DIR="/nonexistent/no/such/checkout/scripts"
-$(sed -n '/^resolve_gitleaks_common()/,/^}/p' "$GATE_SCRIPTS/gate-mechanical.sh")
-resolve_gitleaks_common
-EOF
-if resolved="$(HOME="$SCRATCH_HOME" bash "$resolver_probe" 2>/tmp/standalone-resolver-out.$$)"; then
-    if [[ -r "$resolved" ]]; then
-        check "gate-mechanical.sh's gitleaks-common.sh resolver falls back to the estate-hooks cache" 0
-    else
-        check "gate-mechanical.sh's gitleaks-common.sh resolver falls back to the estate-hooks cache" 1 \
-            "resolved to $resolved, which is not readable"
-    fi
-else
-    check "gate-mechanical.sh's gitleaks-common.sh resolver falls back to the estate-hooks cache" 1 \
-        "$(cat /tmp/standalone-resolver-out.$$)"
-fi
-rm -f "$resolver_probe" /tmp/standalone-resolver-out.$$
-
-# ---------------------------------------------------------------------------
-# 3. traffic-cone wrapper resolves cone_preflight.py from its own sibling
+# 2. traffic-cone wrapper resolves cone_preflight.py from its own sibling
 #    linear/scripts, with dotty stripped from PATH entirely.
 # ---------------------------------------------------------------------------
-TC_WRAPPER="$WL_ROOT/plugins/work-lifecycle/skills/traffic-cone/scripts/traffic-cone"
+TC_WRAPPER="$WL_ROOT/plugins/core/skills/traffic-cone/scripts/traffic-cone"
 if [[ -f "$TC_WRAPPER" ]]; then
     if PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v 'bin/dotty' | tr '\n' ':')" \
         python3 "$TC_WRAPPER" --help >/tmp/standalone-tc-out.$$ 2>&1; then

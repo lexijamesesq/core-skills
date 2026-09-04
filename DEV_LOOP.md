@@ -9,9 +9,9 @@ marketplace and enabled, the installed copy wins. Editing your local
 checkout does nothing visible: every session still resolves the skill body
 from the cached, published copy.
 
-Concretely, on this repo: `work-lifecycle@work-lifecycle` (marketplace,
+Concretely, on this repo: `core@core` (marketplace,
 installed+enabled) always shadows `--plugin-dir
-plugins/work-lifecycle` pointed at the same content, even in the same
+plugins/core` pointed at the same content, even in the same
 session that passes both.
 
 ## The loop
@@ -20,7 +20,7 @@ Two things have to both be true for `--plugin-dir` to actually serve your
 local edits:
 
 1. **Nothing else claims the plugin's name first.** No marketplace
-   install of the same plugin (`work-lifecycle@work-lifecycle`) enabled in
+   install of the same plugin (`core@core`) enabled in
    this profile. Uninstall or disable the marketplace copy for the
    profile you're testing in.
 2. **The `--plugin-dir` copy is itself enabled.** `--plugin-dir` registers
@@ -31,10 +31,10 @@ local edits:
    you enable that session id explicitly:
 
    ```
-   claude --plugin-dir plugins/work-lifecycle plugin enable work-lifecycle@inline
+   claude --plugin-dir plugins/core plugin enable core@inline
    ```
 
-   This writes `"work-lifecycle@inline": true` to the profile's
+   This writes `"core@inline": true` to the profile's
    `settings.json` `enabledPlugins` — a persistent, profile-scoped
    enable, not a one-shot session flag, and the same generic `@inline` key
    any `--plugin-dir` plugin uses regardless of which directory you point
@@ -43,7 +43,7 @@ local edits:
    the leftover `enabledPlugins` key by hand if it lingers — nothing
    currently prunes it automatically.
 
-With both conditions met, `claude --plugin-dir plugins/work-lifecycle -p
+With both conditions met, `claude --plugin-dir plugins/core -p
 "..."` resolves skills from your local checkout, live — no reinstall, no
 publish, no cache refresh.
 

@@ -1,4 +1,4 @@
-# gitleaks config for work-lifecycle (public plugin marketplace).
+# gitleaks config for core-skills (public plugin marketplace).
 # Operator-specific PII rules loaded from .gitleaks-operator-rules.toml
 # (gitignored symlink to the private operator ruleset). Same shape as dotty's;
 # The consumer repoint to the fixed path follows the resolver slice.
@@ -7,7 +7,7 @@
 # [extend] path resolves relative to the PROCESS working directory: run hooks
 # from the repo root.
 
-title = "work-lifecycle gitleaks config"
+title = "core-skills gitleaks config"
 
 [extend]
 path = ".gitleaks-operator-rules.toml"
