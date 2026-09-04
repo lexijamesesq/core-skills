@@ -12,7 +12,14 @@ set -euo pipefail
 PLUGIN_DIR="$1"
 PLUGIN_NAME="$2"
 
-CURRENT_VERSION="$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['version'])")"
+# PLUGIN_DIR is a workflow-controlled literal (never interpolated into
+# untrusted content); the version string plugin.json holds is read via
+# argv/json, never through a python -c string interpolation, since this
+# job holds contents: write + a real GH token.
+CURRENT_VERSION="$(python3 -c "
+import json, sys
+print(json.load(open(sys.argv[1] + '/.claude-plugin/plugin.json'))['version'])
+" "$PLUGIN_DIR")"
 TAG="${PLUGIN_NAME}--v${CURRENT_VERSION}"
 
 if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then

@@ -22,17 +22,30 @@ if [[ -z "$LATEST_TAG" ]]; then
 fi
 
 TAG_VERSION="${LATEST_TAG#"${PLUGIN_NAME}--v"}"
-CURRENT_VERSION="$(python3 -c "import json; print(json.load(open('$PLUGIN_DIR/.claude-plugin/plugin.json'))['version'])")"
+# plugin.json's content comes from the PR branch — pass PLUGIN_DIR (a
+# workflow-controlled literal) as an argv, and read the version through
+# json, never string-interpolated into a -c source. The version string
+# itself is untrusted PR content; it's compared below via os.environ, not
+# interpolated into any script text.
+CURRENT_VERSION="$(python3 -c "
+import json, sys
+print(json.load(open(sys.argv[1] + '/.claude-plugin/plugin.json'))['version'])
+" "$PLUGIN_DIR")"
 
 if git diff --quiet "$LATEST_TAG" HEAD -- "$PLUGIN_DIR"; then
   echo "PASS $PLUGIN_NAME: tree identical to $LATEST_TAG"
   exit 0
 fi
 
-VERSION_BUMPED="$(python3 -c "
+VERSION_BUMPED="$(CURRENT_VERSION="$CURRENT_VERSION" TAG_VERSION="$TAG_VERSION" python3 -c "
+import os
+
 def parse(v):
     return tuple(int(x) for x in v.split('.'))
-print('1' if parse('$CURRENT_VERSION') > parse('$TAG_VERSION') else '0')
+
+current = parse(os.environ['CURRENT_VERSION'])
+tag = parse(os.environ['TAG_VERSION'])
+print('1' if current > tag else '0')
 ")"
 
 if [[ "$VERSION_BUMPED" == "1" ]]; then
