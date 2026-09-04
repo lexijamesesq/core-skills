@@ -15,8 +15,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A push-to-main run must never be cancelled or replaced while pending —
+  # GitHub's default queue holds one pending run per group and *replaces*
+  # it, which would silently drop a version-bump's release run in favor of
+  # a later no-bump push. Keying on github.sha for non-PR events gives
+  # every commit its own group slot;
+  # cancel-in-progress stays true only for PR events, which still want
+  # superseding pushes to cancel the stale run.
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate-and-test:
@@ -102,3 +109,70 @@ jobs:
           version: '8.30.1'
       - name: Run standalone check
         run: bash work-lifecycle/.github/scripts/standalone-check.sh work-lifecycle
+
+  release-check:
+    # PR-time check, no writes. Required by this repo's
+    # branch-protection ruleset (added alongside this job, strict), so a
+    # merge that changes a plugin's content without bumping its version is
+    # blocked, not just reported red after the fact. Deliberately no
+    # `paths:` filter on the workflow — a path-skipped required check
+    # stays "Pending" forever and blocks every other PR (GitHub docs).
+    # Runs on every PR; the job itself is cheap when nothing changed.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check plugin version discipline
+        run: |
+          set -uo pipefail
+          FAILED=0
+          bash .github/scripts/check-plugin-version.sh plugins/work-lifecycle work-lifecycle || FAILED=1
+          bash .github/scripts/check-plugin-version.sh plugins/estate-hooks estate-hooks || FAILED=1
+          exit "$FAILED"
+
+  release-tag:
+    # Push-time, main only. Cuts a tag + GitHub Release for any
+    # plugin whose declared version isn't tagged yet. Idempotent (safe to
+    # re-run; see tag-plugin-release.sh). contents: write scoped to this
+    # job only — every other job in this workflow stays contents: read.
+    if: github.event_name == 'push'
+    needs: [validate-and-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      # claude plugin tag creates an annotated tag (-m), which needs a
+      # committer identity; a fresh runner checkout has none configured.
+      # Standard github-actions[bot] identity, same as GitHub's own
+      # first-party actions use for automated commits/tags.
+      - name: Configure git identity for the release commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: '22'
+      - name: Install Claude Code CLI 2.1.259
+        run: npm install -g @anthropic-ai/claude-code@2.1.259
+
+      - name: Tag and release changed plugins
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          FAILED=0
+          bash .github/scripts/tag-plugin-release.sh plugins/work-lifecycle work-lifecycle || FAILED=1
+          bash .github/scripts/tag-plugin-release.sh plugins/estate-hooks estate-hooks || FAILED=1
+          exit "$FAILED"
