@@ -12,7 +12,7 @@
     {
       "name": "estate-hooks",
       "source": "./plugins/estate-hooks",
-      "description": "The estate's eight Claude Code hook scripts plus a shared gitleaks helper, packaged as a plugin.",
+      "description": "The estate's seven Claude Code hook scripts plus a shared gitleaks helper, packaged as a plugin.",
       "license": "MIT",
       "repository": "https://github.com/lexijamesesq/core-skills"
     },
