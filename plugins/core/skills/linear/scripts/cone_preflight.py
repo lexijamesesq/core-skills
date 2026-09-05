@@ -181,7 +181,7 @@ CHECK_INVENTORY = {
     ],
     "un-park": [
         {"id": "U1", "name": "Blocker verifiably resolved OR operator-directed OR --blocker-verified (R-C: caller re-checked the condition itself); else refuse", "home": "Script+J"},
-        {"id": "U2", "name": "-> Todo only; claim already clear else surface (never silently clear); In Progress = fresh claim, route to claim", "home": "Script"},
+        {"id": "U2", "name": "-> Todo only from Needs Input or Blocked (name-keyed — Needs Input shares type \"started\" with In Progress/Planning); claim already clear else surface (never silently clear); active work routes to claim/begin", "home": "Script"},
     ],
     "cancel": [
         {"id": "X1", "name": "Reason present by live fetch OR a supplied --comment-file (posted at execute, before the state change) -> Canceled + reason comment; optional duplicate_of relation", "home": "Script"},
@@ -894,14 +894,13 @@ def run_unpark_checks(ctx, flags):
     comments = comments_of(issue)
     facts = {"team_key": (issue.get("team") or {}).get("key"), "state_ids": ctx.get("state_ids", {}), "refusal_reasons": []}
 
-    state_type = (issue.get("state") or {}).get("type")
     state_name = (issue.get("state") or {}).get("name")
 
-    if state_type == "started":
-        # §8 finding 4b: type "started" now also matches Planning (Brick 1
-        # name-keying) — correctly still refuses (a Planning ticket is
-        # active WIP, not a park target), only the detail string was wrong.
-        detail = f"{state_name!r} = active work (In Progress or Planning), not an un-park — route to claim/begin"
+    if state_name not in ("Needs Input", "Blocked"):
+        # Name-keyed admit-list like M2/CM1: only the two states park/block
+        # produce un-park. (Type-keying refused Needs Input, which shares
+        # type "started" with In Progress — receipt 2026-09-04.)
+        detail = f"{state_name!r} is not a park/block state (Needs Input, Blocked) — active work routes to claim/begin"
         checks.append(mk_check("U2", "un-park", "FAIL", detail))
         refuse_reasons.append(detail)
         checks.append(mk_check("U1", "un-park", "SKIP", "U2 guard failed"))

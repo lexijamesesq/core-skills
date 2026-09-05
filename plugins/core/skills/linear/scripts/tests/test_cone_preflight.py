@@ -952,6 +952,41 @@ class UnparkTests(unittest.TestCase):
         self.assertIn("claim", find_check(report, "U2")["detail"])
         self.assertEqual(report["verdict"], "REFUSE")
 
+    def test_u2_needs_input_is_a_park_target_not_active_work(self):
+        # Receipt: a parked ticket (Needs Input shares type "started" with
+        # In Progress) was refused by a type-keyed U2, so park -> un-park
+        # could never round-trip. U2 is a name-keyed admit-list now.
+        ctx = fx.unpark_ctx()
+        ctx["issue"]["state"] = {"name": "Needs Input", "type": "started"}
+        report = cp.run_checks("un-park", ctx, fx.unpark_flags(blocker_verified=True))
+        self.assertEqual(find_check(report, "U2")["result"], "PASS", report)
+        self.assertEqual(find_check(report, "U1")["result"], "PASS", report)
+        self.assertEqual(report["verdict"], "ADMIT", report)
+
+    def test_u2_needs_input_operator_directed_admits(self):
+        ctx = fx.unpark_ctx()
+        ctx["issue"]["state"] = {"name": "Needs Input", "type": "started"}
+        report = cp.run_checks("un-park", ctx, fx.unpark_flags(operator_directed=True))
+        self.assertEqual(find_check(report, "U2")["result"], "PASS", report)
+        self.assertEqual(report["verdict"], "ADMIT", report)
+
+    def test_u2_done_is_not_an_unpark_target(self):
+        # Admit-list polarity: only Needs Input and Blocked un-park; a
+        # closed ticket is refused rather than silently reset to Todo.
+        ctx = fx.unpark_ctx()
+        ctx["issue"]["state"] = {"name": "Done", "type": "completed"}
+        report = cp.run_checks("un-park", ctx, fx.unpark_flags(operator_directed=True))
+        self.assertEqual(find_check(report, "U2")["result"], "FAIL")
+        self.assertEqual(report["verdict"], "REFUSE")
+
+    def test_u2_planning_routes_to_claim_not_unpark(self):
+        # Planning stays refused under name-keying (active work, not a park target).
+        ctx = fx.unpark_ctx()
+        ctx["issue"]["state"] = {"name": "Planning", "type": "started"}
+        report = cp.run_checks("un-park", ctx, fx.unpark_flags(operator_directed=True))
+        self.assertEqual(find_check(report, "U2")["result"], "FAIL")
+        self.assertEqual(report["verdict"], "REFUSE")
+
     def test_u2_surfaces_uncleared_delegate_without_blocking(self):
         ctx = fx.unpark_ctx()
         ctx["issue"]["delegate"] = {"id": "leftover-delegate"}
@@ -1733,6 +1768,33 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
         ])
         code, out = _run_main_capture([
             "un-park", "ACR-69", "--operator-directed", "--execute-if-clean",
+            "--bridge-cmd", " ".join(tlb.STUB_CMD),
+        ])
+        self.assertEqual(code, lb.EXIT_OK)
+        self.assertEqual(out["verdict"], "ADMIT")
+        self.assertTrue(out["executed"])
+        self.assertTrue(out["result"]["set_state"]["verified"])
+
+    def test_unpark_from_needs_input_round_trips_to_todo(self):
+        # The park verb leaves a ticket in Needs Input ("started" type);
+        # un-park must bring it back to Todo. This is the round trip the
+        # type-keyed U2 made impossible.
+        issue_node = _e2e_issue_node(
+            identifier="ACR-85", id="uuid-unpark-ni",
+            state={"name": "Needs Input", "type": "started"},
+            comments={"nodes": [
+                {"id": "c1", "body": "Parked: waiting on the sibling decision ticket to close.", "createdAt": "2026-02-01T12:00:00Z", "user": {"id": "viewer-1"}},
+            ]},
+        )
+        tlb.script_responses([
+            _issue_resp(issue_node),
+            _viewer_resp("viewer-1"),
+            _states_resp([("Todo", "state-todo", "unstarted")]),
+            _mutation_ok_resp(),
+            _set_state_readback_resp("uuid-unpark-ni", "state-todo", "Todo", "unstarted"),
+        ])
+        code, out = _run_main_capture([
+            "un-park", "ACR-85", "--blocker-verified", "--execute-if-clean",
             "--bridge-cmd", " ".join(tlb.STUB_CMD),
         ])
         self.assertEqual(code, lb.EXIT_OK)
