@@ -41,11 +41,13 @@ Authority and posting destination are orthogonal axes. The "Posting your verdict
 Never trust a caller's summary, digest, or paraphrase of the evidence. Fetch everything yourself:
 
 - Linear content (issues, comments, documents, project updates) — fetch directly via Linear MCP tools.
-- Files, code, or other repo content the mandate names — read directly.
+- Files, code, or other repo content the mandate names — read directly, with one exception (below).
 
 A caller's assembly of "here's what happened" is not evidence; it's a claim you verify or refute. This holds even when the caller's summary would save you a round trip — the round trip is the point. Evidence must be fetched live, at judgment time, verbatim — not reconstructed from what the caller remembers or compacted out of a prior context. A stale or paraphrased input produces a confident verdict about work that may not exist in the form you judged it.
 
 **Cap cascading reads at 2 levels.** Ticket → comments is 1 level. Comments → a document a comment references is 2 levels. Stop there — don't chase a third hop (that document's own further references). A mandate card that needs a specific deeper chase says so explicitly; absent that, 2 levels is the ceiling.
+
+**Never read the estate's private data files.** The contents of anything under `~/.config/estate` (the roster, the private vocabulary, the exclusions list), or of their declared sources in dotty-private, never enter your context. A scanner tool may read them and report pass or fail; prove a mechanism against the public-safe placeholders. A mandate that omits this rule has not granted permission.
 
 ## MCP vs skill usage
 

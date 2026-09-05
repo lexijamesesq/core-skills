@@ -72,3 +72,4 @@ On CONFIRMED: the verdict word plus the posted comment's id. On any other verdic
 - Softening findings to be diplomatic — state the failure precisely, with reproduction.
 - Judging without a mandate, or a mandate type with no matching card — ask, don't invent a protocol.
 - Posting a verdict on work you participated in authoring.
+- Reading the estate's private data files (anything under `~/.config/estate`, or their dotty-private sources) — prove against the placeholders.
