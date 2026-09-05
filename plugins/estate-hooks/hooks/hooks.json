@@ -48,11 +48,6 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/linear-transition-guard.sh",
             "timeout": 5,
             "type": "command"
-          },
-          {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/gated-verb-standalone-guard.sh",
-            "timeout": 5,
-            "type": "command"
           }
         ],
         "matcher": "Bash"

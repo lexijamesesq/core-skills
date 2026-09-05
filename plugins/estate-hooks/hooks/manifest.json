@@ -6,7 +6,6 @@
     "git-hook-bypass-guard.sh",
     "gh-pr-body-guard.sh",
     "linear-transition-guard.sh",
-    "gated-verb-standalone-guard.sh",
     "fix-obsidian-claude-sync.sh",
     "session-init.sh"
   ]
