@@ -557,8 +557,8 @@ class DecisionsDocHelperTests(unittest.TestCase):
 
     def test_entry_link_extracts_url(self):
         self.assertEqual(
-            lb._entry_link("[Is X true?](https://linear.app/a/issue/LEX-1/is-x-true) — yes, because Y."),
-            "https://linear.app/a/issue/LEX-1/is-x-true",
+            lb._entry_link("[Is X true?](https://linear.app/a/issue/TICKET-1/is-x-true) — yes, because Y."),
+            "https://linear.app/a/issue/TICKET-1/is-x-true",
         )
 
     def test_entry_link_raises_when_unlinked(self):
@@ -567,7 +567,7 @@ class DecisionsDocHelperTests(unittest.TestCase):
 
 
 class DecisionsAppendTests(unittest.TestCase):
-    ENTRY = "[Is X true?](https://linear.app/a/issue/LEX-1/is-x-true) — yes, because Y."
+    ENTRY = "[Is X true?](https://linear.app/a/issue/TICKET-1/is-x-true) — yes, because Y."
 
     def test_creates_doc_when_absent(self):
         script_responses([
@@ -585,7 +585,7 @@ class DecisionsAppendTests(unittest.TestCase):
         self.assertEqual(result["attempt"], 1)
 
     def test_appends_when_present_prior_content_preserved(self):
-        prior = "[Older decision](https://linear.app/a/issue/LEX-0/older) — the first one.\n"
+        prior = "[Older decision](https://linear.app/a/issue/TICKET-0/older) — the first one.\n"
         new_content = prior.rstrip() + "\n\n" + self.ENTRY + "\n"
         script_responses([
             {"stdout": {"data": {"issue": {"documents": {"nodes": [
@@ -630,8 +630,8 @@ class DecisionsAppendTests(unittest.TestCase):
         content — proving the interloper's entry survives rather than being
         silently dropped the way an unguarded whole-content overwrite once
         dropped one."""
-        interloper_entry = "[Interloper decision](https://linear.app/a/issue/LEX-2/interloper) — landed first."
-        c0 = "[Older decision](https://linear.app/a/issue/LEX-0/older) — the first one.\n"
+        interloper_entry = "[Interloper decision](https://linear.app/a/issue/TICKET-2/interloper) — landed first."
+        c0 = "[Older decision](https://linear.app/a/issue/TICKET-0/older) — the first one.\n"
         c_after_interloper = c0.rstrip() + "\n\n" + interloper_entry + "\n"
         final_content = c_after_interloper.rstrip() + "\n\n" + self.ENTRY + "\n"
         script_responses([
@@ -667,8 +667,8 @@ class DecisionsAppendTests(unittest.TestCase):
         DuplicateEntryError on the retry, even though the append had already
         landed correctly on attempt 1."""
         wrapped_link = self.ENTRY.replace(
-            "(https://linear.app/a/issue/LEX-1/is-x-true)",
-            "(<https://linear.app/a/issue/LEX-1/is-x-true>)",
+            "(https://linear.app/a/issue/TICKET-1/is-x-true)",
+            "(<https://linear.app/a/issue/TICKET-1/is-x-true>)",
         )
         script_responses([
             {"stdout": {"data": {"issue": {"documents": {"nodes": []}}}}, "returncode": 0},
@@ -688,8 +688,8 @@ class DecisionsAppendTests(unittest.TestCase):
         entry stored with the URL angle-bracketed must still be recognized
         as the same entry, not treated as absent."""
         wrapped_link = self.ENTRY.replace(
-            "(https://linear.app/a/issue/LEX-1/is-x-true)",
-            "(<https://linear.app/a/issue/LEX-1/is-x-true>)",
+            "(https://linear.app/a/issue/TICKET-1/is-x-true)",
+            "(<https://linear.app/a/issue/TICKET-1/is-x-true>)",
         )
         script_responses([
             {"stdout": {"data": {"issue": {"documents": {"nodes": [
@@ -700,8 +700,8 @@ class DecisionsAppendTests(unittest.TestCase):
             lb.decisions_append(STUB_CMD, "map-uuid", "Map", self.ENTRY)
 
     def test_retries_exhausted_raises_after_max_attempts(self):
-        c0 = "[Older decision](https://linear.app/a/issue/LEX-0/older) — the first one.\n"
-        mismatched = "[Someone else](https://linear.app/a/issue/LEX-3/someone-else) — always in the way.\n"
+        c0 = "[Older decision](https://linear.app/a/issue/TICKET-0/older) — the first one.\n"
+        mismatched = "[Someone else](https://linear.app/a/issue/TICKET-3/someone-else) — always in the way.\n"
         # Every attempt's read-back mismatches — 2 attempts x 3 calls each.
         script_responses([
             {"stdout": {"data": {"issue": {"documents": {"nodes": [
@@ -724,7 +724,7 @@ class DecisionsAppendTests(unittest.TestCase):
 
 
 class DecisionsAppendCliTests(unittest.TestCase):
-    ENTRY = "[Is X true?](https://linear.app/a/issue/LEX-1/is-x-true) — yes, because Y."
+    ENTRY = "[Is X true?](https://linear.app/a/issue/TICKET-1/is-x-true) — yes, because Y."
 
     def _entry_file(self, text):
         fd, path = tempfile.mkstemp(prefix="decisions-entry-")
