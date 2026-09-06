@@ -32,20 +32,22 @@ import json, sys
 print(json.load(open(sys.argv[1] + '/.claude-plugin/plugin.json'))['version'])
 " "$PLUGIN_DIR")"
 
-# .pre-commit-config.yaml and .github/CODEOWNERS are repo-level
-# infrastructure (a dotty pin bump, a path-ownership rule), never plugin
-# content -- excluded from the diff regardless of PLUGIN_DIR. For a
-# single-plugin repo (PLUGIN_DIR=".", the whole repo is the plugin) these
-# files sit inside PLUGIN_DIR and, unexcluded, made every dotty-bump PR
-# fail this check for a change that isn't plugin content at all (found
-# live: wiki and publish-skills both needed a hand version bump on every
-# dotty-bump PR for this exact reason; the same class of failure recurred
-# for CODEOWNERS on every single-plugin repo). A no-op exclude for a
-# multi-plugin repo (PLUGIN_DIR a subdirectory) where these files were
-# never inside PLUGIN_DIR to begin with.
+# .pre-commit-config.yaml and everything under .github/ (CODEOWNERS,
+# workflows, this script itself) are repo-level infrastructure -- CI
+# config, path-ownership rules, release tooling -- never plugin content,
+# excluded from the diff regardless of PLUGIN_DIR. For a single-plugin
+# repo (PLUGIN_DIR=".", the whole repo is the plugin) these paths sit
+# inside PLUGIN_DIR and, unexcluded, made every dotty-bump PR, CODEOWNERS
+# PR, or CI-tooling fix fail this check for a change that isn't plugin
+# content at all -- found live three times in a row on single-plugin
+# repos (a dotty-bump pin, CODEOWNERS, then a fix to this exclude list's
+# own file, then a CI workflow pin bump), which is why this excludes the
+# whole .github/ directory rather than naming files one at a time. A
+# no-op exclude for a multi-plugin repo (PLUGIN_DIR a subdirectory) where
+# these paths were never inside PLUGIN_DIR to begin with.
 if git diff --quiet "$LATEST_TAG" HEAD -- "$PLUGIN_DIR" \
     ":(exclude)${PLUGIN_DIR%/}/.pre-commit-config.yaml" \
-    ":(exclude)${PLUGIN_DIR%/}/.github/CODEOWNERS"; then
+    ":(exclude)${PLUGIN_DIR%/}/.github"; then
   echo "PASS $PLUGIN_NAME: tree identical to $LATEST_TAG"
   exit 0
 fi
