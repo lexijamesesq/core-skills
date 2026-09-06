@@ -142,6 +142,11 @@ jobs:
     needs: [validate-and-test]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # LEX-757: the `release` environment is scoped to this repo's default
+    # branch only (deployment_branch_policy) — RELEASE_DEPLOY_KEY is
+    # invisible to this job without this declaration, and invisible to
+    # any workflow run on a non-default branch (a PR) regardless.
+    environment: release
     permissions:
       contents: write
     steps:
@@ -158,6 +163,16 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # Tag CREATION is ruleset-restricted to this repo's own deploy key
+      # (LEX-757) — GITHUB_TOKEN is refused. Written to a runner-local,
+      # mode-600 file; never echoed, never a workflow log line touches it;
+      # gone when the ephemeral runner is torn down.
+      - name: Write the release deploy key
+        run: |
+          install -m 600 /dev/null "$RUNNER_TEMP/release-deploy-key"
+          printf '%s' "${{ secrets.RELEASE_DEPLOY_KEY }}" > "$RUNNER_TEMP/release-deploy-key"
+          echo "RELEASE_DEPLOY_KEY_PATH=$RUNNER_TEMP/release-deploy-key" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
