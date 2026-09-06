@@ -1,6 +1,6 @@
 {
   "name": "core",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "The estate's core session-mechanics skills plus the attack-kitty verification agent, packaged as a plugin.",
   "author": {
     "name": "Lexi James",
