@@ -32,20 +32,23 @@ import json, sys
 print(json.load(open(sys.argv[1] + '/.claude-plugin/plugin.json'))['version'])
 " "$PLUGIN_DIR")"
 
-# .pre-commit-config.yaml and .github/CODEOWNERS are repo-level
-# infrastructure (a dotty pin bump, a path-ownership rule), never plugin
-# content -- excluded from the diff regardless of PLUGIN_DIR. For a
-# single-plugin repo (PLUGIN_DIR=".", the whole repo is the plugin) these
-# files sit inside PLUGIN_DIR and, unexcluded, made every dotty-bump PR
-# fail this check for a change that isn't plugin content at all (found
-# live: wiki and publish-skills both needed a hand version bump on every
-# dotty-bump PR for this exact reason; the same class of failure recurred
-# for CODEOWNERS on every single-plugin repo). A no-op exclude for a
-# multi-plugin repo (PLUGIN_DIR a subdirectory) where these files were
-# never inside PLUGIN_DIR to begin with.
+# .pre-commit-config.yaml, .github/CODEOWNERS, and this script itself are
+# repo-level infrastructure (a dotty pin bump, a path-ownership rule, the
+# release tooling's own upkeep), never plugin content -- excluded from the
+# diff regardless of PLUGIN_DIR. For a single-plugin repo (PLUGIN_DIR=".",
+# the whole repo is the plugin) these files sit inside PLUGIN_DIR and,
+# unexcluded, made every dotty-bump PR fail this check for a change that
+# isn't plugin content at all (found live: wiki and publish-skills both
+# needed a hand version bump on every dotty-bump PR for this exact
+# reason; the same class of failure recurred for CODEOWNERS, and then
+# again self-referentially for a fix to this exclude list itself, on
+# every single-plugin repo). A no-op exclude for a multi-plugin repo
+# (PLUGIN_DIR a subdirectory) where these files were never inside
+# PLUGIN_DIR to begin with.
 if git diff --quiet "$LATEST_TAG" HEAD -- "$PLUGIN_DIR" \
     ":(exclude)${PLUGIN_DIR%/}/.pre-commit-config.yaml" \
-    ":(exclude)${PLUGIN_DIR%/}/.github/CODEOWNERS"; then
+    ":(exclude)${PLUGIN_DIR%/}/.github/CODEOWNERS" \
+    ":(exclude)${PLUGIN_DIR%/}/.github/scripts/check-plugin-version.sh"; then
   echo "PASS $PLUGIN_NAME: tree identical to $LATEST_TAG"
   exit 0
 fi
