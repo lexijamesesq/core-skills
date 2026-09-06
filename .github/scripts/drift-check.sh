@@ -8,12 +8,14 @@
 # all deliberate temporary duplicates pending dotty's own cutover-deletion
 # slice. That slice ran; dotty's copies are gone, so every one of those
 # comparisons would now fail with "dotty source missing" (staleness, not
-# drift) rather than test anything real. gitleaks-common.sh is the one
-# duplicate that remains by design: it sources from dotty's separate
-# git-hooks/ (the pre-commit export channel, never deleted, never packaged
-# elsewhere), so it still needs a live drift check.
+# drift) rather than test anything real. gitleaks-common.sh and
+# house-code-common.sh are the two duplicates that remain by design: they
+# source from dotty's separate git-hooks/ (the pre-commit export channel,
+# never deleted, never packaged elsewhere) — gh-pr-body-guard.sh sources
+# gitleaks-common.sh, which itself now sources house-code-common.sh for
+# its private-repo verification helper, so both need a live drift check.
 #
-# Exit 0 iff the one tracked pair is byte-identical.
+# Exit 0 iff every tracked pair is byte-identical.
 set -euo pipefail
 
 DOTTY_CLONE="${1:?usage: drift-check.sh <path-to-fresh-dotty-clone> <path-to-this-repo>}"
@@ -49,13 +51,17 @@ diff_one "gitleaks-common.sh" \
   "$DOTTY_CLONE/git-hooks/gitleaks-common.sh" \
   "$WL_ROOT/plugins/estate-hooks/hooks/gitleaks-common.sh"
 
+diff_one "house-code-common.sh" \
+  "$DOTTY_CLONE/git-hooks/house-code-common.sh" \
+  "$WL_ROOT/plugins/estate-hooks/hooks/house-code-common.sh"
+
 if [[ "$fail" -ne 0 ]]; then
   echo
-  echo "DRIFT DETECTED — dotty main has moved and gitleaks-common.sh"
+  echo "DRIFT DETECTED — dotty main has moved and a tracked duplicate"
   echo "hasn't been re-synced. Re-copy it from dotty's current git-hooks/"
   echo "and re-verify."
   exit 1
 fi
 
 echo
-echo "gitleaks-common.sh matches dotty main. No drift."
+echo "gitleaks-common.sh and house-code-common.sh match dotty main. No drift."
