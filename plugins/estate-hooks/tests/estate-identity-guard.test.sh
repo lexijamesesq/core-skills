@@ -1,75 +1,90 @@
 #!/usr/bin/env bash
-# Test suite for estate-identity-guard.sh — the PreToolUse enforcement of the
-# estate identity baseline. Builds a GOOD baseline in a scratch HOME, then
-# breaks one thing at a time and asserts exit 2 (block); a good baseline and
-# every out-of-scope case asserts exit 0 (allow / no opinion).
+# Test suite for estate-identity-guard.sh — PreToolUse enforcement of the
+# estate identity baseline, gated on enrollment being a DISK fact.
+#
+# Two invariants matter most here and are both tested:
+#  1. NOT ENROLLED (no estate gitconfig on disk) -> the guard is silent, so
+#     shipping the plugin before the operator enrolls cannot brick a session.
+#  2. ENROLLED but the baseline is wrong -> the guard blocks (the bad-relaunch
+#     case). Every break is one flipped value on an otherwise-good baseline.
 #
 # Run: bash plugins/estate-hooks/tests/estate-identity-guard.test.sh
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/assert.sh"
-
 HOOK="${HOOK:-${SCRIPT_DIR}/../hooks/estate-identity-guard.sh}"
-# -f, not -x: hooks.json invokes every estate hook as `bash "$HOOK"`, so the
-# executable bit is irrelevant (and createCommitOnBranch cannot set it anyway).
 [[ -f "$HOOK" ]] || { echo "FATAL: $HOOK not found"; exit 2; }
 command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required"; exit 2; }
 
 BOT="325510841+claude-the-enduring[bot]@users.noreply.github.com"
-BASEPATH="/usr/bin:/bin:/usr/sbin:/sbin"
 
+# A scratch HOME with the estate baseline installed (i.e. ENROLLED).
 SCRATCH="$(mktemp -d)"
 trap 'rm -rf "$SCRATCH"' EXIT
-mkdir -p "$SCRATCH/.config/op-agent/bin" "$SCRATCH/.config/claude-estate/bin" \
-         "$SCRATCH/.config/claude-estate/gh-config" "$SCRATCH/.claude-personal"
+CE="$SCRATCH/.config/claude-estate"
+mkdir -p "$CE/bin" "$CE/gh-config" "$SCRATCH/.config/op-agent/bin" "$SCRATCH/.claude-personal"
+: > "$CE/estate-mode.gitconfig"
+: > "$CE/estate-env.sh"
+: > "$CE/gh-config/hosts.yml"
 printf '#!/bin/sh\n' > "$SCRATCH/.config/op-agent/bin/gh"; chmod +x "$SCRATCH/.config/op-agent/bin/gh"
 printf '#!/bin/sh\n' > "$SCRATCH/.config/op-agent/bin/git-credential-estate"; chmod +x "$SCRATCH/.config/op-agent/bin/git-credential-estate"
-: > "$SCRATCH/.config/claude-estate/estate-mode.gitconfig"
-ln -s "$SCRATCH/.config/op-agent/bin/gh" "$SCRATCH/.config/claude-estate/bin/gh"
-GOODPATH="$SCRATCH/.config/claude-estate/bin:$BASEPATH"
+ln -s "$SCRATCH/.config/op-agent/bin/gh" "$CE/bin/gh"
 
 mkjson() { jq -n --arg c "$1" '{tool_name:"Bash",tool_input:{command:$c}}'; }
-
-# run_guard <cmd> [ENV_OVERRIDE...] -> RC. Good baseline env, overrides win.
+# run_guard <cmd> [ENV_OVERRIDE...] -> RC. Good ENROLLED baseline, overrides win.
 run_guard() {
   local cmd="$1"; shift
   printf '%s' "$(mkjson "$cmd")" | env -i \
     HOME="$SCRATCH" CLAUDECODE=1 CLAUDE_CONFIG_DIR="$SCRATCH/.claude-personal" \
-    GIT_CONFIG_GLOBAL="$SCRATCH/.config/claude-estate/estate-mode.gitconfig" \
-    GH_CONFIG_DIR="$SCRATCH/.config/claude-estate/gh-config" \
-    GIT_AUTHOR_EMAIL="$BOT" GIT_COMMITTER_EMAIL="$BOT" SSH_AUTH_SOCK="" \
-    PATH="$GOODPATH" \
+    GIT_CONFIG_GLOBAL="$CE/estate-mode.gitconfig" CLAUDE_ENV_FILE="$CE/estate-env.sh" \
+    GH_CONFIG_DIR="$CE/gh-config" GIT_AUTHOR_EMAIL="$BOT" GIT_COMMITTER_EMAIL="$BOT" \
+    SSH_AUTH_SOCK="" PATH="/usr/bin:/bin" \
     "$@" bash "$HOOK" >/dev/null 2>&1
   RC=$?
 }
 blocks() { run_guard "$@"; assert_eq "BLOCK: $1 ${*:2}" "2" "$RC"; }
 allows() { run_guard "$@"; assert_eq "allow: $1 ${*:2}" "0" "$RC"; }
 
-section "Good baseline — a git/gh command is allowed"
+section "Enrollment gate — NOT enrolled is silent (cannot brick a pre-enrollment session)"
+mv "$CE/estate-mode.gitconfig" "$SCRATCH/estate-mode.gitconfig.bak"
+allows 'git status'
+allows 'gh pr create'
+allows 'git push origin main'
+mv "$SCRATCH/estate-mode.gitconfig.bak" "$CE/estate-mode.gitconfig"
+
+section "Enrolled + good baseline is allowed"
 allows 'git status'
 allows 'gh pr list'
 allows 'git commit -m x'
 
-section "Out of scope — no opinion (exit 0)"
-allows 'ls -la'                                     # not git/gh
-allows 'git status' CLAUDECODE=""                   # not a session
-allows 'git status' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"  # professional
-allows 'echo hello world'                           # noise, non-git/gh
+section "Out of scope — no opinion"
+allows 'ls -la'
+allows 'git status' CLAUDECODE=""
+allows 'git status' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
 
-section "Broken baseline — each break blocks a git/gh write"
-blocks 'git push origin main' GIT_CONFIG_GLOBAL="/wrong/path"
+section "Enrolled + broken baseline blocks (each break is one flipped value)"
+blocks 'git commit -m x' GIT_CONFIG_GLOBAL="/wrong"
 blocks 'gh pr create' GH_CONFIG_DIR=""
-blocks 'git commit -m x' SSH_AUTH_SOCK="/tmp/leaked-agent.sock"
-blocks 'git commit -m x' GIT_AUTHOR_EMAIL="lexi@personal.example"
+blocks 'git commit -m x' CLAUDE_ENV_FILE="/wrong/estate-env.sh"
+blocks 'git commit -m x' SSH_AUTH_SOCK="/tmp/leaked.sock"
+blocks 'git commit -m x' GIT_AUTHOR_EMAIL="lexi@her.example"
 blocks 'git commit -m x' GIT_COMMITTER_EMAIL=""
-blocks 'gh pr create' PATH="$BASEPATH"              # claude-estate/bin gone -> gh not the adapter
 
-section "ssh must not be shadowed by the estate PATH"
-# a fake ssh in the estate dir makes command -v ssh resolve there -> block
-printf '#!/bin/sh\n' > "$SCRATCH/.config/claude-estate/bin/ssh"; chmod +x "$SCRATCH/.config/claude-estate/bin/ssh"
+section "CLAUDE_ENV_FILE points at a MISSING file -> block"
+rm -f "$CE/estate-env.sh"
 blocks 'git status'
-rm -f "$SCRATCH/.config/claude-estate/bin/ssh"
-allows 'git status'                                 # restored
+: > "$CE/estate-env.sh"
+
+section "Estate PATH dir must be exactly the gh symlink"
+# an extra file in the dir -> block
+: > "$CE/bin/leftover"
+blocks 'git status'
+rm -f "$CE/bin/leftover"
+allows 'git status'                                   # restored
+# gh replaced by a non-symlink / wrong target -> block
+rm -f "$CE/bin/gh"; printf '#!/bin/sh\n' > "$CE/bin/gh"
+blocks 'git status'
+rm -f "$CE/bin/gh"; ln -s "$SCRATCH/.config/op-agent/bin/gh" "$CE/bin/gh"
 
 section "Missing credential helper blocks"
 mv "$SCRATCH/.config/op-agent/bin/git-credential-estate" "$SCRATCH/helper.bak"
@@ -78,17 +93,13 @@ mv "$SCRATCH/helper.bak" "$SCRATCH/.config/op-agent/bin/git-credential-estate"
 
 section "git push — the pre-push scanner hook must be installed in the repo"
 repo="$SCRATCH/repo"; mkdir -p "$repo"; ( cd "$repo" && git init -q )
-# no pre-push hook yet -> push blocks
-run_guard_in_repo() { ( cd "$repo" && run_guard "$@"; echo "$RC" ); }
-rc="$(run_guard_in_repo 'git push origin main')"; assert_eq "push without scanner hook -> block" "2" "$rc"
-# install a pre-commit-shaped pre-push hook -> push allowed
+run_in_repo() { ( cd "$repo" && run_guard "$@"; echo "$RC" ); }
+rc="$(run_in_repo 'git push origin main')"; assert_eq "push without scanner hook -> block" "2" "$rc"
 mkdir -p "$repo/.git/hooks"
 printf '#!/usr/bin/env bash\n# File generated by pre-commit: https://pre-commit.com\n' > "$repo/.git/hooks/pre-push"
-chmod +x "$repo/.git/hooks/pre-push"
-rc="$(run_guard_in_repo 'git push origin main')"; assert_eq "push with pre-commit scanner hook -> allow" "0" "$rc"
-# a non-push git command in the same repo is allowed even without the hook check mattering
+rc="$(run_in_repo 'git push origin main')"; assert_eq "push with pre-commit scanner hook -> allow" "0" "$rc"
 rm -f "$repo/.git/hooks/pre-push"
-rc="$(run_guard_in_repo 'git status')"; assert_eq "non-push git command not gated on the scanner hook" "0" "$rc"
+rc="$(run_in_repo 'git status')"; assert_eq "non-push git command not gated on the scanner hook" "0" "$rc"
 
 section "Fail-open on infra errors"
 printf 'not json {{{' | bash "$HOOK" >/dev/null 2>&1; assert_eq "garbage stdin -> exit 0" "0" "$?"

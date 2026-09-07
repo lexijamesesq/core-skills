@@ -1,7 +1,7 @@
 {
   "name": "estate-hooks",
   "version": "0.4.6",
-  "description": "The estate's ten Claude Code hook scripts (plus a git co-author trailer hook and a shared gitleaks helper), packaged as a plugin.",
+  "description": "The estate's ten Claude Code hook scripts plus a shared gitleaks helper, packaged as a plugin.",
   "author": {
     "name": "Lexi James",
     "url": "https://github.com/lexijamesesq"
