@@ -24,7 +24,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/assert.sh"
 
 HOOK="${HOOK:-${SCRIPT_DIR}/../hooks/git-push-publish-guard.sh}"
-[[ -x "$HOOK" ]] || { echo "FATAL: $HOOK not executable"; exit 2; }
+# Invoked via `bash "$HOOK"` below (hooks.json's own invocation form for
+# every hook in this plugin) -- the executable bit is irrelevant, since
+# createCommitOnBranch (the App's commit API) has no way to set it and
+# every hook here is registered as an interpreter invocation rather than a
+# direct exec. Only existence is a real precondition.
+[[ -f "$HOOK" ]] || { echo "FATAL: $HOOK not found"; exit 2; }
 
 command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required to build test fixtures"; exit 2; }
 
