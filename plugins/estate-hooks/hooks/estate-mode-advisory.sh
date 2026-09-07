@@ -21,7 +21,7 @@ ESTATE_GITCONFIG="$HOME/.config/claude-estate/estate-mode.gitconfig"
 case "$(basename "${CLAUDE_CONFIG_DIR:-}")" in
   .claude-personal)
     if [[ -f "$ESTATE_GITCONFIG" ]]; then
-      echo "Estate identity mode (personal profile): git and gh writes to GitHub authenticate as, and are authored by, the Claude App (claude-the-enduring[bot]) with the operator as co-author — never as her. The estate-identity PreToolUse guard blocks any git/gh write if the baseline is inconsistent, and a git push additionally requires the pre-push scanner hook installed in the repo."
+      echo "Estate identity mode (personal profile): git and gh writes to GitHub authenticate as, and are authored by, the Claude App (claude-the-enduring[bot]) alone — never as her, and with no co-author line. The estate-identity PreToolUse guard blocks any git/gh write if the baseline is inconsistent, and a git push additionally requires the pre-push scanner hook installed in the repo."
     else
       echo "Personal profile — NOT enrolled in estate identity mode (the estate baseline is not installed on this machine: $ESTATE_GITCONFIG is absent). git and gh behave as they did before the identity layer, and the estate-identity guard stays dormant until the operator enrolls this machine (applies the blueprint and relaunches)."
     fi
