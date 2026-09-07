@@ -51,8 +51,25 @@
 # Effective date: plugin update + session restart or reload, same as any
 # other estate-hooks change — a running session keeps whatever hooks.json
 # it loaded at start.
+#
+# Enrollment hand-off (disk fact, same key as estate-identity-guard.sh): once
+# ~/.config/claude-estate/estate-mode.gitconfig exists on disk, this machine is
+# enrolled and pushes are governed by the estate-identity guard, which requires
+# the App baseline AND the installed pre-push scanner hook in the repo before it
+# allows a push. This blanket guard then steps aside (exit 0, no opinion): its
+# job — stopping an unscanned bare push under an ambiguous identity — is
+# subsumed there, and an enrolled session legitimately writes to GitHub as the
+# App through ordinary git and the credential helper. Until enrollment it stays
+# active exactly as before. (This is the guard's retirement moving to enrollment
+# itself: an enrolled session must not be blocked from the very App pushes that
+# enrollment exists to enable — the two guards move together, keyed the same
+# way, so there is never a window where both refuse or neither does.)
 
 set -uo pipefail
+
+# Enrollment hand-off — see the header. Keyed on the same disk fact as the
+# estate-identity guard so the two flip together at enrollment.
+[[ -f "$HOME/.config/claude-estate/estate-mode.gitconfig" ]] && exit 0
 
 command -v jq >/dev/null 2>&1 || exit 0
 
