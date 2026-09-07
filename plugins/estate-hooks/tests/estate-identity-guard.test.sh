@@ -92,7 +92,11 @@ blocks 'git status'
 mv "$SCRATCH/helper.bak" "$SCRATCH/.config/op-agent/bin/git-credential-estate"
 
 section "git push — the pre-push scanner hook must be installed in the repo"
-repo="$SCRATCH/repo"; mkdir -p "$repo"; ( cd "$repo" && git init -q )
+# GIT_CONFIG_GLOBAL=/dev/null so this scratch repo does not inherit the dev
+# shell's global git config: an ENROLLED shell's estate-mode.gitconfig sets
+# init.templateDir, which would copy the pre-push scanner hook into .git/hooks
+# and defeat the "without scanner hook -> block" case just below.
+repo="$SCRATCH/repo"; mkdir -p "$repo"; ( cd "$repo" && GIT_CONFIG_GLOBAL=/dev/null git init -q )
 run_in_repo() { ( cd "$repo" && run_guard "$@"; echo "$RC" ); }
 rc="$(run_in_repo 'git push origin main')"; assert_eq "push without scanner hook -> block" "2" "$rc"
 mkdir -p "$repo/.git/hooks"

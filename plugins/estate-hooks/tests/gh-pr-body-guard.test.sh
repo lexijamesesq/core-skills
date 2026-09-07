@@ -66,7 +66,10 @@ BARE="$TMP/plainrepo"     # git repo WITHOUT a .gitleaks.toml
 mkdir -p "$NOREPO"
 
 init_repo() { # <path>
-    git init -q "$1"
+    # GIT_CONFIG_GLOBAL=/dev/null: don't inherit the dev shell's global git
+    # config -- an ENROLLED shell's estate-mode.gitconfig sets init.templateDir,
+    # which would copy hooks into these scratch repos.
+    GIT_CONFIG_GLOBAL=/dev/null git init -q "$1"
     git -C "$1" config user.email "test@example.com"
     git -C "$1" config user.name "Test Runner"
     git -C "$1" config commit.gpgsign false
