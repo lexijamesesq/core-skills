@@ -104,9 +104,15 @@ section "enrollment hand-off — silent when enrolled, active when not"
 ENROLLED_HOME="$(mktemp -d)"; mkdir -p "$ENROLLED_HOME/.config/claude-estate"
 : > "$ENROLLED_HOME/.config/claude-estate/estate-mode.gitconfig"
 UNENROLLED_HOME="$(mktemp -d)"    # no estate-mode.gitconfig on disk
-printf '%s' "$(mkjson 'git push origin main')" | env HOME="$ENROLLED_HOME" bash "$HOOK" >/dev/null 2>&1
+# Feed stdin by here-string, NOT a `printf | hook` pipe: when enrolled the hook
+# exits at the gate WITHOUT reading stdin, so a pipe can leave printf writing to
+# a closed read end (EPIPE) — under `set -o pipefail` that surfaces as a spurious
+# exit 1 (races on the runner's scheduling; seen on bash 5/Linux, not bash 3.2).
+# A here-string has no pipe and no such race.
+ENROLL_JSON="$(mkjson 'git push origin main')"
+env HOME="$ENROLLED_HOME" bash "$HOOK" >/dev/null 2>&1 <<<"$ENROLL_JSON"
 assert_eq "enrolled (gitconfig present) -> guard silent, push allowed" "0" "$?"
-printf '%s' "$(mkjson 'git push origin main')" | env HOME="$UNENROLLED_HOME" bash "$HOOK" >/dev/null 2>&1
+env HOME="$UNENROLLED_HOME" bash "$HOOK" >/dev/null 2>&1 <<<"$ENROLL_JSON"
 assert_eq "not enrolled (gitconfig absent) -> guard active, push blocked" "2" "$?"
 rm -rf "$ENROLLED_HOME" "$UNENROLLED_HOME"
 
