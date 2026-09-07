@@ -36,8 +36,15 @@ command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required to build test fixtur
 # mkjson <command-string> -> PreToolUse stdin JSON for the Bash tool
 mkjson() { jq -n --arg c "$1" '{tool_name:"Bash",tool_input:{command:$c}}'; }
 
-# fire <json> -> hook exit code (in RC)
-fire() { printf '%s' "$1" | bash "$HOOK" >/dev/null 2>&1; RC=$?; }
+# A deterministic UNENROLLED HOME. The guard is only active before enrollment
+# (see the enrollment-handoff section), so every "active guard" assertion below
+# runs against a HOME with no estate gitconfig — otherwise the suite would flip
+# on a machine that happens to be enrolled.
+GUARD_HOME="$(mktemp -d)"    # deliberately no ~/.config/claude-estate/estate-mode.gitconfig
+trap 'rm -rf "$GUARD_HOME"' EXIT
+
+# fire <json> -> hook exit code (in RC), under the unenrolled HOME
+fire() { printf '%s' "$1" | env HOME="$GUARD_HOME" bash "$HOOK" >/dev/null 2>&1; RC=$?; }
 
 expect_block() { fire "$(mkjson "$1")"; assert_eq "BLOCK: $1" "2" "$RC"; }
 expect_allow() { fire "$(mkjson "$1")"; assert_eq "allow: $1" "0" "$RC"; }
@@ -88,22 +95,39 @@ expect_allow 'push_to_queue'                              # no word boundary aro
 expect_block 'git commit -m "explain how git push works here"'  # message mentions it
 expect_block 'echo "git push" && git log'                # both words, unrelated act
 
+# === Enrollment hand-off — dormant when enrolled, active when not ===
+# Once ~/.config/claude-estate/estate-mode.gitconfig exists on disk this machine
+# is enrolled and the estate-identity guard owns pushes, so this blanket guard
+# stands down (exit 0). Until then it stays active (exit 2). Keyed on the same
+# disk fact as the identity guard; driven with an explicit scratch HOME each way.
+section "enrollment hand-off — silent when enrolled, active when not"
+ENROLLED_HOME="$(mktemp -d)"; mkdir -p "$ENROLLED_HOME/.config/claude-estate"
+: > "$ENROLLED_HOME/.config/claude-estate/estate-mode.gitconfig"
+UNENROLLED_HOME="$(mktemp -d)"    # no estate-mode.gitconfig on disk
+printf '%s' "$(mkjson 'git push origin main')" | env HOME="$ENROLLED_HOME" bash "$HOOK" >/dev/null 2>&1
+assert_eq "enrolled (gitconfig present) -> guard silent, push allowed" "0" "$?"
+printf '%s' "$(mkjson 'git push origin main')" | env HOME="$UNENROLLED_HOME" bash "$HOOK" >/dev/null 2>&1
+assert_eq "not enrolled (gitconfig absent) -> guard active, push blocked" "2" "$?"
+rm -rf "$ENROLLED_HOME" "$UNENROLLED_HOME"
+
 # === Fail-open posture on infra errors ===
+# Run under the unenrolled HOME so the enrollment gate does not short-circuit
+# what these assertions actually test (the jq/parse fail-open paths).
 section "fail-open — infra errors never block"
 NOJQ=$(mktemp -d -t gppg-nojq.XXXXXX)
 ln -s "$(command -v bash)" "$NOJQ/bash" 2>/dev/null
 NOJQ_FIXTURE=$(mkjson 'git push')
-PATH="$NOJQ" bash "$HOOK" <<<"$NOJQ_FIXTURE" >/dev/null 2>&1
+PATH="$NOJQ" HOME="$GUARD_HOME" bash "$HOOK" <<<"$NOJQ_FIXTURE" >/dev/null 2>&1
 assert_eq "jq absent -> exit 0 (fail-open)" "0" "$?"
 rm -rf "$NOJQ"
 
-printf 'not-json-at-all {{{' | bash "$HOOK" >/dev/null 2>&1
+printf 'not-json-at-all {{{' | HOME="$GUARD_HOME" bash "$HOOK" >/dev/null 2>&1
 assert_eq "garbage stdin -> exit 0" "0" "$?"
 
-printf '' | bash "$HOOK" >/dev/null 2>&1
+printf '' | HOME="$GUARD_HOME" bash "$HOOK" >/dev/null 2>&1
 assert_eq "empty stdin -> exit 0" "0" "$?"
 
-printf '%s' '{"tool_name":"Read","tool_input":{"file_path":"/tmp/x"}}' | bash "$HOOK" >/dev/null 2>&1
+printf '%s' '{"tool_name":"Read","tool_input":{"file_path":"/tmp/x"}}' | HOME="$GUARD_HOME" bash "$HOOK" >/dev/null 2>&1
 assert_eq "non-Bash tool -> exit 0" "0" "$?"
 
 finish
