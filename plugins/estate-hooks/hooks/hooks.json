@@ -44,6 +44,11 @@
             "type": "command"
           },
           {
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/estate-identity-guard.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/gh-pr-body-guard.sh",
             "if": "Bash(gh pr *)",
             "timeout": 30,
@@ -82,6 +87,11 @@
             "type": "command"
           },
           {
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/estate-mode-advisory.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
             "timeout": 30,
             "type": "command"
@@ -93,6 +103,11 @@
         "hooks": [
           {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/estate-mode-advisory.sh",
             "timeout": 5,
             "type": "command"
           },
