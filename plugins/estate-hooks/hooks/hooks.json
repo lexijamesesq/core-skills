@@ -5,7 +5,7 @@
       {
         "hooks": [
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
             "if": "Bash(gh pr *)",
             "timeout": 30,
             "type": "command"
@@ -18,7 +18,7 @@
       {
         "hooks": [
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/vault-mcp-redirect.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/vault-mcp-redirect.sh",
             "timeout": 5,
             "type": "command"
           }
@@ -34,18 +34,23 @@
             "type": "command"
           },
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-hook-bypass-guard.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-hook-bypass-guard.sh",
             "timeout": 5,
             "type": "command"
           },
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/gh-pr-body-guard.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-push-publish-guard.sh",
+            "timeout": 5,
+            "type": "command"
+          },
+          {
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/gh-pr-body-guard.sh",
             "if": "Bash(gh pr *)",
             "timeout": 30,
             "type": "command"
           },
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/linear-transition-guard.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/linear-transition-guard.sh",
             "timeout": 5,
             "type": "command"
           }
@@ -55,7 +60,7 @@
       {
         "hooks": [
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/linear-transition-guard.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/linear-transition-guard.sh",
             "timeout": 5,
             "type": "command"
           }
@@ -67,17 +72,17 @@
       {
         "hooks": [
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/fix-obsidian-claude-sync.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/fix-obsidian-claude-sync.sh",
             "timeout": 10,
             "type": "command"
           },
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
             "timeout": 5,
             "type": "command"
           },
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
             "timeout": 30,
             "type": "command"
           }
@@ -87,12 +92,12 @@
       {
         "hooks": [
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
             "timeout": 5,
             "type": "command"
           },
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
             "timeout": 30,
             "type": "command"
           }

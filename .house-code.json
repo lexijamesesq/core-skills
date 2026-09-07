@@ -1,9 +1,1 @@
-{
-  "exemptions": [
-    {
-      "path": "CLAUDE\\.md",
-      "rule": "sample-shape",
-      "reason": "this repo ships skills documentation that references consumer projects' own CLAUDE.md as a concept (e.g. \"the operator's global CLAUDE.md > Configuration\") — it never ships a CLAUDE.md or CLAUDE.sample.md of its own"
-    }
-  ]
-}
+{}
