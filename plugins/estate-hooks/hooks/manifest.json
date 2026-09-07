@@ -4,6 +4,7 @@
     "pr-cache.sh",
     "vault-mcp-redirect.sh",
     "git-hook-bypass-guard.sh",
+    "git-push-publish-guard.sh",
     "gh-pr-body-guard.sh",
     "linear-transition-guard.sh",
     "fix-obsidian-claude-sync.sh",
