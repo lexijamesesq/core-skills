@@ -9,6 +9,12 @@
             "if": "Bash(gh pr *)",
             "timeout": 30,
             "type": "command"
+          },
+          {
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-verdict-watch-arm.sh",
+            "if": "Bash(gh pr create *)",
+            "timeout": 15,
+            "type": "command"
           }
         ],
         "matcher": "Bash"
