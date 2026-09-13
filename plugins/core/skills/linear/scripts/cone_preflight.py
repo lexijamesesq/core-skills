@@ -240,6 +240,35 @@ def history_of(node):
     return ((node or {}).get("history") or {}).get("nodes", [])
 
 
+def claim_ts_or_fallback(issue, history, in_progress_entries):
+    """Freshness anchor for M3b/M3g: the latest In Progress transition from
+    history, falling back to issue.startedAt only when Linear returns
+    history as an empty node list — the receipted gap where an issue is
+    genuinely In Progress (startedAt set, claimed and begun through the
+    gate) but history(first:50){nodes} comes back [] with nothing to scan.
+    A non-empty history with no In Progress entry is NOT this case — that
+    shape means the transition really isn't there, so it keeps refusing
+    unchanged; the fallback only covers Linear supplying zero history
+    nodes at all.
+
+    Returns (claim_ts, fallback_note, fail_detail):
+      - fail_detail set (claim_ts None): refuse now with this detail.
+      - claim_ts set, fallback_note None: ordinary history-backed claim.
+      - claim_ts set, fallback_note set: startedAt fallback was used —
+        callers should fold this note into their PASS/FAIL detail.
+    """
+    claim_ts = max((h["createdAt"] for h in in_progress_entries), default=None)
+    if claim_ts is not None:
+        return claim_ts, None, None
+    if history:
+        return None, None, "no In Progress transition found in history — cannot establish freshness"
+    started_at = issue.get("startedAt")
+    if started_at:
+        note = f"history empty (Linear returned no nodes); freshness keyed on startedAt {started_at}"
+        return started_at, note, None
+    return None, None, "no In Progress transition found in history — cannot establish freshness and startedAt is null"
+
+
 def done_when_state(sections):
     body = sections.get("Done When", "")
     if not body:
@@ -561,17 +590,21 @@ def run_mark_done_checks(ctx, flags):
     if receipt_comment:
         history = history_of(issue)
         in_progress_entries = [h for h in history if (h.get("toState") or {}).get("name") == "In Progress"]
-        claim_ts = max((h["createdAt"] for h in in_progress_entries), default=None)
-        if claim_ts is None:
-            detail = "no In Progress transition found in history — cannot establish freshness"
-            checks.append(mk_check("M3b", "mark_done", "FAIL", detail))
-            refuse_reasons.append(detail)
+        claim_ts, fallback_note, fail_detail = claim_ts_or_fallback(issue, history, in_progress_entries)
+        if fail_detail:
+            checks.append(mk_check("M3b", "mark_done", "FAIL", fail_detail))
+            refuse_reasons.append(fail_detail)
         elif receipt_comment["createdAt"] <= claim_ts:
             detail = f"receipt ({receipt_comment['createdAt']}) predates claim ({claim_ts}) — stale receipt, graded different work"
+            if fallback_note:
+                detail += f"; {fallback_note}"
             checks.append(mk_check("M3b", "mark_done", "FAIL", detail))
             refuse_reasons.append(detail)
         else:
-            checks.append(mk_check("M3b", "mark_done", "PASS", f"receipt postdates claim at {claim_ts}"))
+            detail = f"receipt postdates claim at {claim_ts}"
+            if fallback_note:
+                detail += f"; {fallback_note}"
+            checks.append(mk_check("M3b", "mark_done", "PASS", detail))
     else:
         checks.append(mk_check("M3b", "mark_done", "SKIP", "no receipt to check freshness of"))
 
@@ -695,7 +728,7 @@ def run_mark_done_checks(ctx, flags):
         history = history_of(issue)
         # Name-keyed (Brick 1), same reason as M3b.
         in_progress_entries = [h for h in history if (h.get("toState") or {}).get("name") == "In Progress"]
-        claim_ts = max((h["createdAt"] for h in in_progress_entries), default=None)
+        claim_ts, fallback_note, fail_detail = claim_ts_or_fallback(issue, history, in_progress_entries)
         m3g_failures = []
         if audited_comment is None:
             m3g_failures.append(f"--receipt-audited {audited_id!r} does not resolve to a comment on this ticket")
@@ -706,16 +739,22 @@ def run_mark_done_checks(ctx, flags):
                 m3g_failures.append(f"--receipt-audited {audited_id!r} is not Verdict: CONFIRMED")
             if not audited_parsed or not audited_parsed.get("schema_complete"):
                 m3g_failures.append(f"--receipt-audited {audited_id!r} is malformed — missing schema lines")
-            if claim_ts is None:
-                m3g_failures.append("no In Progress transition found in history — cannot establish freshness")
+            if fail_detail:
+                m3g_failures.append(fail_detail)
             elif audited_comment and audited_comment["createdAt"] <= claim_ts:
-                m3g_failures.append(f"--receipt-audited {audited_id!r} ({audited_comment['createdAt']}) predates the In Progress claim ({claim_ts})")
+                detail = f"--receipt-audited {audited_id!r} ({audited_comment['createdAt']}) predates the In Progress claim ({claim_ts})"
+                if fallback_note:
+                    detail += f"; {fallback_note}"
+                m3g_failures.append(detail)
         if m3g_failures:
             detail = "; ".join(m3g_failures)
             checks.append(mk_check("M3g", "mark_done", "FAIL", detail))
             refuse_reasons.append(detail)
         else:
-            checks.append(mk_check("M3g", "mark_done", "PASS", f"--receipt-audited {audited_id!r} verified: CONFIRMED ticket-close, postdates claim"))
+            detail = f"--receipt-audited {audited_id!r} verified: CONFIRMED ticket-close, postdates claim"
+            if fallback_note:
+                detail += f"; {fallback_note}"
+            checks.append(mk_check("M3g", "mark_done", "PASS", detail))
             ruled.append("M3g")
     else:
         item = {

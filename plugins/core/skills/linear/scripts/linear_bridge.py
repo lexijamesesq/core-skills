@@ -352,6 +352,12 @@ def _issue_fields(body=False, comments=False, history=False):
         extra += "\n    comments { nodes { id body createdAt user { id } } }"
     if history:
         extra += "\n    history { nodes { createdAt fromState { name type } toState { name type } } }"
+        # startedAt is the fallback anchor cone_preflight's M3b/M3g use when
+        # Linear returns history as an empty node list for an In Progress
+        # issue (receipted case: history(first:50){nodes} -> [] despite a
+        # real Planning->In Progress transition having happened) — only
+        # fetched alongside history since nothing else needs it.
+        extra += "\n    startedAt"
     return ISSUE_FIELDS + extra
 
 

@@ -417,6 +417,31 @@ class MarkDoneAdmitTests(unittest.TestCase):
         self.assertIn("predates", find_check(report, "M3g")["detail"])
         self.assertEqual(report["verdict"], "REFUSE")
 
+    def test_full_variant_receipt_audited_empty_history_falls_back_to_started_at(self):
+        # Same receipted gap as M3b: empty history, startedAt stands in for
+        # the missing In Progress transition — a postdating receipt admits.
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["history"] = {"nodes": []}
+        ctx["issue"]["startedAt"] = "2026-01-30T09:00:00Z"
+        ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
+        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1"))
+        check = find_check(report, "M3g")
+        self.assertEqual(check["result"], "PASS")
+        self.assertIn("startedAt", check["detail"])
+        self.assertEqual(report["verdict"], "ADMIT")
+        self.assertIn("M3g", report["ruled"])
+
+    def test_full_variant_receipt_audited_empty_history_and_null_started_at_refuses(self):
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["history"] = {"nodes": []}
+        ctx["issue"]["startedAt"] = None
+        ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
+        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1"))
+        check = find_check(report, "M3g")
+        self.assertEqual(check["result"], "FAIL")
+        self.assertIn("startedAt is null", check["detail"])
+        self.assertEqual(report["verdict"], "REFUSE")
+
     def test_build_variant_admits(self):
         # Map children never see M3g — CM6 audits them at close-map.
         ctx = fx.mark_done_build_ctx()
@@ -543,6 +568,59 @@ class MarkDoneRefuseAndNeedsInputTests(unittest.TestCase):
         ctx["issue"]["comments"]["nodes"][0]["createdAt"] = "2026-01-29T00:00:00Z"  # before the claim ts
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         self.assertEqual(find_check(report, "M3b")["result"], "FAIL")
+        self.assertEqual(report["verdict"], "REFUSE")
+
+    def test_m3b_empty_history_falls_back_to_started_at_admits(self):
+        # Receipted gap: Linear returns history as an empty node list for an
+        # issue that is genuinely In Progress. startedAt stands in for the
+        # missing In Progress transition, and a receipt postdating it PASSes.
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["history"] = {"nodes": []}
+        ctx["issue"]["startedAt"] = "2026-01-30T09:00:00Z"
+        # --receipt-audited resolves M3g mechanically so the overall verdict
+        # isolates M3b's own contribution rather than M3g's default defer.
+        ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
+        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1"))
+        check = find_check(report, "M3b")
+        self.assertEqual(check["result"], "PASS")
+        self.assertIn("startedAt", check["detail"])
+        self.assertEqual(report["verdict"], "ADMIT")
+
+    def test_m3b_empty_history_started_at_fallback_refuses_when_stale(self):
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["history"] = {"nodes": []}
+        ctx["issue"]["startedAt"] = "2026-01-30T09:00:00Z"
+        ctx["issue"]["comments"]["nodes"][0]["createdAt"] = "2026-01-29T00:00:00Z"  # before startedAt
+        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
+        check = find_check(report, "M3b")
+        self.assertEqual(check["result"], "FAIL")
+        self.assertIn("startedAt", check["detail"])
+        self.assertEqual(report["verdict"], "REFUSE")
+
+    def test_m3b_empty_history_and_null_started_at_refuses(self):
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["history"] = {"nodes": []}
+        ctx["issue"]["startedAt"] = None
+        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
+        check = find_check(report, "M3b")
+        self.assertEqual(check["result"], "FAIL")
+        self.assertIn("startedAt is null", check["detail"])
+        self.assertEqual(report["verdict"], "REFUSE")
+
+    def test_m3b_nonempty_history_without_in_progress_entry_refuses_unchanged(self):
+        # A non-empty history with no In Progress entry is NOT the fallback
+        # case — the transition really isn't there, so the original refusal
+        # detail is unchanged even when startedAt happens to be present.
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["history"] = {"nodes": [
+            {"createdAt": "2026-01-30T09:00:00Z", "fromState": {"name": "Todo", "type": "unstarted"},
+             "toState": {"name": "Planning", "type": "started"}},
+        ]}
+        ctx["issue"]["startedAt"] = "2026-01-30T09:00:00Z"
+        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
+        check = find_check(report, "M3b")
+        self.assertEqual(check["result"], "FAIL")
+        self.assertEqual(check["detail"], "no In Progress transition found in history — cannot establish freshness")
         self.assertEqual(report["verdict"], "REFUSE")
 
     def test_m3c_mismatched_type_refuses(self):
