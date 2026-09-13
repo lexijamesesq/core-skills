@@ -242,14 +242,15 @@ def history_of(node):
 
 def claim_ts_or_fallback(issue, history, in_progress_entries):
     """Freshness anchor for M3b/M3g: the latest In Progress transition from
-    history, falling back to issue.startedAt only when Linear returns
-    history as an empty node list — the receipted gap where an issue is
+    history, falling back to issue.startedAt only when history carries no
+    state transitions at all — the receipted gap where an issue is
     genuinely In Progress (startedAt set, claimed and begun through the
-    gate) but history(first:50){nodes} comes back [] with nothing to scan.
-    A non-empty history with no In Progress entry is NOT this case — that
-    shape means the transition really isn't there, so it keeps refusing
-    unchanged; the fallback only covers Linear supplying zero history
-    nodes at all.
+    gate) but every node history() returns has toState null (or the list is
+    empty outright), leaving nothing to scan. A history that DOES carry at
+    least one state transition, just none to In Progress, is NOT this case
+    — that shape means the transition really isn't there, so it keeps
+    refusing unchanged; the fallback only covers Linear supplying zero
+    state-transition nodes.
 
     Returns (claim_ts, fallback_note, fail_detail):
       - fail_detail set (claim_ts None): refuse now with this detail.
@@ -260,11 +261,12 @@ def claim_ts_or_fallback(issue, history, in_progress_entries):
     claim_ts = max((h["createdAt"] for h in in_progress_entries), default=None)
     if claim_ts is not None:
         return claim_ts, None, None
-    if history:
+    has_state_transition = any(h.get("toState") for h in history)
+    if has_state_transition:
         return None, None, "no In Progress transition found in history — cannot establish freshness"
     started_at = issue.get("startedAt")
     if started_at:
-        note = f"history empty (Linear returned no nodes); freshness keyed on startedAt {started_at}"
+        note = f"history carries no state transitions; freshness keyed on startedAt {started_at}"
         return started_at, note, None
     return None, None, "no In Progress transition found in history — cannot establish freshness and startedAt is null"
 
