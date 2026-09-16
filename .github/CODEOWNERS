@@ -1,7 +1,44 @@
-# Default: every path waits for the operator's review.
-* @lexijamesesq
-# Unattended paths: a pattern with no owner clears ownership for it.
+# CODEOWNERS — coverage model (un-inverted).
+#
+# DEFAULT = UNOWNED: any path not matched below needs no code-owner review, so a
+# low-risk deterministic PR (and a Margot LOW-risk verdict) can merge without the
+# operator. There is deliberately NO `* @owner` catch-all.
+#
+# OWNED (listed below) = paths where a JUDGMENT change must have a human: the
+# safety / identity / gate machinery. The branch ruleset requires code-owner
+# review (with 0 baseline approvals), so touching any owned path holds the PR for
+# @lexijamesesq; touching only unowned paths does not.
+#
+# When adding a path: uncertain -> OWNED (under-coverage — an owned path left
+# unowned — is the dangerous direction).
 
-/README.md
-/LICENSE
-/DEV_LOOP.md
+# --- Gate machinery (CI + gate scripts) ---
+/.github/workflows/                              @lexijamesesq
+/.github/scripts/                                @lexijamesesq
+
+# --- Gate / lint configs (can DISABLE a check) ---
+/.pre-commit-config.yaml                         @lexijamesesq
+/.gitleaks.toml                                  @lexijamesesq
+/.shellcheckrc                                   @lexijamesesq
+/.house-code.json                                @lexijamesesq
+
+# --- Governance & policy ---
+/.claude/settings.json                           @lexijamesesq
+/.github/CODEOWNERS                              @lexijamesesq
+
+# --- Release / identity (plugin version = release identity) ---
+/.claude-plugin/marketplace.json                 @lexijamesesq
+/plugins/core/.claude-plugin/plugin.json         @lexijamesesq
+
+# --- Security machinery + its proof (the estate-hooks that run every session) ---
+/plugins/estate-hooks/                           @lexijamesesq
+
+# --- Privileged stateful writes + lifecycle-gate mechanism + the validation gate ---
+/plugins/core/skills/linear/scripts/             @lexijamesesq
+/plugins/core/skills/traffic-cone/scripts/       @lexijamesesq
+/plugins/core/agents/attack-kitty.md             @lexijamesesq
+/plugins/core/skills/attack-kitty/               @lexijamesesq
+
+# UNOWNED by default (flow without the operator): README.md, LICENSE,
+# DEV_LOOP.md, .github/CI.md, .gitignore, and the rest of plugins/core/**
+# skill / agent / command content (the product Margot judges).
