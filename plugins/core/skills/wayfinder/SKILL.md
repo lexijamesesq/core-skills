@@ -30,7 +30,7 @@ Slices are **vertical** — each a complete, usable increment — never horizont
 
 Every map and ticket is referred to by its **name** — its title — everywhere a human reads, never a bare id, number, or slug: `#42, #43` is illegible, names read at a glance; the id and URL ride inside the name, never stand in for it.
 
-Every GitHub action — branch, commit, push, PR, merge — goes through `/publish`.
+Every GitHub action — branch, commit, push, PR, merge — goes through the publishing workflow: the pre-commit hooks locally, then the PR's required CI checks.
 
 ## Roles
 

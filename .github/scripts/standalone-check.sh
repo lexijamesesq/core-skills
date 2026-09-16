@@ -9,9 +9,8 @@
 # fallback) and broke the moment they ran from this plugin's installed
 # cache instead — gh-pr-body-guard.sh (blocked gh pr create outside a
 # repo with its own .gitleaks.toml) and the traffic-cone wrapper (couldn't
-# find cone_preflight.py). Both were fixed in the same series that adds
-# this check; the /publish gate's resolver, which had the same class of
-# bug, now lives and is checked in publish-skills. This proves they STAY fixed:
+# find cone_preflight.py). Both were fixed in the same series that adds this
+# check (an earlier gate resolver had the same self-location bug class). This proves they STAY fixed:
 # run from THIS checkout alone, no dotty anywhere on the machine (this
 # script never checks dotty out and never references a dotty path).
 #
