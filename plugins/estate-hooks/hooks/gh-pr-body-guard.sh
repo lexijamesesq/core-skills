@@ -265,7 +265,7 @@ fi
 # always failed, and any session outside a repo with its own .gitleaks.toml
 # (the vault, most of all) hit the "no ruleset found" BLOCK unconditionally —
 # reintroducing the same self-location class already fixed elsewhere in this
-# repo (qa.py/smoke.sh), because HERE/../.. is not portable across
+# repo (smoke.sh), because HERE/../.. is not portable across
 # a checkout vs. a packaged plugin cache. The fixed path IS portable: it is
 # installed once, machine-wide, independent of which repo (or plugin cache)
 # this hook happens to run from — the same signal Path 4's env-var override
