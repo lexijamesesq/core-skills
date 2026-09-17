@@ -27,6 +27,6 @@ concurrency:
 
 jobs:
   dispatch:
-    uses: lexijamesesq/dotty/.github/workflows/estate-margot.yml@v2026.09.17
+    uses: lexijamesesq/dotty/.github/workflows/estate-margot.yml@v2026.09.18
     secrets:
       MARGOT_APP_KEY: ${{ secrets.MARGOT_APP_KEY }}
