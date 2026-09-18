@@ -227,7 +227,14 @@ run_iso_bare_rules_noxdg() { # <json> <rules-file>   (own repo NOT a repo; fixed
 
 # Build a PATH bin dir containing every tool the hook uses EXCEPT one (for the
 # missing-dependency tests). Platform-independent — no assumptions about /usr/bin.
-HOOK_TOOLS=(bash dirname jq git gitleaks python3 mktemp cat grep tr cp rm awk)
+# mkdir and ln joined this list with the port to the thinned gitleaks-common.sh:
+# gl_resolve materialises a relative [extend] token by making a resolution
+# directory and symlinking the overlay into it, where the retired gl_preflight
+# rewrote a config instead. Without them on the minimal PATH, the "missing
+# python3" cases blocked on "could not build the config resolution directory"
+# before ever reaching the python3 check — the block was still fail-closed, but
+# the assertion was no longer testing what it names.
+HOOK_TOOLS=(bash dirname jq git gitleaks python3 mktemp cat grep tr cp rm awk mkdir ln)
 make_bin() { # <exclude-tool> -> prints bindir
     local d t p; d="$(mktemp -d)"
     for t in "${HOOK_TOOLS[@]}"; do
@@ -528,7 +535,15 @@ run_hook "$(mkjson 'gh pr create --title "x" --body "clean"' "$REPO")"
 chmod 644 "$FIXED"
 rm -f "$REPO/.gitleaks-operator-rules.toml"
 assert_eq "unreadable fixed path exits 2 (block)" "2" "$RC"
-grep -qi "unreadable" "$ERRFILE" && pass "names the unreadable install" || fail "names the unreadable install" "$(cat "$ERRFILE")"
+# The wording now comes from gl_resolve's own block, not this guard's: it names
+# the expected path and says the ruleset is not installed. Same fail-closed
+# outcome, one message instead of two, which is the point of sharing the helper.
+grep -qiE "not installed|unreadable" "$ERRFILE" \
+    && pass "names the uninstallable/unreadable overlay" \
+    || fail "names the uninstallable/unreadable overlay" "$(cat "$ERRFILE")"
+grep -qi "Expected a readable file at" "$ERRFILE" \
+    && pass "names the exact overlay path it expected" \
+    || fail "names the exact overlay path it expected" "$(cat "$ERRFILE")"
 
 # ============================================================================
 # Fail-closed: missing dependencies (feed a BAD canary so a fail-open would slip).
@@ -552,5 +567,55 @@ run_hook "$(mkjson "gh pr create --body-file $BAD_BODY" "$REPO")" "$BIN_NO_PY"
 assert_eq "missing python3 exits 2 (block)" "2" "$RC"
 grep -qi "python3 is not installed" "$ERRFILE" && pass "names the missing python3" || fail "names the missing python3" "$(cat "$ERRFILE")"
 grep -qi "brew install python3" "$ERRFILE" && pass "gives the python3 install instruction" || fail "gives the python3 install instruction" "none"
+
+# ============================================================================
+# The thinned-library port. Slice B retired gl_preflight and gl_fixed_rules_path
+# from gitleaks-common.sh; this guard is a CALLER in another repo, so the
+# estate's drift check — which diffs the two duplicated library files and
+# nothing else — never saw that its callers had gone stale. These three cases
+# pin the contract the port has to keep, so the next library change fails here
+# rather than in production.
+# ============================================================================
+section "ported to gl_resolve: a fixture secret in a PR body still BLOCKS"
+run_hook "$(mkjson "gh pr create --title \"x\" --body-file $BAD_BODY" "$REPO")"
+assert_eq "a body-file carrying a fixture secret exits 2 (block)" "2" "$RC"
+grep -qi "BLOCKED" "$ERRFILE" \
+    && pass "the block is announced" || fail "the block is announced" "$(cat "$ERRFILE")"
+# WHAT and WHERE, never the matched text. The guard reports a rule id and a
+# file:line — which is more use to the author than a bare count — and says
+# plainly that values are withheld. This message is printed to a terminal and
+# scraped into transcripts, so echoing the secret back would publish the very
+# thing the guard exists to stop.
+grep -qE "\[[a-z0-9-]+\].*:[0-9]+" "$ERRFILE" \
+    && pass "the block reports the rule id and the location" \
+    || fail "the block reports the rule id and the location" "$(cat "$ERRFILE")"
+grep -qi "withheld" "$ERRFILE" \
+    && pass "the block says the matched values are withheld" \
+    || fail "the block says the matched values are withheld" "$(cat "$ERRFILE")"
+if grep -qF "$CANARY" "$ERRFILE"; then
+    fail "the block NEVER echoes the secret itself" "the canary appeared in the block message"
+else pass "the block NEVER echoes the secret itself"; fi
+
+section "ported to gl_resolve: a clean body still PASSES"
+run_hook "$(mkjson "gh pr create --title \"Fix parser bug\" --body-file $GOOD_BODY" "$REPO")"
+assert_eq "a clean body-file exits 0 (allow)" "0" "$RC"
+if grep -qi "BLOCKED" "$ERRFILE"; then
+    fail "a clean body produces no block" "$(cat "$ERRFILE")"
+else pass "a clean body produces no block"; fi
+
+section "ported to gl_resolve: overlay missing -> BLOCKS, with the reason"
+# The overlay the repo config's relative [extend] token resolves to. Removed,
+# the scan cannot be composed, and the only safe answer is to refuse.
+mv "$FIXED" "$FIXED.away"
+run_hook "$(mkjson 'gh pr create --title "x" --body "clean"' "$REPO")"
+mv "$FIXED.away" "$FIXED"
+assert_eq "a missing overlay exits 2 (block, never a silent pass)" "2" "$RC"
+grep -qi "not installed" "$ERRFILE" \
+    && pass "the block says the overlay is not installed" \
+    || fail "the block says the overlay is not installed" "$(cat "$ERRFILE")"
+grep -qi "Expected a readable file at" "$ERRFILE" \
+    && pass "the block names the path it expected" \
+    || fail "the block names the path it expected" "$(cat "$ERRFILE")"
+
 
 finish
