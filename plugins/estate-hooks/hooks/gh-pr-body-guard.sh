@@ -33,9 +33,9 @@
 # FAIL-CLOSED contract (North star: a missing binary, an unresolvable config, or
 # an indeterminate target must BLOCK, never silently pass):
 #   * jq / python3 missing   -> BLOCK (cannot parse the invocation / its args).
-#   * gitleaks missing       -> BLOCK (via gl_preflight; names the install).
+#   * gitleaks missing       -> BLOCK (via gl_resolve; names the install).
 #   * no ruleset located (payload-cwd / cd-prefix / fixed-path / env var) -> BLOCK.
-#   * located .gitleaks.toml broken ([extend] unresolvable) -> BLOCK (gl_preflight).
+#   * located .gitleaks.toml broken ([extend] unresolvable) -> BLOCK (gl_resolve).
 #   * GITLEAKS_OPERATOR_RULES set but unreadable -> BLOCK.
 #   * --body-file / -F unresolvable, no arg, or unparsable command -> BLOCK.
 #   * gitleaks FTL / nonzero -> BLOCK.
@@ -49,16 +49,16 @@
 # the operator RULESET, not any particular checkout — so it locates one four ways
 # (see "LOCATE THE OPERATOR RULESET" below), first hit wins:
 #   1. the payload cwd's repo          2. a `cd <path> && ...` prefix's repo
-#   3. the machine's fixed-path operator ruleset (gl_fixed_rules_path) — works
+#   3. the machine's fixed-path operator ruleset (gl_overlay_path) — works
 #      regardless of which repo, checkout, or plugin cache this hook itself
 #      runs from; the only path that needs zero repo context at all
 #   4. $GITLEAKS_OPERATOR_RULES        else -> BLOCK
 # Paths 1-3 need NO configuration on a provisioned machine; path 4 is an override
 # for an UNPROVISIONED machine and is never required. (An env var would have to be
 # hand-set in two places — profile + shell — which is the drift this epic kills.)
-# Paths 1-2 locate a repo CONFIG whose extend the fixed-path resolver still
-# rewrites via gl_preflight; path 3 builds a synthetic config directly from the
-# fixed path — see git-hooks/gitleaks-common.sh (or its packaged copy in
+# Paths 1-2 locate a repo CONFIG whose extend gl_resolve materialises into its
+# own resolution directory; path 3 builds a synthetic config pointing straight
+# at the fixed path — see git-hooks/gitleaks-common.sh (or its packaged copy in
 # estate-hooks/hooks/) for the resolution contract.
 # Fail-closed is UNCHANGED: once a ruleset is located, a missing binary, a broken
 # config, or any finding still BLOCKS.
@@ -169,8 +169,11 @@ ORIG_CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)"
 # every path exits explicitly, which defeats shellcheck's trap-invocation
 # detection for a named function (SC2329).
 scan_dir=""; report=""; errf=""; WRAPPER_TMP=""
-# GL_TMP_CONFIG: gl_preflight's derived effective config, when it makes one.
-trap 'rm -rf "$scan_dir" "$report" "$errf" "$WRAPPER_TMP" "$GL_TMP_CONFIG" 2>/dev/null || true' EXIT INT TERM
+# GL_SCRATCH: gl_resolve's config-resolution DIRECTORY, when it builds one. It
+# replaces the retired gl_preflight's GL_TMP_CONFIG (a single file) — same
+# purpose, different shape, so the trap removes a tree rather than a file, which
+# is how the git-lifecycle hooks clean it up too.
+trap 'rm -rf "$scan_dir" "$report" "$errf" "$WRAPPER_TMP" "${GL_SCRATCH:-}" 2>/dev/null || true' EXIT INT TERM
 
 # ---------------------------------------------------------------------------
 # LOCATE THE OPERATOR RULESET (see RULESET LOCATION in the header for why).
@@ -257,7 +260,7 @@ if [[ -z "$CFG_DIR" && -n "$CD_DIR" ]]; then
 fi
 
 # Path 3 — the machine's fixed-path operator ruleset (zero configuration),
-# via gl_fixed_rules_path/gl_preflight (gitleaks-common.sh, sourced above).
+# via gl_overlay_path/gl_resolve (gitleaks-common.sh, sourced above).
 # Reworked: the original Path 3 assumed HERE/../.. was a
 # proper dotty checkout carrying a tracked .gitleaks.toml — true only while
 # this hook ran from dotty's own copy. Once estate-hooks packages this hook
@@ -271,7 +274,7 @@ fi
 # this hook happens to run from — the same signal Path 4's env-var override
 # already used, just unconditional instead of gated behind a variable.
 if [[ -z "$CFG_DIR" ]]; then
-    _fixed="$(gl_fixed_rules_path)"
+    _fixed="$(gl_overlay_path)"
     if [[ -r "$_fixed" ]]; then
         _fixed_dir="$(cd "$(dirname "$_fixed")" && pwd)"
         WRAPPER_TMP="$(mktemp)"
@@ -324,10 +327,51 @@ cd "$CFG_DIR" || block \
     "PR-guard BLOCKED: cannot enter the ruleset directory" \
     "cd '$CFG_DIR' failed — refusing to allow an unscanned PR."
 
-# Fail-closed preconditions (reuses the git-lifecycle hooks' helper): gitleaks
-# binary present, config present, operator ruleset resolved. GL_EFFECTIVE_CONFIG
-# is what the scan below passes as --config.
-gl_preflight "$CFG" || exit 2
+# Fail-closed preconditions, through the git-lifecycle hooks' own helper:
+# gitleaks binary present, config present, operator ruleset resolved.
+#
+# PORTED from the retired gl_preflight. Slice B thinned gitleaks-common.sh from
+# 666 lines to 287 and retired gl_preflight and gl_fixed_rules_path with it —
+# but this guard is a CALLER, in a different repo, and the estate's drift check
+# diffs the two duplicated library files and nothing else, so it could not see
+# that a caller had gone stale. Left alone, `gl_preflight: command not found`
+# under `|| exit 2` would have blocked every PR-publishing command on every
+# machine carrying this plugin.
+#
+# The mapping is deliberate and minimal:
+#   gl_fixed_rules_path -> gl_overlay_path   (same value, renamed)
+#   gl_preflight <cfg>  -> gl_resolve <cfg> <repo_root>
+#   GL_EFFECTIVE_CONFIG -> GL_CONFIG
+#   GL_TMP_CONFIG       -> GL_SCRATCH        (a directory; see the trap)
+#
+# CFG_DIR is passed as the repo root because it is already the directory this
+# guard resolved and cd'd into for [extend] — the same answer, now named by the
+# helper rather than by this file. On paths 3 and 4 the wrapper config carries
+# an ABSOLUTE extend path, which gl_resolve honours from any cwd, so the value
+# is immaterial there.
+# CFG must be ABSOLUTE before it is handed over. Paths 1 and 2 set it to the
+# repo-relative ".gitleaks.toml" and relied on this guard having cd'd into
+# CFG_DIR — which held while gl_preflight scanned from that same directory.
+# gl_resolve MOVES the cwd (to its own resolution directory, where it
+# materialises the extend token), so a relative config path stops resolving the
+# moment it does. Found by the suite, not by reading: 27 of 93 cases failed with
+# `unable to load gitleaks config, err: open .gitleaks.toml: no such file or
+# directory`. The git-lifecycle hooks absolutise the same way for the same
+# reason.
+case "$CFG" in
+    /*) : ;;
+    *)  CFG="$CFG_DIR/$CFG" ;;
+esac
+
+gl_resolve "$CFG" "$CFG_DIR" || exit 2
+
+# gl_resolve may relocate the cwd the scan has to run from — its own resolution
+# directory, when it materialises a relative extend token. Honour it, exactly as
+# the git-lifecycle hooks do; running from the wrong cwd makes gitleaks fail to
+# load the config, which this guard treats as a block, not a pass.
+cd "$GL_CWD" || block \
+    "PR-guard BLOCKED: cannot enter the config resolution directory" \
+    "cd '$GL_CWD' failed — refusing to allow an unscanned PR."
 
 # ---------------------------------------------------------------------------
 # Assemble the scan corpus. The scanned command text is the PR-publishing command
@@ -476,7 +520,7 @@ fi
 # stderr (FTL). Any nonzero we cannot explain is fail-closed.
 # ---------------------------------------------------------------------------
 gitleaks dir "$scan_dir" \
-    --config "$GL_EFFECTIVE_CONFIG" \
+    --config "$GL_CONFIG" \
     --no-banner --redact --ignore-gitleaks-allow \
     --report-format json --report-path "$report" \
     >/dev/null 2>"$errf"
