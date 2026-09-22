@@ -32,9 +32,10 @@ import json, sys
 print(json.load(open(sys.argv[1] + '/.claude-plugin/plugin.json'))['version'])
 " "$PLUGIN_DIR")"
 
-# .pre-commit-config.yaml and everything under .github/ (CODEOWNERS,
-# workflows, this script itself) are repo-level infrastructure -- CI
-# config, path-ownership rules, release tooling, dependency-bot config --
+# .pre-commit-config.yaml, .yamllint.yaml, .markdownlint.yaml and
+# everything under .github/ (CODEOWNERS, workflows, this script itself)
+# are repo-level infrastructure -- CI config, lint config, path-ownership
+# rules, release tooling, dependency-bot config --
 # never plugin content,
 # excluded from the diff regardless of PLUGIN_DIR. For a single-plugin
 # repo (PLUGIN_DIR=".", the whole repo is the plugin) these paths sit
@@ -48,6 +49,8 @@ print(json.load(open(sys.argv[1] + '/.claude-plugin/plugin.json'))['version'])
 # these paths were never inside PLUGIN_DIR to begin with.
 if git diff --quiet "$LATEST_TAG" HEAD -- "$PLUGIN_DIR" \
     ":(exclude)${PLUGIN_DIR%/}/.pre-commit-config.yaml" \
+    ":(exclude)${PLUGIN_DIR%/}/.yamllint.yaml" \
+    ":(exclude)${PLUGIN_DIR%/}/.markdownlint.yaml" \
     ":(exclude)${PLUGIN_DIR%/}/renovate.json" \
     ":(exclude)${PLUGIN_DIR%/}/.github"; then
   echo "PASS $PLUGIN_NAME: tree identical to $LATEST_TAG"
