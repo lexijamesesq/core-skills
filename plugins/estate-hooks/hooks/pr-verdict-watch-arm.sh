@@ -63,10 +63,11 @@ COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/nu
 # match. Line continuations are stripped and newlines become separators first,
 # the same normalisation gh-pr-body-guard.sh uses.
 # ---------------------------------------------------------------------------
-_norm="${COMMAND//\\$'\n'/ }"        # line continuations -> single space
-_norm="${_norm//$'\n'/ ; }"          # newlines are command separators
+_norm="${COMMAND//\\$'\n'/ }" # line continuations -> single space
+_norm="${_norm//$'\n'/ ; }"   # newlines are command separators
 _norm="$(tr -s '[:space:]' ' ' <<<"$_norm")"
-_norm="${_norm//\"/}"; _norm="${_norm//\'/}"
+_norm="${_norm//\"/}"
+_norm="${_norm//\'/}"
 _RE='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)'
 [[ "$_norm" =~ $_RE ]] || exit 0
 
@@ -84,8 +85,8 @@ PR_URL="$(printf '%s' "$RESP" | grep -oE 'https://github\.com/[A-Za-z0-9_.-]+/[A
 
 # owner/repo and number from the URL.
 PR_NUM="${PR_URL##*/}"
-_rest="${PR_URL#https://github.com/}"        # owner/repo/pull/N
-PR_REPO="${_rest%%/pull/*}"                    # owner/repo
+_rest="${PR_URL#https://github.com/}" # owner/repo/pull/N
+PR_REPO="${_rest%%/pull/*}"           # owner/repo
 [[ "$PR_NUM" =~ ^[0-9]+$ && "$PR_REPO" == */* ]] || exit 0
 
 # agent_id is present ONLY inside a subagent call (Claude Code docs).
@@ -95,21 +96,22 @@ AGENT_ID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null || tru
 # Build the paragraph.
 # ---------------------------------------------------------------------------
 if [[ -n "$AGENT_ID" ]]; then
-    CTX="You opened PR #${PR_NUM} on ${PR_REPO} (${PR_URL}) from inside a subagent. Do NOT arm a Monitor here: a subagent's background tasks are killed when you return your final result, so the watch would die seconds after arming. Instead, report this PR URL as the FIRST LINE of your result, exactly:
+	CTX="You opened PR #${PR_NUM} on ${PR_REPO} (${PR_URL}) from inside a subagent. Submission is not completion, but a subagent's background tasks are killed when you return your final result, so a Monitor armed here would die seconds later — do NOT arm one. Instead, report this PR URL as the FIRST LINE of your result, exactly:
 ${PR_URL}
-The parent session will arm the verdict Monitor on it. (Margot's verdict and the operator's comments land on the PR, not in this session, so the PR is not mergeable until acted on.)"
+The parent session — the owner — arms the watch and sees the PR through, not you the mechanical opener. (Its CI, Margot's verdict, and the operator's comments land on the PR, not in this session, so it is not mergeable until acted on.)"
 else
-    # The watch command. gh pr view is in the auto-mode allow list (gh api is
-    # not); it polls every 45s, seeds existing reviews/comments on the first
-    # pass so it never re-announces them, then emits one line per NEW review
-    # (any author — Margot's verdict OR the operator's Approve/Request-changes
-    # click) and per NEW comment by the operator or Margot, and exits when the
-    # PR merges or closes. Process substitution (not a pipe) keeps the seen-set
-    # updates in the loop's own shell.
-    WATCH_CMD="R='${PR_REPO}'; N=${PR_NUM}; OP='lexijamesesq'; MG='margot-the-meticulous'
+	# The watch command. gh pr view is in the auto-mode allow list (gh api is
+	# not); it polls every 45s, seeds existing reviews/comments/failing checks
+	# on the first pass so it never re-announces them, then emits one line per
+	# NEW review (any author — Margot's verdict OR the operator's
+	# Approve/Request-changes click), per NEW comment by the operator or Margot,
+	# and per NEW failing CI check (submission is not completion — a red check is
+	# yours to fix), and exits when the PR merges or closes. Process substitution
+	# (not a pipe) keeps the seen-set updates in the loop's own shell.
+	WATCH_CMD="R='${PR_REPO}'; N=${PR_NUM}; OP='lexijamesesq'; MG='margot-the-meticulous'
 SEEN=\"\$(mktemp)\"; trap 'rm -f \"\$SEEN\"' EXIT; first=1
 while :; do
-  J=\"\$(gh pr view \"\$N\" --repo \"\$R\" --json reviews,comments,state,url 2>/dev/null)\" || { sleep 45; continue; }
+  J=\"\$(gh pr view \"\$N\" --repo \"\$R\" --json reviews,comments,state,url,statusCheckRollup 2>/dev/null)\" || { sleep 45; continue; }
   [ -n \"\$J\" ] || { sleep 45; continue; }
   URL=\"\$(printf '%s' \"\$J\" | jq -r '.url')\"; STATE=\"\$(printf '%s' \"\$J\" | jq -r '.state')\"
   while IFS=\"\$(printf '\\t')\" read -r kind id who what; do
@@ -118,7 +120,7 @@ while :; do
     printf '%s\\n' \"\$id\" >> \"\$SEEN\"
     [ \"\$first\" -eq 1 ] && continue
     printf 'PR #%s: new %s by %s (%s) — %s — read it; fix and push, or reply.\\n' \"\$N\" \"\$kind\" \"\$who\" \"\$what\" \"\$URL\"
-  done < <(printf '%s' \"\$J\" | jq -r --arg op \"\$OP\" --arg mg \"\$MG\" '( .reviews[]? | select(.state!=\"PENDING\") | \"review\\t\"+.id+\"\\t\"+(.author.login//\"?\")+\"\\t\"+.state ), ( .comments[]? | select((.author.login//\"\")==\$op or (.author.login//\"\")==\$mg or (.author.login//\"\")==(\$mg+\"[bot]\")) | \"comment\\t\"+.id+\"\\t\"+(.author.login//\"?\")+\"\\tcomment\" )')
+  done < <(printf '%s' \"\$J\" | jq -r --arg op \"\$OP\" --arg mg \"\$MG\" '( .reviews[]? | select(.state!=\"PENDING\") | \"review\\t\"+.id+\"\\t\"+(.author.login//\"?\")+\"\\t\"+.state ), ( .comments[]? | select((.author.login//\"\")==\$op or (.author.login//\"\")==\$mg or (.author.login//\"\")==(\$mg+\"[bot]\")) | \"comment\\t\"+.id+\"\\t\"+(.author.login//\"?\")+\"\\tcomment\" ), ( .statusCheckRollup[]? | ((.conclusion // .state) // \"\") as \$c | select(\$c==\"FAILURE\" or \$c==\"ERROR\" or \$c==\"TIMED_OUT\" or \$c==\"CANCELLED\" or \$c==\"ACTION_REQUIRED\" or \$c==\"STARTUP_FAILURE\") | (.name // .context // \"?\") as \$nm | \"check\\t\"+\$nm+\":\"+\$c+\"\\t\"+\$nm+\"\\t\"+\$c )')
   first=0
   case \"\$STATE\" in
     MERGED) printf 'PR #%s MERGED — %s — watch done.\\n' \"\$N\" \"\$URL\"; exit 0;;
@@ -127,14 +129,14 @@ while :; do
   sleep 45
 done"
 
-    CTX="You just opened PR #${PR_NUM} on ${PR_REPO} (${PR_URL}). Margot (the PR reviewer) and the operator post their verdict ON THE PR — a review, a required check, a comment — not back into this session, so this PR is NOT mergeable until you act on what lands there. Arm ONE persistent Monitor now (persistent: true) with exactly this command, then keep working — do not poll by hand:
+	CTX="You just opened PR #${PR_NUM} on ${PR_REPO} (${PR_URL}). Submission is not completion — you own this PR through to merged (finish what you start). Its CI, Margot's verdict, and the operator's comments all land ON THE PR, not back in this session, so it is NOT mergeable until you act on what lands there. Arm ONE persistent Monitor now (persistent: true) with exactly this command, then keep working — do not poll by hand:
 
 ${WATCH_CMD}
 
-It emits on any new review (Margot's verdict, or the operator's Approve/Request-changes click, which is her authority) and on any new comment by the operator or Margot, and exits when the PR merges or closes. When it wakes you, open the link, read what landed, and act: fix and push, or reply in the thread."
+It wakes you on a failing CI check (fix it and push — a red check is yours, not the PR-body/template check's excuse), on any new review (Margot's verdict, or the operator's Approve/Request-changes click, which is her authority), and on any new comment by the operator or Margot, and exits when the PR merges or closes. When it wakes you, open the link, read what landed, and act: fix and push, or reply in the thread. If you opened this PR on behalf of a caller or owner rather than as your own work, hand the monitor to them — the owner sees it through, not the mechanical opener."
 fi
 
 jq -n --arg ctx "$CTX" \
-    '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'
+	'{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $ctx}}'
 
 exit 0
