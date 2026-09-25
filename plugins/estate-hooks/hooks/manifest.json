@@ -1,5 +1,5 @@
 {
-  "$comment": "External ground truth for smoke's plugin-hook-serving-integrity probe. Not part of the plugin.json schema \u2014 plugin.json's own \"hooks\" key is reserved by Claude Code for hook-config file paths, not this list, and colliding with it broke `claude plugin validate --strict` (27 errors). Kept as a sibling file the probe reads directly instead.",
+  "$comment": "External ground truth for smoke's plugin-hook-serving-integrity probe. Not part of the plugin.json schema — plugin.json's own \"hooks\" key is reserved by Claude Code for hook-config file paths, not this list, and colliding with it broke `claude plugin validate --strict` (27 errors). Kept as a sibling file the probe reads directly instead.",
   "hooks": [
     "pr-cache.sh",
     "pr-verdict-watch-arm.sh",
@@ -7,6 +7,7 @@
     "git-hook-bypass-guard.sh",
     "git-push-publish-guard.sh",
     "gh-pr-body-guard.sh",
+    "gh-pr-body-template-guard.sh",
     "linear-transition-guard.sh",
     "fix-obsidian-claude-sync.sh",
     "session-init.sh",
