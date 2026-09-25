@@ -42,7 +42,7 @@
 # function, `eval`. The threat model is the ordinary command, not an
 # operator routing around their own hooks.
 #
-# This file is sourced, not executed. It defines one variable and two
+# This file is sourced, not executed. It defines one variable and four
 # functions. Each consumer decides what a MISSING helper means under its
 # own contract: a fail-open hook says nothing (exit 0); a fail-closed guard
 # blocks.
@@ -71,4 +71,59 @@ gh_pr_in_command_position() {
 	norm="$(gh_scope_normalize "$1")"
 	re="${GH_SCOPE_CMD_RE}($2)([[:space:]]|\$)"
 	[[ "$norm" =~ $re ]]
+}
+
+# gh_scope_cd_chain_dir <normalised-command> <payload-cwd>
+# Need: Claude Code's PreToolUse payload reports the SESSION cwd, not the
+# directory a command cd's into, and a cd inside a Bash command does not
+# persist — so `cd <repo> && gh pr create ...` arrives with cwd = the
+# session root. Both PR guards need the directory gh will ACTUALLY run in:
+# the secret guard to resolve a relative --body-file and to exclude the cd
+# prefix from its scan, the template guard for the same body file and for
+# which repo's template applies. One copy of the walk, here (it was
+# duplicated verbatim in both guards; non-author review, PR #111).
+# Prints the EFFECTIVE working directory after consuming ALL leading
+# `cd <path>` segments (delimited by && || ; or a newline, already ';' in
+# the normalised text), applied IN ORDER: an absolute or ~/$HOME target
+# replaces, a relative target appends to the running dir, and every
+# intermediate MUST resolve to a real directory. Prints nothing if there is
+# no leading cd OR any segment fails to resolve (never guess the effective
+# dir — a single-cd read would collapse `cd A && cd B` to A and read the
+# wrong body).
+gh_scope_cd_chain_dir() {
+	local s="$1" cwd="$2" seg path eff=""
+	s="${s//&&/;}"
+	s="${s//||/;}" # canonicalise sequencing ops -> ;
+	while :; do
+		s="${s#"${s%%[![:space:]]*}"}"        # left-trim
+		[[ "$s" == cd[[:space:]]* ]] || break # next segment isn't a cd -> stop
+		seg="${s%%;*}"                        # this segment, up to the first ;
+		if [[ "$seg" == "$s" ]]; then s=""; else s="${s#*;}"; fi
+		path="${seg#cd}"
+		path="${path#"${path%%[![:space:]]*}"}" # strip leading ws after 'cd'
+		path="${path%"${path##*[![:space:]]}"}" # right-trim
+		[[ -n "$path" ]] || return 0            # 'cd' with no arg -> bail (fail)
+		path="${path//\\ / }"                   # unescape backslash-spaces
+		path="${path/#\~/$HOME}"
+		path="${path//\$HOME/$HOME}"
+		case "$path" in
+		/*) eff="$path" ;;             # absolute -> replace
+		*) eff="${eff:-$cwd}/$path" ;; # relative -> append to running dir
+		esac
+		eff="$(cd "$eff" 2>/dev/null && pwd)" || return 0 # must be a real dir
+	done
+	[[ -n "$eff" ]] && printf '%s' "$eff"
+}
+
+# gh_scope_target_dir <command> <payload-cwd>
+# Prints the directory gh will run in: the resolved cd-chain target when the
+# command has one, else the payload cwd. (A chain that does not resolve
+# falls back to the payload cwd — the guards then resolve a relative body
+# file against it, which is what gh would do after a failed cd aborts the
+# && chain: nothing runs, and a block on an unreadable body is the safe
+# answer.)
+gh_scope_target_dir() {
+	local d
+	d="$(gh_scope_cd_chain_dir "$(gh_scope_normalize "$1")" "$2")"
+	printf '%s' "${d:-$2}"
 }

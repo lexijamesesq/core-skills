@@ -212,38 +212,6 @@ repo_with_config() {
 	[[ -r "$root/.gitleaks.toml" ]] || return 1
 	printf '%s' "$root"
 }
-# resolve_cd_chain <normalised-command> -> the EFFECTIVE working directory after
-# consuming ALL leading `cd <path>` segments (delimited by && || ; or a newline,
-# already ';' in the normalised text). A chained `cd A && cd B && gh ...` runs gh
-# in B, not A — so we apply each cd IN ORDER: an absolute or ~/$HOME target
-# replaces, a relative target is appended and normalised, and every intermediate
-# MUST resolve to a real directory. Prints nothing if there is no leading cd OR
-# any segment fails to resolve (FAIL-CLOSED: never guess the effective dir — a
-# single-cd read would collapse the chain to the wrong dir and scan the wrong body).
-resolve_cd_chain() {
-	local s="$1" seg path eff=""
-	s="${s//&&/;}"
-	s="${s//||/;}" # canonicalise sequencing ops -> ;
-	while :; do
-		s="${s#"${s%%[![:space:]]*}"}"        # left-trim
-		[[ "$s" == cd[[:space:]]* ]] || break # next segment isn't a cd -> stop
-		seg="${s%%;*}"                        # this segment, up to the first ;
-		if [[ "$seg" == "$s" ]]; then s=""; else s="${s#*;}"; fi
-		path="${seg#cd}"
-		path="${path#"${path%%[![:space:]]*}"}" # strip leading ws after 'cd'
-		path="${path%"${path##*[![:space:]]}"}" # right-trim
-		[[ -n "$path" ]] || return 0            # 'cd' with no arg -> bail (fail)
-		path="${path//\\ / }"                   # unescape backslash-spaces
-		path="${path/#\~/$HOME}"
-		path="${path//\$HOME/$HOME}"
-		case "$path" in
-		/*) eff="$path" ;;                  # absolute -> replace
-		*) eff="${eff:-$ORIG_CWD}/$path" ;; # relative -> append to running dir
-		esac
-		eff="$(cd "$eff" 2>/dev/null && pwd)" || return 0 # must be a real dir
-	done
-	[[ -n "$eff" ]] && printf '%s' "$eff"
-}
 
 CFG_DIR=""
 CFG=""
@@ -251,10 +219,11 @@ BODY_CWD="$ORIG_CWD"
 RULESET_DESC=""
 
 # Resolve the EFFECTIVE working dir once by walking the WHOLE leading cd chain
-# (see resolve_cd_chain). CD_DIR is that dir if the chain fully resolves, else
-# empty. Used for: the path-2 ruleset candidate, BODY_CWD (relative --body-file
-# resolution — gh runs THERE), and excluding the whole cd prefix from the scan.
-CD_DIR="$(resolve_cd_chain "$_scope_norm")"
+# (gh_scope_cd_chain_dir, gh-scope-common.sh). CD_DIR is that dir if the chain
+# fully resolves, else empty. Used for: the path-2 ruleset candidate, BODY_CWD
+# (relative --body-file resolution — gh runs THERE), and excluding the whole
+# cd prefix from the scan.
+CD_DIR="$(gh_scope_cd_chain_dir "$_scope_norm" "$ORIG_CWD")"
 
 # BODY_CWD is the directory `gh` itself will run in, and a relative --body-file
 # must resolve THERE. That is the `cd` target whenever the command has one, and

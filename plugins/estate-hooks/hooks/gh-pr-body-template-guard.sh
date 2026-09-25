@@ -10,8 +10,9 @@
 # Moving the check in front of `gh pr create` turns a red check nobody reads
 # into a block the session must fix before the PR exists. The verdict is
 # the checker's own: hooks/pr-body-check.py is a BYTE-IDENTICAL copy of
-# dotty's .github/scripts/pr-body-check.py (provenance: pr-body-check.SOURCE;
-# a drift audit compares bytes — never edit it here, re-copy it). What
+# dotty's .github/scripts/pr-body-check.py, copied from lexijamesesq/dotty
+# main at commit bfc658d6064e9a52be563b85c172e7faa1a15cad (2026-09-25); a drift
+# audit compares bytes — never edit it here, re-copy it from dotty. What
 # passes here passes CI, and what CI rejects is rejected here, by the same
 # code.
 #
@@ -19,11 +20,17 @@
 # the one the provisioner installs in every enrolled repo — located from the
 # directory gh will actually run in: the target of a leading `cd <path> &&`
 # chain when the command has one (the PreToolUse payload reports the SESSION
-# cwd, which is often the vault), else the payload cwd. No template there ->
-# exit 0 silently: a repo outside the estate lane is not enrolled, and CI
-# will not run the check on it either. (gh-pr-body-guard.sh's ruleset paths
-# 3 and 4 — the fixed-path and env-var rulesets — are gitleaks-specific and
-# have no analogue here; a template is a per-repo file.)
+# cwd, which is often the vault), else the payload cwd (gh_scope_target_dir,
+# gh-scope-common.sh). The guard switches on ONLY for the ESTATE's template:
+# its first line must be exactly `<!-- pr-body:v1 -->`, the marker the
+# checker derives every rule from. No template there, or a template without
+# that first line (an outside project with its own PR template) -> exit 0
+# silently: not the estate's lane, and CI will not run this check on it
+# either. Gating on mere existence blocked PRs in outside projects with
+# their own templates by demanding the estate's format (non-author review,
+# PR #111). (gh-pr-body-guard.sh's ruleset paths 3 and 4 — the fixed-path
+# and env-var rulesets — are gitleaks-specific and have no analogue here; a
+# template is a per-repo file.)
 #
 # THE BODY, extracted with the SAME shell-aware tokenizer the secret guard
 # uses (python3 shlex.split), never whitespace splitting — a `-F` mentioned
@@ -99,6 +106,7 @@ source "$HERE/gh-scope-common.sh"
 
 CHECKER="$HERE/pr-body-check.py"
 TEMPLATE_REL=".github/pull_request_template.md"
+MARKER="<!-- pr-body:v1 -->" # the estate template's first line; the checker's own constant
 
 # block <title> [line ...] — emit a formatted gl_block to stderr and BLOCK (exit 2).
 block() {
@@ -138,45 +146,17 @@ EVENT=""
 ERRF=""
 trap 'rm -f "$EVENT" "$ERRF" 2>/dev/null || true' EXIT INT TERM
 
-# ---------------------------------------------------------------------------
-# WHERE GH RUNS. resolve_cd_chain is the secret guard's, verbatim: consume ALL
-# leading `cd <path>` segments in order (absolute / ~ / $HOME replaces, a
-# relative target appends), every intermediate must resolve, else print
-# nothing (never guess the effective dir). BODY_CWD is that dir when the
-# chain resolves, else the payload cwd — it is where a relative --body-file
-# resolves and whose repo's template applies.
-# ---------------------------------------------------------------------------
-resolve_cd_chain() {
-	local s="$1" seg path eff=""
-	s="${s//&&/;}"
-	s="${s//||/;}" # canonicalise sequencing ops -> ;
-	while :; do
-		s="${s#"${s%%[![:space:]]*}"}"        # left-trim
-		[[ "$s" == cd[[:space:]]* ]] || break # next segment isn't a cd -> stop
-		seg="${s%%;*}"                        # this segment, up to the first ;
-		if [[ "$seg" == "$s" ]]; then s=""; else s="${s#*;}"; fi
-		path="${seg#cd}"
-		path="${path#"${path%%[![:space:]]*}"}" # strip leading ws after 'cd'
-		path="${path%"${path##*[![:space:]]}"}" # right-trim
-		[[ -n "$path" ]] || return 0            # 'cd' with no arg -> bail (fail)
-		path="${path//\\ / }"                   # unescape backslash-spaces
-		path="${path/#\~/$HOME}"
-		path="${path//\$HOME/$HOME}"
-		case "$path" in
-		/*) eff="$path" ;;                  # absolute -> replace
-		*) eff="${eff:-$ORIG_CWD}/$path" ;; # relative -> append to running dir
-		esac
-		eff="$(cd "$eff" 2>/dev/null && pwd)" || return 0 # must be a real dir
-	done
-	[[ -n "$eff" ]] && printf '%s' "$eff"
-}
-
-CD_DIR="$(resolve_cd_chain "$_scope_norm")"
-BODY_CWD="${CD_DIR:-$ORIG_CWD}"
+# WHERE GH RUNS (gh_scope_target_dir, gh-scope-common.sh): the resolved
+# `cd <path> && ...` chain target when the command has one, else the payload
+# cwd. It is where a relative --body-file resolves and whose repo's template
+# applies.
+BODY_CWD="$(gh_scope_target_dir "$COMMAND" "$ORIG_CWD")"
 
 # ---------------------------------------------------------------------------
-# THE TEMPLATE: the repo gh runs in. Not a repo, or no template -> exit 0
-# (not an enrolled repo; CI will not run the check there either).
+# THE TEMPLATE: the repo gh runs in. Not a repo, no template, or a template
+# that is not the ESTATE's -> exit 0 (not the estate's lane; CI will not run
+# the check there either). The estate's template is recognised by its FIRST
+# line being exactly the marker the checker derives everything from.
 # ---------------------------------------------------------------------------
 REPO_ROOT="$(git -C "$BODY_CWD" rev-parse --show-toplevel 2>/dev/null)" || exit 0
 [[ -n "$REPO_ROOT" ]] || exit 0
@@ -187,6 +167,11 @@ TEMPLATE="$REPO_ROOT/$TEMPLATE_REL"
 	"Template: $TEMPLATE" \
 	"The repo carries a PR-body template but this guard cannot read it, so the" \
 	"body cannot be checked. (Fail-closed.) Fix the file's permissions and retry."
+# Pure bash (no head/tr): a missing coreutil must not fail this gate OPEN.
+_first_line=""
+IFS= read -r _first_line <"$TEMPLATE" || true
+_first_line="${_first_line%$'\r'}"
+[[ "$_first_line" == "$MARKER" ]] || exit 0 # a foreign template: not the estate's lane
 
 # ---------------------------------------------------------------------------
 # Fail-closed preconditions: python3 and the vendored checker.
@@ -202,7 +187,7 @@ command -v python3 >/dev/null 2>&1 || block \
 	"PR-template-guard BLOCKED: the vendored checker is missing" \
 	"Expected: $CHECKER" \
 	"It is a byte-identical copy of dotty's .github/scripts/pr-body-check.py" \
-	"(see pr-body-check.SOURCE beside it). Without it the check cannot run." \
+	"(provenance in this hook's header). Without it the check cannot run." \
 	"Reinstall the estate-hooks plugin."
 
 # ---------------------------------------------------------------------------

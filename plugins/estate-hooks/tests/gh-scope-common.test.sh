@@ -94,6 +94,26 @@ assert_eq "continuation joined" "gh pr create --fill" "$(norm $'gh pr \\\ncreate
 assert_eq "newline becomes a separator" "a ; b" "$(norm $'a\nb')"
 assert_eq "quotes stripped, whitespace collapsed" "gh pr create" "$(norm '"gh"   pr  '"'"'create'"'"'')"
 
+section "gh_scope_target_dir / gh_scope_cd_chain_dir: where gh runs"
+CDT="$(mktemp -d -t gh-scope-cd.XXXXXX)"
+CDT="$(cd "$CDT" && pwd)"
+mkdir -p "$CDT/a/sub" "$CDT/b" "$CDT/home/tilde-repo" "$CDT/with space"
+assert_eq "no cd: the payload cwd" "$CDT/b" "$(gh_scope_target_dir 'gh pr create --fill' "$CDT/b")"
+assert_eq "single absolute cd" "$CDT/a" "$(gh_scope_target_dir "cd $CDT/a && gh pr create" "$CDT/b")"
+assert_eq "relative cd appends to the payload cwd" "$CDT/a/sub" "$(gh_scope_target_dir 'cd sub && gh pr create' "$CDT/a")"
+assert_eq "chained cd: the LAST cd wins" "$CDT/a/sub" "$(gh_scope_target_dir "cd $CDT/a && cd sub && gh pr create" "$CDT/b")"
+assert_eq "absolute mid-chain target replaces" "$CDT/b" "$(gh_scope_target_dir "cd $CDT/a && cd $CDT/b && gh pr create" "$CDT")"
+assert_eq "; and || are separators too" "$CDT/a/sub" "$(gh_scope_target_dir "cd $CDT/a; cd sub || exit 1; gh pr create" "$CDT/b")"
+assert_eq "newline is a separator" "$CDT/a" "$(gh_scope_target_dir $'cd '"$CDT"$'/a\ngh pr create' "$CDT/b")"
+assert_eq "~ expands under HOME" "$CDT/home/tilde-repo" "$(HOME="$CDT/home" gh_scope_target_dir 'cd ~/tilde-repo && gh pr create' "$CDT/b")"
+assert_eq "\$HOME expands" "$CDT/home/tilde-repo" "$(HOME="$CDT/home" gh_scope_target_dir 'cd $HOME/tilde-repo && gh pr create' "$CDT/b")"
+assert_eq "backslash-escaped space in the path" "$CDT/with space" "$(gh_scope_target_dir "cd $CDT/with\\ space && gh pr create" "$CDT/b")"
+assert_eq "a cd that fails to resolve: chain dir is EMPTY (never guessed)" "" "$(gh_scope_cd_chain_dir "cd $CDT/a ; cd nonexistent ; gh pr create" "$CDT/b")"
+assert_eq "a cd that fails to resolve: target falls back to the payload cwd" "$CDT/b" "$(gh_scope_target_dir "cd $CDT/nonexistent && gh pr create" "$CDT/b")"
+assert_eq "cd with no argument: chain dir is EMPTY" "" "$(gh_scope_cd_chain_dir "cd ; gh pr create" "$CDT/b")"
+assert_eq "no leading cd: chain dir is EMPTY" "" "$(gh_scope_cd_chain_dir "gh pr create && cd $CDT/a" "$CDT/b")"
+rm -rf "$CDT"
+
 # ============================================================================
 # 3. Missing helper, per contract.
 # ============================================================================

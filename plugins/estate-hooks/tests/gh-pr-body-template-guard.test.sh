@@ -54,6 +54,16 @@ cp "$FIXTURE_TPL" "$REPO/.github/pull_request_template.md"
 # A repo with NO template (not enrolled) and a plain directory (not a repo).
 NOTPL="$TMP/notpl"
 init_repo "$NOTPL"
+# An OUTSIDE project with its OWN PR template (no estate marker on line 1).
+FOREIGN="$TMP/foreign"
+init_repo "$FOREIGN"
+mkdir -p "$FOREIGN/.github"
+printf '## Summary\n\n## Test plan\n' >"$FOREIGN/.github/pull_request_template.md"
+# A template whose marker is present but NOT on the first line: not the estate's.
+FOREIGN2="$TMP/foreign2"
+init_repo "$FOREIGN2"
+mkdir -p "$FOREIGN2/.github"
+printf '# Our PR template\n<!-- pr-body:v1 -->\n## Intent\n' >"$FOREIGN2/.github/pull_request_template.md"
 NOREPO="$TMP/norepo"
 mkdir -p "$NOREPO"
 
@@ -251,6 +261,21 @@ assert_eq "not a repo at all, --fill exits 0" "0" "$RC"
 run_hook "$(mkjson "cd $NOTPL && gh pr create --fill" "$REPO")"
 assert_eq "cd into a non-enrolled repo from an enrolled cwd: the cd target wins, exits 0" "0" "$RC"
 
+section "outside project with its OWN template (no estate marker) -> PASS: not the estate's lane"
+run_hook "$(mkjson "$(cmd_body gh create "$NO_MARKER_BODY")" "$FOREIGN")"
+assert_eq "foreign template, off-template body exits 0 (allow)" "0" "$RC"
+[[ -s "$ERRFILE" ]] && fail "foreign template: silent" "$(cat "$ERRFILE")" || pass "foreign template: silent"
+run_hook "$(mkjson 'gh pr create --fill' "$FOREIGN")"
+assert_eq "foreign template, --fill exits 0" "0" "$RC"
+run_hook "$(mkjson "$(cmd_body gh create "$NO_MARKER_BODY")" "$FOREIGN2")"
+assert_eq "marker present but not on line 1: foreign, exits 0" "0" "$RC"
+run_hook "$(mkjson "cd $FOREIGN && gh pr create --fill" "$REPO")"
+assert_eq "cd into a foreign-template repo from an enrolled cwd exits 0" "0" "$RC"
+section "the estate template + off-template body still BLOCKS (the gate did not loosen the verdict)"
+run_hook "$(mkjson "$(cmd_body gh create "$NO_MARKER_BODY")" "$REPO")"
+assert_eq "estate template, off-template body exits 2 (block)" "2" "$RC"
+grep -q "missing the" "$ERRFILE" && pass "still the checker's verdict" || fail "still the checker's verdict" "$(cat "$ERRFILE")"
+
 # ============================================================================
 # Fail-closed: unreadable paths, indeterminate bodies, parse failures, deps.
 # ============================================================================
@@ -383,9 +408,10 @@ RC=$?
 assert_eq "checker absent exits 2 (block)" "2" "$RC"
 grep -q "vendored checker is missing" "$ERRFILE" && pass "names the missing checker" || fail "names the missing checker" "$(cat "$ERRFILE")"
 
-section "vendored checker is byte-identical to the fixture-adjacent SOURCE claim (self-consistency)"
-[[ -f "${SCRIPT_DIR}/../hooks/pr-body-check.SOURCE" ]] && pass "pr-body-check.SOURCE exists" || fail "pr-body-check.SOURCE exists" "missing"
-grep -q "lexijamesesq/dotty:.github/scripts/pr-body-check.py @ [0-9a-f]\{40\}" "${SCRIPT_DIR}/../hooks/pr-body-check.SOURCE" && pass "SOURCE names the dotty path and a commit sha" || fail "SOURCE names the dotty path and a commit sha" "$(cat "${SCRIPT_DIR}/../hooks/pr-body-check.SOURCE")"
+section "vendored checker provenance is recorded in the guard's header (dotty path + 40-hex commit)"
+grep -q "dotty's .github/scripts/pr-body-check.py" "$HOOK" && pass "header names the dotty path" || fail "header names the dotty path" "absent"
+grep -qE "lexijamesesq/dotty" "$HOOK" && grep -qE "commit [0-9a-f]{40}" "$HOOK" && pass "header names the repo and a 40-hex commit sha" || fail "header names the repo and a 40-hex commit sha" "absent"
+[[ ! -e "${SCRIPT_DIR}/../hooks/pr-body-check.SOURCE" ]] && pass "no .SOURCE note-file (provenance lives in the header and README)" || fail "no .SOURCE note-file" "present"
 
 # ============================================================================
 # Out of scope.
