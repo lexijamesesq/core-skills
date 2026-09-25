@@ -399,6 +399,66 @@ run_hook "$(mkjson "$(cmd_body gh create "$GOOD_BODY")" "$REPO")" "$BIN_NO_JQ"
 assert_eq "missing jq exits 2 (block)" "2" "$RC"
 grep -q "jq is not installed" "$ERRFILE" && pass "names the missing jq" || fail "names the missing jq" "$(cat "$ERRFILE")"
 
+# ============================================================================
+# The checker's EXIT CODE is the verdict — including when it dies with NO
+# output. A stubbed python3 answers the guard's shlex extraction (-c) with the
+# real interpreter and the checker invocation with a chosen exit code and
+# nothing on stderr. The non-author review's finding: on bash 3.2 an empty
+# output made the verdict abort with exit 1, which Claude Code treats as a
+# NON-blocking error — the unchecked body went through.
+# ============================================================================
+STUBPY="$TMP/stubpy"
+mkdir -p "$STUBPY"
+REAL_PY="$(command -v python3)"
+cat >"$STUBPY/python3" <<STUB
+#!/bin/bash
+[[ "\$1" == "-c" ]] && exec "$REAL_PY" "\$@"
+[[ -n "\${STUB_SAY:-}" ]] && printf '%s\n' "\$STUB_SAY" >&2
+exit "\${STUB_RC:-137}"
+STUB
+chmod +x "$STUBPY/python3"
+run_stub() { # <rc> [text-on-stderr]
+	printf '%s' "$(mkjson "$(cmd_body gh create "$GOOD_BODY")" "$REPO")" |
+		env STUB_RC="$1" STUB_SAY="${2:-}" PATH="$STUBPY:$PATH" bash "$HOOK" >/dev/null 2>"$ERRFILE"
+	RC=$?
+}
+section "checker killed (exit 137) with NO output -> BLOCK naming 'did not complete'"
+run_stub 137
+assert_eq "checker 137, silent: guard exits 2 (block)" "2" "$RC"
+grep -q "did not complete (exit 137)" "$ERRFILE" && pass "names the incomplete checker and its exit code" || fail "names the incomplete checker" "$(cat "$ERRFILE")"
+grep -q "printed nothing" "$ERRFILE" && pass "says the checker printed nothing" || fail "says the checker printed nothing" "$(cat "$ERRFILE")"
+grep -q "unbound variable" "$ERRFILE" && fail "no shell abort text in the block" "$(cat "$ERRFILE")" || pass "no shell abort text in the block"
+section "checker terminated (exit 143) with NO output -> BLOCK"
+run_stub 143
+assert_eq "checker 143, silent: guard exits 2 (block)" "2" "$RC"
+section "checker exit 1 with NO output -> BLOCK (findings shape, nothing to quote)"
+run_stub 1
+assert_eq "checker 1, silent: guard exits 2 (block)" "2" "$RC"
+grep -q "does not follow the template" "$ERRFILE" && pass "findings-shape block title" || fail "findings-shape block title" "$(cat "$ERRFILE")"
+grep -q "printed nothing" "$ERRFILE" && pass "says the checker printed nothing" || fail "says the checker printed nothing" "$(cat "$ERRFILE")"
+section "checker exit 2 (could not run), with and without output -> BLOCK"
+run_stub 2 "pr-body-check: BLOCKED — cannot read template"
+assert_eq "checker 2 with output: guard exits 2 (block)" "2" "$RC"
+grep -q "cannot read template" "$ERRFILE" && pass "quotes the checker's own line" || fail "quotes the checker's own line" "$(cat "$ERRFILE")"
+run_stub 2
+assert_eq "checker 2, silent: guard exits 2 (block)" "2" "$RC"
+section "checker exit 0 with NO output -> PASS (silence is its success shape)"
+run_stub 0
+assert_eq "checker 0, silent: guard exits 0 (allow)" "0" "$RC"
+[[ -s "$ERRFILE" ]] && fail "checker 0: guard is silent" "$(cat "$ERRFILE")" || pass "checker 0: guard is silent"
+section "the guard aborting mid-way (a stray error after scope) still BLOCKS (EXIT trap)"
+# Drive a COPY of the hook with an injected `false; exit 1`-style abort right
+# before the verdict: a plain 'exit 1' must come out as 2.
+ABORT_HOOK="$TMP/abort-hook"
+mkdir -p "$ABORT_HOOK"
+cp "$HOOK" "$COMMON" "$CHECKER" "${SCRIPT_DIR}/../hooks/gh-scope-common.sh" "$ABORT_HOOK/"
+sed -i.bak 's/^rc=0$/rc=0; exit 1 # INJECTED ABORT (test)/' "$ABORT_HOOK/gh-pr-body-template-guard.sh"
+grep -q "INJECTED ABORT" "$ABORT_HOOK/gh-pr-body-template-guard.sh" || fail "abort injection landed" "sed anchor missing"
+printf '%s' "$(mkjson "$(cmd_body gh create "$GOOD_BODY")" "$REPO")" | bash "$ABORT_HOOK/gh-pr-body-template-guard.sh" >/dev/null 2>"$ERRFILE"
+RC=$?
+assert_eq "an injected exit 1 after scope comes out as 2 (block)" "2" "$RC"
+grep -q "aborted before reaching a verdict (exit 1)" "$ERRFILE" && pass "names the abort" || fail "names the abort" "$(cat "$ERRFILE")"
+
 section "missing vendored checker -> BLOCK"
 ISO="$TMP/iso"
 mkdir -p "$ISO"

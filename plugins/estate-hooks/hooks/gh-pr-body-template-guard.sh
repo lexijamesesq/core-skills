@@ -65,9 +65,13 @@
 #     --body "$(cat <<'EOF' ... EOF)"  (delimiter quoted, 'EOF' or "EOF")
 #   is the harness's own default for a PR body and expands nothing, so its
 #   literal text is extracted from the raw command and checked as-is.
-#   * checker exit 2 (could not run) / unknown  -> BLOCK
 #   * checker exit 1 (findings)                 -> BLOCK, quoting its lines
-#   * checker exit 0                            -> exit 0
+#   * checker exit 2, a kill signal, a crash, no output at all: ANY code
+#     other than 0 or 1                         -> BLOCK, "did not complete"
+#   * checker exit 0                            -> exit 0 (with or without
+#     output: silence is the checker's success shape)
+#   * the guard itself aborting for any reason after the command is known
+#     to publish a PR                            -> BLOCK (EXIT trap; see it)
 # The body is never echoed: the block quotes only the checker's own
 # diagnostic lines, which name headings and template placeholders, never
 # body content. The body reaches the checker through a JSON event file
@@ -142,9 +146,26 @@ ORIG_CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)"
 
 # Temp artifacts + one inline trap, installed up front (values filled below;
 # an empty one is a suppressed no-op). Inline, as the secret guard does it.
+#
+# FAIL-CLOSED BY CONSTRUCTION: from here on the command IS a PR-publishing
+# command, so the only exits this guard may take are 0 (checked and clean,
+# or not the estate's lane) and 2 (BLOCK). Claude Code treats ANY other
+# PreToolUse exit code — 1 most of all — as a non-blocking error and runs
+# the tool anyway. An unexpected abort (an unbound variable under set -u,
+# a killed child, a bash-3.2 quirk) would therefore let an unchecked body
+# through. Found by non-author review: on bash 3.2, expanding an empty
+# array under set -u aborted the verdict with exit 1 whenever the checker
+# died without output. The EXIT trap converts every exit that is not 0 or
+# 2 into a BLOCK naming the abort; `exit` inside an EXIT trap overrides
+# the status.
 EVENT=""
 ERRF=""
-trap 'rm -f "$EVENT" "$ERRF" 2>/dev/null || true' EXIT INT TERM
+trap 'rc=$?; rm -f "$EVENT" "$ERRF" 2>/dev/null || true
+	if [[ "$rc" -ne 0 && "$rc" -ne 2 ]]; then
+		gl_block "PR-template-guard BLOCKED: the guard aborted before reaching a verdict (exit $rc)" \
+			"An unexpected error inside the guard is not a pass. (Fail-closed.)"
+		exit 2
+	fi' EXIT INT TERM
 
 # WHERE GH RUNS (gh_scope_target_dir, gh-scope-common.sh): the resolved
 # `cd <path> && ...` chain target when the command has one, else the payload
@@ -404,29 +425,59 @@ jq -n --arg body "$BODY" '{pull_request: {body: $body}}' >"$EVENT" 2>/dev/null |
 	"PR-template-guard BLOCKED: could not write the event payload" \
 	"The body could not be handed to the checker. (Fail-closed.)"
 
-GITHUB_EVENT_PATH="$EVENT" python3 "$CHECKER" --template "$TEMPLATE" >/dev/null 2>"$ERRF"
-rc=$?
+# THE CHECKER'S EXIT CODE IS THE VERDICT: 0 passes; 1 blocks quoting its
+# lines; ANY other code — 2 (could not run), a kill signal (137/143), a
+# crash, with or without output — blocks naming "did not complete". rc is
+# captured explicitly so no shell option can abort between the call and
+# the verdict, and the message lines are read into a plain string (never
+# an array: an empty array expands as an unbound variable on bash 3.2 under
+# set -u — the abort the EXIT trap above now also catches).
+rc=0
+GITHUB_EVENT_PATH="$EVENT" python3 "$CHECKER" --template "$TEMPLATE" >/dev/null 2>"$ERRF" || rc=$?
+
+CHECKER_OUT="(the checker printed nothing)"
+if [[ -s "$ERRF" ]]; then
+	CHECKER_OUT="$(cat "$ERRF")"
+fi
+# gl_block prints one argument per line; split the checker's text on newlines
+# by hand (mapfile is bash 4). The list always has at least one element.
+checker_lines() {
+	local rest="$CHECKER_OUT" line
+	while :; do
+		line="${rest%%$'\n'*}"
+		printf '%s\0' "$line"
+		[[ "$rest" == *$'\n'* ]] || break
+		rest="${rest#*$'\n'}"
+	done
+}
 
 case "$rc" in
 0) exit 0 ;;
 1)
-	LINES=()
-	while IFS= read -r line; do LINES+=("$line"); done <"$ERRF"
+	while IFS= read -r -d '' line; do
+		set -- "$@" "$line"
+	done < <(checker_lines)
 	block "PR-template-guard BLOCKED: the PR body does not follow the template" \
 		"Template: $TEMPLATE" \
 		"" \
-		"${LINES[@]}" \
+		"$@" \
 		"" \
 		"This is the same check CI runs; fix the body before \`gh pr create\`"
 	;;
 *)
-	LINES=()
-	while IFS= read -r line; do LINES+=("$line"); done <"$ERRF"
-	block "PR-template-guard BLOCKED: the template check could not run (exit $rc)" \
+	while IFS= read -r -d '' line; do
+		set -- "$@" "$line"
+	done < <(checker_lines)
+	block "PR-template-guard BLOCKED: the template check did not complete (exit $rc)" \
 		"Checker:  $CHECKER" \
 		"Template: $TEMPLATE" \
-		"${LINES[@]}" \
-		"An unexplained checker error must not pass. (Fail-closed.)" \
+		"The checker exited $rc — a crash, a kill signal (137/143), or 'could not" \
+		"run' (2) — so the body was NOT checked. Its output, if any:" \
+		"$@" \
+		"A checker that did not complete is not a pass. (Fail-closed.)" \
 		"This is the same check CI runs; fix the body before \`gh pr create\`"
 	;;
 esac
+# Not reached: every branch above exits. The EXIT trap blocks anything else.
+# shellcheck disable=SC2317  # a deliberate backstop, unreachable by design
+exit 2
