@@ -29,9 +29,15 @@ HOOK="${HOOK:-${SCRIPT_DIR}/../hooks/git-push-publish-guard.sh}"
 # createCommitOnBranch (the App's commit API) has no way to set it and
 # every hook here is registered as an interpreter invocation rather than a
 # direct exec. Only existence is a real precondition.
-[[ -f "$HOOK" ]] || { echo "FATAL: $HOOK not found"; exit 2; }
+[[ -f "$HOOK" ]] || {
+	echo "FATAL: $HOOK not found"
+	exit 2
+}
 
-command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required to build test fixtures"; exit 2; }
+command -v jq >/dev/null 2>&1 || {
+	echo "FATAL: jq required to build test fixtures"
+	exit 2
+}
 
 # mkjson <command-string> -> PreToolUse stdin JSON for the Bash tool
 mkjson() { jq -n --arg c "$1" '{tool_name:"Bash",tool_input:{command:$c}}'; }
@@ -40,14 +46,23 @@ mkjson() { jq -n --arg c "$1" '{tool_name:"Bash",tool_input:{command:$c}}'; }
 # (see the enrollment-handoff section), so every "active guard" assertion below
 # runs against a HOME with no estate gitconfig — otherwise the suite would flip
 # on a machine that happens to be enrolled.
-GUARD_HOME="$(mktemp -d)"    # deliberately no ~/.config/claude-estate/estate-mode.gitconfig
+GUARD_HOME="$(mktemp -d)" # deliberately no ~/.config/claude-estate/estate-mode.gitconfig
 trap 'rm -rf "$GUARD_HOME"' EXIT
 
 # fire <json> -> hook exit code (in RC), under the unenrolled HOME
-fire() { printf '%s' "$1" | env HOME="$GUARD_HOME" bash "$HOOK" >/dev/null 2>&1; RC=$?; }
+fire() {
+	printf '%s' "$1" | env HOME="$GUARD_HOME" bash "$HOOK" >/dev/null 2>&1
+	RC=$?
+}
 
-expect_block() { fire "$(mkjson "$1")"; assert_eq "BLOCK: $1" "2" "$RC"; }
-expect_allow() { fire "$(mkjson "$1")"; assert_eq "allow: $1" "0" "$RC"; }
+expect_block() {
+	fire "$(mkjson "$1")"
+	assert_eq "BLOCK: $1" "2" "$RC"
+}
+expect_allow() {
+	fire "$(mkjson "$1")"
+	assert_eq "allow: $1" "0" "$RC"
+}
 
 # === Vector: bare and flagged git push ===
 section "git push — bare and flagged forms"
@@ -55,7 +70,7 @@ expect_block 'git push'
 expect_block 'git push origin main'
 expect_block 'git push -u origin main'
 expect_block 'git push --force-with-lease'
-expect_block 'GIT PUSH'                          # case-insensitive match
+expect_block 'GIT PUSH' # case-insensitive match
 
 # === Non-adjacent forms: flags between the verb and the subcommand ===
 section "git push — flags between verb and subcommand"
@@ -90,10 +105,10 @@ expect_allow 'git checkout -b feature'
 
 # === Accepted over-blocks (documented, safe direction) ===
 section "accepted over-blocks (safe direction)"
-expect_block 'git log && push origin main'               # "push" names an unrelated command
-expect_allow 'push_to_queue'                              # no word boundary around "push" -- not a match, by design
-expect_block 'git commit -m "explain how git push works here"'  # message mentions it
-expect_block 'echo "git push" && git log'                # both words, unrelated act
+expect_block 'git log && push origin main'                     # "push" names an unrelated command
+expect_allow 'push_to_queue'                                   # no word boundary around "push" -- not a match, by design
+expect_block 'git commit -m "explain how git push works here"' # message mentions it
+expect_block 'echo "git push" && git log'                      # both words, unrelated act
 
 # === Enrollment hand-off — dormant when enrolled, active when not ===
 # Once ~/.config/claude-estate/estate-mode.gitconfig exists on disk this machine
@@ -101,9 +116,10 @@ expect_block 'echo "git push" && git log'                # both words, unrelated
 # stands down (exit 0). Until then it stays active (exit 2). Keyed on the same
 # disk fact as the identity guard; driven with an explicit scratch HOME each way.
 section "enrollment hand-off — silent when enrolled, active when not"
-ENROLLED_HOME="$(mktemp -d)"; mkdir -p "$ENROLLED_HOME/.config/claude-estate"
-: > "$ENROLLED_HOME/.config/claude-estate/estate-mode.gitconfig"
-UNENROLLED_HOME="$(mktemp -d)"    # no estate-mode.gitconfig on disk
+ENROLLED_HOME="$(mktemp -d)"
+mkdir -p "$ENROLLED_HOME/.config/claude-estate"
+: >"$ENROLLED_HOME/.config/claude-estate/estate-mode.gitconfig"
+UNENROLLED_HOME="$(mktemp -d)" # no estate-mode.gitconfig on disk
 # Feed stdin by here-string, NOT a `printf | hook` pipe: when enrolled the hook
 # exits at the gate WITHOUT reading stdin, so a pipe can leave printf writing to
 # a closed read end (EPIPE) — under `set -o pipefail` that surfaces as a spurious

@@ -22,28 +22,28 @@ SESSION_CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 
 # If no working directory, nothing to do
 if [[ -z "$SESSION_CWD" ]]; then
-    exit 0
+	exit 0
 fi
 
 # Only act inside the Obsidian vault
 case "$SESSION_CWD" in
-    "$VAULT_ROOT"*) ;;
-    *) exit 0 ;;
+"$VAULT_ROOT"*) ;;
+*) exit 0 ;;
 esac
 
 # Case 1: .claude/ is a real directory (needs conversion)
 if [[ -d "$SESSION_CWD/.claude" && ! -L "$SESSION_CWD/.claude" ]]; then
-    if [[ -d "$SESSION_CWD/claude" ]]; then
-        echo "Warning: Both .claude/ and claude/ exist at $SESSION_CWD — skipping fix" >&2
-        exit 0
-    fi
-    mv "$SESSION_CWD/.claude" "$SESSION_CWD/claude"
-    ln -s ./claude "$SESSION_CWD/.claude"
+	if [[ -d "$SESSION_CWD/claude" ]]; then
+		echo "Warning: Both .claude/ and claude/ exist at $SESSION_CWD — skipping fix" >&2
+		exit 0
+	fi
+	mv "$SESSION_CWD/.claude" "$SESSION_CWD/claude"
+	ln -s ./claude "$SESSION_CWD/.claude"
 fi
 
 # Case 2: claude/ exists but .claude symlink is missing (new device via Obsidian Sync)
 if [[ -d "$SESSION_CWD/claude" && ! -e "$SESSION_CWD/.claude" ]]; then
-    ln -s ./claude "$SESSION_CWD/.claude"
+	ln -s ./claude "$SESSION_CWD/.claude"
 fi
 
 exit 0
