@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016,SC2088  # payload strings are LITERAL shell text ($GH, ~/…): never expanded here
 # Test suite for the fail-closed PR-body/title guard:
 #   .claude/hooks/gh-pr-body-guard.sh   (PreToolUse guard for `gh pr create`)
 #
@@ -27,12 +28,21 @@ HOOK="${HOOK:-${SCRIPT_DIR}/../hooks/gh-pr-body-guard.sh}"
 COMMON="${SCRIPT_DIR}/../hooks/gitleaks-common.sh"
 
 for f in "$HOOK" "$COMMON"; do
-    [[ -f "$f" ]] || { echo "FATAL: missing $f"; exit 2; }
+	[[ -f "$f" ]] || {
+		echo "FATAL: missing $f"
+		exit 2
+	}
 done
 # gitleaks is REQUIRED. A missing binary is a hard failure of this suite, never a
 # silent skip. CI installs it before invoking run-all.sh.
-command -v gitleaks >/dev/null 2>&1 || { echo "FATAL: gitleaks not on PATH — suite cannot run. Install gitleaks 8.30.1."; exit 2; }
-command -v jq >/dev/null 2>&1 || { echo "FATAL: jq not on PATH — suite cannot run."; exit 2; }
+command -v gitleaks >/dev/null 2>&1 || {
+	echo "FATAL: gitleaks not on PATH — suite cannot run. Install gitleaks 8.30.1."
+	exit 2
+}
+command -v jq >/dev/null 2>&1 || {
+	echo "FATAL: jq not on PATH — suite cannot run."
+	exit 2
+}
 
 rand_akia() { echo "AKIA$(LC_ALL=C tr -dc 'A-Z2-7' </dev/urandom | head -c 16)"; }
 CANARY="$(rand_akia)"
@@ -50,7 +60,7 @@ export XDG_CONFIG_HOME="$TMP/xdg"
 FIXED="$XDG_CONFIG_HOME/gitleaks/operator-rules.toml"
 XDG_OVERRIDE=""
 mkdir -p "$(dirname "$FIXED")"
-cat > "$FIXED" <<'EOF'
+cat >"$FIXED" <<'EOF'
 title = "fixture operator rules (fixed path)"
 [extend]
 useDefault = true
@@ -60,24 +70,24 @@ description = "synthetic infra-path marker (test only)"
 regex = '''SYNTHINFRA'''
 EOF
 
-REPO="$TMP/repo"          # publish-provisioned repo (synthetic config)
-NOREPO="$TMP/norepo"      # not a git repo at all
-BARE="$TMP/plainrepo"     # git repo WITHOUT a .gitleaks.toml
+REPO="$TMP/repo"      # publish-provisioned repo (synthetic config)
+NOREPO="$TMP/norepo"  # not a git repo at all
+BARE="$TMP/plainrepo" # git repo WITHOUT a .gitleaks.toml
 mkdir -p "$NOREPO"
 
 init_repo() { # <path>
-    # GIT_CONFIG_GLOBAL=/dev/null: don't inherit the dev shell's global git
-    # config -- an ENROLLED shell's estate-mode.gitconfig sets init.templateDir,
-    # which would copy hooks into these scratch repos.
-    GIT_CONFIG_GLOBAL=/dev/null git init -q "$1"
-    git -C "$1" config user.email "test@example.com"
-    git -C "$1" config user.name "Test Runner"
-    git -C "$1" config commit.gpgsign false
+	# GIT_CONFIG_GLOBAL=/dev/null: don't inherit the dev shell's global git
+	# config -- an ENROLLED shell's estate-mode.gitconfig sets init.templateDir,
+	# which would copy hooks into these scratch repos.
+	GIT_CONFIG_GLOBAL=/dev/null git init -q "$1"
+	git -C "$1" config user.email "test@example.com"
+	git -C "$1" config user.name "Test Runner"
+	git -C "$1" config commit.gpgsign false
 }
 init_repo "$REPO"
 init_repo "$BARE"
 
-cat > "$REPO/.gitleaks.toml" <<'EOF'
+cat >"$REPO/.gitleaks.toml" <<'EOF'
 title = "fixture"
 [extend]
 path = ".gitleaks-operator-rules.toml"
@@ -86,7 +96,7 @@ EOF
 # NEVER consulted — written only by the "never falls back" test below, to
 # prove exactly that.
 write_checkout_rules() {
-cat > "$REPO/.gitleaks-operator-rules.toml" <<'EOF'
+	cat >"$REPO/.gitleaks-operator-rules.toml" <<'EOF'
 title = "fixture operator rules (checkout-relative)"
 [extend]
 useDefault = true
@@ -96,13 +106,13 @@ EOF
 # Body-file fixtures.
 GOOD_BODY="$TMP/good-body.md"
 BAD_BODY="$TMP/bad-body.md"
-printf 'PR body line one.\nEntirely clean content here. Closes ACME-123\n' > "$GOOD_BODY"
-printf 'PR body line one.\nleftover credential %s\nfinal line\n' "$CANARY" > "$BAD_BODY"
+printf 'PR body line one.\nEntirely clean content here. Closes ACME-123\n' >"$GOOD_BODY"
+printf 'PR body line one.\nleftover credential %s\nfinal line\n' "$CANARY" >"$BAD_BODY"
 
 # Synthetic operator ruleset for the GITLEAKS_OPERATOR_RULES path (NEVER the real
 # private ruleset). useDefault=true so gitleaks' aws-access-token rule fires.
 OPRULES="$TMP/synthetic-operator-rules.toml"
-cat > "$OPRULES" <<'EOF'
+cat >"$OPRULES" <<'EOF'
 title = "synthetic operator rules"
 [extend]
 useDefault = true
@@ -111,8 +121,8 @@ EOF
 # provision_repo <dir> — git repo + .gitleaks.toml carrying the checkout-relative
 # [extend] token the hook resolves to the suite's fixed path. No rules file.
 provision_repo() {
-    init_repo "$1"
-    cat > "$1/.gitleaks.toml" <<'EOF'
+	init_repo "$1"
+	cat >"$1/.gitleaks.toml" <<'EOF'
 title = "fixture"
 [extend]
 path = ".gitleaks-operator-rules.toml"
@@ -127,8 +137,8 @@ PREPO="$TMP/SYNTHINFRA-repo"
 provision_repo "$PREPO"
 PREPO_CLEAN="$PREPO/clean-body.md"
 PREPO_LEAK="$PREPO/leak-body.md"
-printf 'A clean PR body.\nNothing sensitive here.\n' > "$PREPO_CLEAN"
-printf 'A PR body.\nleftover credential %s\n' "$CANARY" > "$PREPO_LEAK"
+printf 'A clean PR body.\nNothing sensitive here.\n' >"$PREPO_CLEAN"
+printf 'A PR body.\nleftover credential %s\n' "$CANARY" >"$PREPO_LEAK"
 
 # A provisioned repo under a FAKE HOME, to exercise `cd ~/<repo>` expansion
 # end-to-end WITHOUT touching the operator's real home directory.
@@ -143,34 +153,42 @@ provision_repo "$FAKEHOME/tilde-repo"
 # gitleaks-common.sh (HERE/../../git-hooks/...), making HERE/../.. its "own repo".
 COMMON_SRC="${SCRIPT_DIR}/../hooks/gitleaks-common.sh"
 make_iso() { # <dir> — lay out a runnable hook copy under <dir>
-    mkdir -p "$1/.claude/hooks" "$1/git-hooks"
-    cp "$HOOK" "$1/.claude/hooks/gh-pr-body-guard.sh"
-    cp "$COMMON_SRC" "$1/git-hooks/gitleaks-common.sh"
+	mkdir -p "$1/.claude/hooks" "$1/git-hooks"
+	cp "$HOOK" "$1/.claude/hooks/gh-pr-body-guard.sh"
+	cp "$COMMON_SRC" "$1/git-hooks/gitleaks-common.sh"
+	cp "${SCRIPT_DIR}/../hooks/gh-scope-common.sh" "$1/.claude/hooks/gh-scope-common.sh"
 }
 # (a) own repo IS a provisioned repo (synthetic ruleset) -> path 3 resolves.
-ISO_PROV="$TMP/iso-prov"; make_iso "$ISO_PROV"; provision_repo "$ISO_PROV"
+ISO_PROV="$TMP/iso-prov"
+make_iso "$ISO_PROV"
+provision_repo "$ISO_PROV"
 ISO_PROV_HOOK="$ISO_PROV/.claude/hooks/gh-pr-body-guard.sh"
 # (b) own repo is NOT a git repo -> path 3 fails (genuine fail-closed / override).
-ISO_BARE="$TMP/iso-bare"; make_iso "$ISO_BARE"
+ISO_BARE="$TMP/iso-bare"
+make_iso "$ISO_BARE"
 ISO_BARE_HOOK="$ISO_BARE/.claude/hooks/gh-pr-body-guard.sh"
 
 # Chained-cd fixtures: two provisioned repos so the DECOY at the first cd dir and
 # the REAL body at the effective (last cd) dir can carry different content. A
 # relative --body-file always resolves against the effective dir where gh runs.
-CR1="$TMP/chain-repo-1"; provision_repo "$CR1"; mkdir -p "$CR1/sub" "$CR1/abssub"
-printf 'clean decoy at the repo root (first cd)\n'      > "$CR1/body.md"
-printf 'real body in the effective dir\nleak %s\n' "$CANARY" > "$CR1/sub/body.md"
-printf 'body reached via an absolute mid-chain cd\nleak %s\n' "$CANARY" > "$CR1/abssub/body.md"
-CR2="$TMP/chain-repo-2"; provision_repo "$CR2"; mkdir -p "$CR2/sub"
-printf 'CANARY DECOY at the repo root (first cd)\nleak %s\n' "$CANARY" > "$CR2/body.md"
-printf 'a genuinely clean body in the effective dir\n'  > "$CR2/sub/body.md"
+CR1="$TMP/chain-repo-1"
+provision_repo "$CR1"
+mkdir -p "$CR1/sub" "$CR1/abssub"
+printf 'clean decoy at the repo root (first cd)\n' >"$CR1/body.md"
+printf 'real body in the effective dir\nleak %s\n' "$CANARY" >"$CR1/sub/body.md"
+printf 'body reached via an absolute mid-chain cd\nleak %s\n' "$CANARY" >"$CR1/abssub/body.md"
+CR2="$TMP/chain-repo-2"
+provision_repo "$CR2"
+mkdir -p "$CR2/sub"
+printf 'CANARY DECOY at the repo root (first cd)\nleak %s\n' "$CANARY" >"$CR2/body.md"
+printf 'a genuinely clean body in the effective dir\n' >"$CR2/sub/body.md"
 
 # --- Runners -------------------------------------------------------------------
 ERRFILE="$TMP/stderr.txt"
 
 mkjson() { # <command> <cwd>
-    jq -n --arg tn "Bash" --arg cmd "$1" --arg cwd "$2" \
-        '{tool_name:$tn, tool_input:{command:$cmd}, cwd:$cwd}'
+	jq -n --arg tn "Bash" --arg cmd "$1" --arg cwd "$2" \
+		'{tool_name:$tn, tool_input:{command:$cmd}, cwd:$cwd}'
 }
 # Every runner passes XDG_CONFIG_HOME explicitly (the suite's private fixture
 # dir; XDG_OVERRIDE exists only as an escape hatch and is never set below) so
@@ -180,49 +198,50 @@ mkjson() { # <command> <cwd>
 # (path 3) is dotty, which resolves on a provisioned machine — so run_hook is used
 # only for path 1 / path 2 tests, where an earlier path wins before path 3.
 run_hook() { # <json> [pathspec]
-    local json="$1" pathspec="${2:-$PATH}"
-    printf '%s' "$json" | env -u GITLEAKS_OPERATOR_RULES PATH="$pathspec" \
-        XDG_CONFIG_HOME="${XDG_OVERRIDE:-$XDG_CONFIG_HOME}" bash "$HOOK" >/dev/null 2>"$ERRFILE"
-    RC=$?
+	local json="$1" pathspec="${2:-$PATH}"
+	printf '%s' "$json" | env -u GITLEAKS_OPERATOR_RULES PATH="$pathspec" \
+		XDG_CONFIG_HOME="${XDG_OVERRIDE:-$XDG_CONFIG_HOME}" bash "$HOOK" >/dev/null 2>"$ERRFILE"
+	RC=$?
 }
 # run_hook_home overrides HOME so `cd ~/<repo>` expands into a fixture dir, not
 # the operator's real home. Clears GITLEAKS_OPERATOR_RULES like run_hook.
 run_hook_home() { # <json> <home>
-    printf '%s' "$1" | env -u GITLEAKS_OPERATOR_RULES HOME="$2" PATH="$PATH" \
-        XDG_CONFIG_HOME="${XDG_OVERRIDE:-$XDG_CONFIG_HOME}" bash "$HOOK" >/dev/null 2>"$ERRFILE"
-    RC=$?
+	printf '%s' "$1" | env -u GITLEAKS_OPERATOR_RULES HOME="$2" PATH="$PATH" \
+		XDG_CONFIG_HOME="${XDG_OVERRIDE:-$XDG_CONFIG_HOME}" bash "$HOOK" >/dev/null 2>"$ERRFILE"
+	RC=$?
 }
 # ISO runners drive an isolated hook COPY (own repo per make_iso), so path 3 and
 # the fail-closed / override cases are deterministic and ruleset-independent.
 run_iso_prov() { # <json>   (copy whose own repo IS provisioned; no env var)
-    printf '%s' "$1" | env -u GITLEAKS_OPERATOR_RULES PATH="$PATH" \
-        XDG_CONFIG_HOME="${XDG_OVERRIDE:-$XDG_CONFIG_HOME}" bash "$ISO_PROV_HOOK" >/dev/null 2>"$ERRFILE"
-    RC=$?
+	printf '%s' "$1" | env -u GITLEAKS_OPERATOR_RULES PATH="$PATH" \
+		XDG_CONFIG_HOME="${XDG_OVERRIDE:-$XDG_CONFIG_HOME}" bash "$ISO_PROV_HOOK" >/dev/null 2>"$ERRFILE"
+	RC=$?
 }
 run_iso_bare() { # <json>   (copy whose own repo is NOT a repo; no env var)
-    printf '%s' "$1" | env -u GITLEAKS_OPERATOR_RULES PATH="$PATH" \
-        XDG_CONFIG_HOME="${XDG_OVERRIDE:-$XDG_CONFIG_HOME}" bash "$ISO_BARE_HOOK" >/dev/null 2>"$ERRFILE"
-    RC=$?
+	printf '%s' "$1" | env -u GITLEAKS_OPERATOR_RULES PATH="$PATH" \
+		XDG_CONFIG_HOME="${XDG_OVERRIDE:-$XDG_CONFIG_HOME}" bash "$ISO_BARE_HOOK" >/dev/null 2>"$ERRFILE"
+	RC=$?
 }
 run_iso_bare_rules() { # <json> <rules-file>   (own repo NOT a repo; env-var override)
-    printf '%s' "$1" | env GITLEAKS_OPERATOR_RULES="$2" PATH="$PATH" \
-        XDG_CONFIG_HOME="${XDG_OVERRIDE:-$XDG_CONFIG_HOME}" bash "$ISO_BARE_HOOK" >/dev/null 2>"$ERRFILE"
-    RC=$?
+	printf '%s' "$1" | env GITLEAKS_OPERATOR_RULES="$2" PATH="$PATH" \
+		XDG_CONFIG_HOME="${XDG_OVERRIDE:-$XDG_CONFIG_HOME}" bash "$ISO_BARE_HOOK" >/dev/null 2>"$ERRFILE"
+	RC=$?
 }
 # NOXDG variant: own repo NOT a repo AND the fixed-path ruleset is genuinely
 # absent (an empty scratch dir, not the suite's global fixture) — path 3 now
 # resolves the fixed path directly, so isolating "nothing resolves" or "path 4
 # alone" requires suppressing path 3 too, not just repo-unreachability.
-XDG_EMPTY="$TMP/xdg-empty"; mkdir -p "$XDG_EMPTY"
+XDG_EMPTY="$TMP/xdg-empty"
+mkdir -p "$XDG_EMPTY"
 run_iso_bare_noxdg() { # <json>   (own repo NOT a repo; fixed path absent; no env var)
-    printf '%s' "$1" | env -u GITLEAKS_OPERATOR_RULES PATH="$PATH" \
-        XDG_CONFIG_HOME="$XDG_EMPTY" bash "$ISO_BARE_HOOK" >/dev/null 2>"$ERRFILE"
-    RC=$?
+	printf '%s' "$1" | env -u GITLEAKS_OPERATOR_RULES PATH="$PATH" \
+		XDG_CONFIG_HOME="$XDG_EMPTY" bash "$ISO_BARE_HOOK" >/dev/null 2>"$ERRFILE"
+	RC=$?
 }
 run_iso_bare_rules_noxdg() { # <json> <rules-file>   (own repo NOT a repo; fixed path absent; env-var override)
-    printf '%s' "$1" | env GITLEAKS_OPERATOR_RULES="$2" PATH="$PATH" \
-        XDG_CONFIG_HOME="$XDG_EMPTY" bash "$ISO_BARE_HOOK" >/dev/null 2>"$ERRFILE"
-    RC=$?
+	printf '%s' "$1" | env GITLEAKS_OPERATOR_RULES="$2" PATH="$PATH" \
+		XDG_CONFIG_HOME="$XDG_EMPTY" bash "$ISO_BARE_HOOK" >/dev/null 2>"$ERRFILE"
+	RC=$?
 }
 
 # Build a PATH bin dir containing every tool the hook uses EXCEPT one (for the
@@ -236,12 +255,13 @@ run_iso_bare_rules_noxdg() { # <json> <rules-file>   (own repo NOT a repo; fixed
 # the assertion was no longer testing what it names.
 HOOK_TOOLS=(bash dirname jq git gitleaks python3 mktemp cat grep tr cp rm awk mkdir ln)
 make_bin() { # <exclude-tool> -> prints bindir
-    local d t p; d="$(mktemp -d)"
-    for t in "${HOOK_TOOLS[@]}"; do
-        [[ "$t" == "$1" ]] && continue
-        p="$(command -v "$t" 2>/dev/null)" && ln -s "$p" "$d/$t" 2>/dev/null
-    done
-    printf '%s' "$d"
+	local d t p
+	d="$(mktemp -d)"
+	for t in "${HOOK_TOOLS[@]}"; do
+		[[ "$t" == "$1" ]] && continue
+		p="$(command -v "$t" 2>/dev/null)" && ln -s "$p" "$d/$t" 2>/dev/null
+	done
+	printf '%s' "$d"
 }
 
 # ============================================================================
@@ -281,6 +301,41 @@ assert_eq "all-quoted canary exits 2 (block)" "2" "$RC"
 section "self-scope: command substitution 'out=\$(gh pr create ...)' stays in scope — canary blocks"
 run_hook "$(mkjson "out=\$(gh pr create --body \"leak $CANARY\")" "$REPO")"
 assert_eq "command-subst canary exits 2 (block)" "2" "$RC"
+
+# --- self-scope: the shapes the estate ACTUALLY publishes with. The estate never
+# runs bare `gh`; it runs its wrapper by path or through a variable holding that
+# path. The bare-`gh` scope regex skipped every one of these — a fail-closed
+# scan that was silently not running. Each must now be scanned: a canary blocks.
+# (A neutral wrapper path — the SHAPE is under test, never a real machine path.)
+section "self-scope: wrapper path '/opt/estate/bin/gh pr create' is in scope — canary blocks"
+run_hook "$(mkjson "/opt/estate/bin/gh pr create --title \"x\" --body \"leak $CANARY\"" "$REPO")"
+assert_eq "wrapper-path canary exits 2 (block)" "2" "$RC"
+grep -q "aws-access-token" "$ERRFILE" && pass "wrapper-path scan reports the rule id" || fail "wrapper-path scan reports the rule id" "$(cat "$ERRFILE")"
+
+section "self-scope: tilde wrapper path '~/.local/bin/gh pr edit' is in scope — canary blocks"
+run_hook "$(mkjson "~/.local/bin/gh pr edit 7 --body \"leak $CANARY\"" "$REPO")"
+assert_eq "tilde-wrapper canary exits 2 (block)" "2" "$RC"
+
+section "self-scope: variable-held gh '\$GH pr create' is in scope — canary blocks"
+run_hook "$(mkjson "\$GH pr create --title \"x\" --body \"leak $CANARY\"" "$REPO")"
+assert_eq "\$GH canary exits 2 (block)" "2" "$RC"
+grep -q "aws-access-token" "$ERRFILE" && pass "\$GH scan reports the rule id" || fail "\$GH scan reports the rule id" "$(cat "$ERRFILE")"
+
+section "self-scope: braced/quoted variable '\"\${GH}\" pr create' is in scope — canary blocks"
+run_hook "$(mkjson "\"\${GH}\" pr create --title \"x\" --body \"leak $CANARY\"" "$REPO")"
+assert_eq "\${GH} canary exits 2 (block)" "2" "$RC"
+
+section "self-scope: heredoc'd script running '\$GH pr create' is in scope — canary blocks"
+run_hook "$(mkjson "$(printf 'bash <<'"'"'B'"'"'\nGH=/opt/estate/bin/gh\n$GH pr create --title x --body "leak %s"\nB' "$CANARY")" "$REPO")"
+assert_eq "heredoc \$GH canary exits 2 (block)" "2" "$RC"
+
+section "self-scope: wrapper path with a clean body still PASSES (scope widened, not the verdict)"
+run_hook "$(mkjson '/opt/estate/bin/gh pr create --title "x" --body "entirely clean"' "$REPO")"
+assert_eq "wrapper-path clean exits 0 (allow)" "0" "$RC"
+
+section "self-scope: a path merely CONTAINING gh ('/opt/bin/ghost pr create') is out of scope"
+run_hook "$(mkjson "/opt/bin/ghost pr create --body \"$CANARY\"" "$BARE")"
+assert_eq "ghost exits 0 (out of scope, not scanned)" "0" "$RC"
 
 # --- self-scope: no over-block on commands that merely MENTION the string --------
 section "no over-block: 'echo \"gh pr create now ...\"' from a repo without config stays out of scope"
@@ -336,7 +391,7 @@ run_hook "$(mkjson "gh pr create --title \"Fix\" --body-file $GOOD_BODY" "$REPO"
 assert_eq "clean body-file exits 0 (allow)" "0" "$RC"
 
 section "--body-file relative path resolves against cwd, and its canary blocks"
-printf 'relative body\nleak %s\n' "$CANARY" > "$REPO/rel-body.md"
+printf 'relative body\nleak %s\n' "$CANARY" >"$REPO/rel-body.md"
 run_hook "$(mkjson 'gh pr create --title "x" --body-file rel-body.md' "$REPO")"
 assert_eq "relative body-file canary exits 2 (block)" "2" "$RC"
 rm -f "$REPO/rel-body.md"
@@ -348,12 +403,12 @@ grep -qi "body-file" "$ERRFILE" && pass "names the body-file" || fail "names the
 grep -qi "unreadable\|fail-closed" "$ERRFILE" && pass "names the fail-closed reason" || fail "names the fail-closed reason" "none"
 
 section "-F (short form) file contents are scanned; its canary blocks (fail-closed)"
-printf 'short-form body\nleak %s\n' "$CANARY" > "$TMP/short-body.md"
+printf 'short-form body\nleak %s\n' "$CANARY" >"$TMP/short-body.md"
 run_hook "$(mkjson "gh pr create --title \"x\" -F $TMP/short-body.md" "$REPO")"
 assert_eq "-F body-file canary exits 2 (block)" "2" "$RC"
 
 section "-F with a spaced/quoted path is parsed correctly and its canary blocks"
-printf 'spaced body\nleak %s\n' "$CANARY" > "$TMP/path with spaces.md"
+printf 'spaced body\nleak %s\n' "$CANARY" >"$TMP/path with spaces.md"
 run_hook "$(mkjson "gh pr create --title \"x\" -F \"$TMP/path with spaces.md\"" "$REPO")"
 assert_eq "-F quoted-spaced body-file canary exits 2 (block)" "2" "$RC"
 grep -q "aws-access-token" "$ERRFILE" && pass "spaced-path scan reports the rule id" || fail "spaced-path scan reports the rule id" "$(cat "$ERRFILE")"
@@ -529,7 +584,7 @@ assert_eq "fixed-path marker in body exits 2 (block)" "2" "$RC"
 grep -q "synthetic-infra-path" "$ERRFILE" && pass "reports the fixed-path fixture's rule id" || fail "reports the fixed-path fixture's rule id" "$(cat "$ERRFILE")"
 
 section "fixed path present but unreadable is fail-closed (block, never falls back)"
-write_checkout_rules                  # a valid fallback exists — must NOT be used
+write_checkout_rules # a valid fallback exists — must NOT be used
 chmod 000 "$FIXED"
 run_hook "$(mkjson 'gh pr create --title "x" --body "clean"' "$REPO")"
 chmod 644 "$FIXED"
@@ -538,12 +593,12 @@ assert_eq "unreadable fixed path exits 2 (block)" "2" "$RC"
 # The wording now comes from gl_resolve's own block, not this guard's: it names
 # the expected path and says the ruleset is not installed. Same fail-closed
 # outcome, one message instead of two, which is the point of sharing the helper.
-grep -qiE "not installed|unreadable" "$ERRFILE" \
-    && pass "names the uninstallable/unreadable overlay" \
-    || fail "names the uninstallable/unreadable overlay" "$(cat "$ERRFILE")"
-grep -qi "Expected a readable file at" "$ERRFILE" \
-    && pass "names the exact overlay path it expected" \
-    || fail "names the exact overlay path it expected" "$(cat "$ERRFILE")"
+grep -qiE "not installed|unreadable" "$ERRFILE" &&
+	pass "names the uninstallable/unreadable overlay" ||
+	fail "names the uninstallable/unreadable overlay" "$(cat "$ERRFILE")"
+grep -qi "Expected a readable file at" "$ERRFILE" &&
+	pass "names the exact overlay path it expected" ||
+	fail "names the exact overlay path it expected" "$(cat "$ERRFILE")"
 
 # ============================================================================
 # Fail-closed: missing dependencies (feed a BAD canary so a fail-open would slip).
@@ -579,28 +634,28 @@ grep -qi "brew install python3" "$ERRFILE" && pass "gives the python3 install in
 section "ported to gl_resolve: a fixture secret in a PR body still BLOCKS"
 run_hook "$(mkjson "gh pr create --title \"x\" --body-file $BAD_BODY" "$REPO")"
 assert_eq "a body-file carrying a fixture secret exits 2 (block)" "2" "$RC"
-grep -qi "BLOCKED" "$ERRFILE" \
-    && pass "the block is announced" || fail "the block is announced" "$(cat "$ERRFILE")"
+grep -qi "BLOCKED" "$ERRFILE" &&
+	pass "the block is announced" || fail "the block is announced" "$(cat "$ERRFILE")"
 # WHAT and WHERE, never the matched text. The guard reports a rule id and a
 # file:line — which is more use to the author than a bare count — and says
 # plainly that values are withheld. This message is printed to a terminal and
 # scraped into transcripts, so echoing the secret back would publish the very
 # thing the guard exists to stop.
-grep -qE "\[[a-z0-9-]+\].*:[0-9]+" "$ERRFILE" \
-    && pass "the block reports the rule id and the location" \
-    || fail "the block reports the rule id and the location" "$(cat "$ERRFILE")"
-grep -qi "withheld" "$ERRFILE" \
-    && pass "the block says the matched values are withheld" \
-    || fail "the block says the matched values are withheld" "$(cat "$ERRFILE")"
+grep -qE "\[[a-z0-9-]+\].*:[0-9]+" "$ERRFILE" &&
+	pass "the block reports the rule id and the location" ||
+	fail "the block reports the rule id and the location" "$(cat "$ERRFILE")"
+grep -qi "withheld" "$ERRFILE" &&
+	pass "the block says the matched values are withheld" ||
+	fail "the block says the matched values are withheld" "$(cat "$ERRFILE")"
 if grep -qF "$CANARY" "$ERRFILE"; then
-    fail "the block NEVER echoes the secret itself" "the canary appeared in the block message"
+	fail "the block NEVER echoes the secret itself" "the canary appeared in the block message"
 else pass "the block NEVER echoes the secret itself"; fi
 
 section "ported to gl_resolve: a clean body still PASSES"
 run_hook "$(mkjson "gh pr create --title \"Fix parser bug\" --body-file $GOOD_BODY" "$REPO")"
 assert_eq "a clean body-file exits 0 (allow)" "0" "$RC"
 if grep -qi "BLOCKED" "$ERRFILE"; then
-    fail "a clean body produces no block" "$(cat "$ERRFILE")"
+	fail "a clean body produces no block" "$(cat "$ERRFILE")"
 else pass "a clean body produces no block"; fi
 
 section "ported to gl_resolve: overlay missing -> BLOCKS, with the reason"
@@ -610,12 +665,11 @@ mv "$FIXED" "$FIXED.away"
 run_hook "$(mkjson 'gh pr create --title "x" --body "clean"' "$REPO")"
 mv "$FIXED.away" "$FIXED"
 assert_eq "a missing overlay exits 2 (block, never a silent pass)" "2" "$RC"
-grep -qi "not installed" "$ERRFILE" \
-    && pass "the block says the overlay is not installed" \
-    || fail "the block says the overlay is not installed" "$(cat "$ERRFILE")"
-grep -qi "Expected a readable file at" "$ERRFILE" \
-    && pass "the block names the path it expected" \
-    || fail "the block names the path it expected" "$(cat "$ERRFILE")"
-
+grep -qi "not installed" "$ERRFILE" &&
+	pass "the block says the overlay is not installed" ||
+	fail "the block says the overlay is not installed" "$(cat "$ERRFILE")"
+grep -qi "Expected a readable file at" "$ERRFILE" &&
+	pass "the block names the path it expected" ||
+	fail "the block names the path it expected" "$(cat "$ERRFILE")"
 
 finish

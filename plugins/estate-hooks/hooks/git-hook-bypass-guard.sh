@@ -103,15 +103,15 @@ CMD_NORM=$(tr -s '[:space:]' ' ' <<<"$CMD")
 LOWER_NORM=$(tr '[:upper:]' '[:lower:]' <<<"$CMD_NORM")
 
 deny() {
-    {
-        echo "git-hook-bypass-guard: blocked — $1"
-        echo ""
-        echo "Hooks exist to run gitleaks + the operator-rules staleness gate before a"
-        echo "commit or push leaves the machine. This guard is defense-in-depth, not a"
-        echo "boundary — if you genuinely need to bypass hooks (e.g. a hook is broken),"
-        echo "ask the operator rather than routing around this check."
-    } >&2
-    exit 2
+	{
+		echo "git-hook-bypass-guard: blocked — $1"
+		echo ""
+		echo "Hooks exist to run gitleaks + the operator-rules staleness gate before a"
+		echo "commit or push leaves the machine. This guard is defense-in-depth, not a"
+		echo "boundary — if you genuinely need to bypass hooks (e.g. a hook is broken),"
+		echo "ask the operator rather than routing around this check."
+	} >&2
+	exit 2
 }
 
 # Boundary character class for flag/token matching: start/end of string, plus
@@ -124,34 +124,34 @@ BND="[[:space:];&|\"']"
 
 # --- Vector 1: commit hook bypass (--no-verify, or -n in any short cluster) ---
 if [[ "$LOWER_NORM" == *"git commit"* ]]; then
-    if [[ "$LOWER_NORM" == *"--no-verify"* ]]; then
-        deny "git commit --no-verify"
-    fi
-    # Single-dash lowercase cluster containing n: -n, -an, -nm, -vn, ...
-    # The leading boundary must be a SINGLE dash (preceded by space/quote/
-    # start), which structurally excludes double-dash long flags like
-    # --no-edit / --no-gpg-sign / --amend, and the value-attached message
-    # flag forms -am / -m never contain a matchable n.
-    RE_SHORT_N="(^|$BND)-[a-z]*n[a-z]*($|$BND)"
-    if [[ "$LOWER_NORM" =~ $RE_SHORT_N ]]; then
-        deny "git commit -n / bundled short flag containing -n (e.g. -an); -n is --no-verify"
-    fi
+	if [[ "$LOWER_NORM" == *"--no-verify"* ]]; then
+		deny "git commit --no-verify"
+	fi
+	# Single-dash lowercase cluster containing n: -n, -an, -nm, -vn, ...
+	# The leading boundary must be a SINGLE dash (preceded by space/quote/
+	# start), which structurally excludes double-dash long flags like
+	# --no-edit / --no-gpg-sign / --amend, and the value-attached message
+	# flag forms -am / -m never contain a matchable n.
+	RE_SHORT_N="(^|$BND)-[a-z]*n[a-z]*($|$BND)"
+	if [[ "$LOWER_NORM" =~ $RE_SHORT_N ]]; then
+		deny "git commit -n / bundled short flag containing -n (e.g. -an); -n is --no-verify"
+	fi
 fi
 
 # --- Vector 2: push hook bypass (--no-verify only; -n is --dry-run, not a bypass) ---
 if [[ "$LOWER_NORM" == *"git push"* && "$LOWER_NORM" == *"--no-verify"* ]]; then
-    deny "git push --no-verify"
+	deny "git push --no-verify"
 fi
 
 # --- Vector 3: pre-commit SKIP env var on a commit or push ---
 RE_SKIP="(^|$BND)SKIP="
 if [[ "$CMD_NORM" =~ $RE_SKIP ]] && [[ "$LOWER_NORM" == *"git commit"* || "$LOWER_NORM" == *"git push"* ]]; then
-    deny "SKIP=<hook-id> on a git commit/push (pre-commit's own hook-skip var)"
+	deny "SKIP=<hook-id> on a git commit/push (pre-commit's own hook-skip var)"
 fi
 
 # --- Vector 4: hooksPath override (git -c core.hooksPath=... / git config core.hooksPath ...) ---
 if [[ "$LOWER_NORM" == *"hookspath"* ]]; then
-    deny "core.hooksPath override (redirects git away from the installed hooks)"
+	deny "core.hooksPath override (redirects git away from the installed hooks)"
 fi
 
 exit 0

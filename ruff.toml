@@ -15,5 +15,14 @@
 # wrapping. Opt into more (isort I, pyupgrade UP, bugbear B, or a considered
 # bandit S with a documented-noqa policy) as a deliberate estate decision with a
 # baseline pass — never by inheriting a default nobody selected.
+
+# The vendored PR-body checker (plugins/estate-hooks/hooks/pr-body-check.py)
+# is a BYTE-IDENTICAL copy of dotty's .github/scripts/pr-body-check.py — a
+# drift audit compares bytes, and the file is never edited here. ruff-format
+# rewraps three of its lines, which would break that identity on the first
+# commit (found by running the hook against the fresh copy), so the formatter
+# and linter skip it. Provenance: hooks/pr-body-check.SOURCE.
+extend-exclude = ["plugins/estate-hooks/hooks/pr-body-check.py"]
+
 [lint]
 select = ["E4", "E7", "E9", "F"]

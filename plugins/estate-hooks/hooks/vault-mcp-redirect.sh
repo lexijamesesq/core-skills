@@ -28,23 +28,23 @@ VAULT="${VAULT/#\~/$HOME}"
 
 # Fail-open if jq is not available
 if ! command -v jq >/dev/null 2>&1; then
-    exit 0
+	exit 0
 fi
 
 INPUT=$(cat)
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 
 case "$TOOL_NAME" in
-    Read|Edit|Write)
-        TARGET=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
-        ;;
-    Grep)
-        TARGET=$(echo "$INPUT" | jq -r '.tool_input.path // empty' 2>/dev/null || true)
-        [[ -z "$TARGET" ]] && TARGET="$PWD"
-        ;;
-    *)
-        exit 0
-        ;;
+Read | Edit | Write)
+	TARGET=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
+	;;
+Grep)
+	TARGET=$(echo "$INPUT" | jq -r '.tool_input.path // empty' 2>/dev/null || true)
+	[[ -z "$TARGET" ]] && TARGET="$PWD"
+	;;
+*)
+	exit 0
+	;;
 esac
 
 [[ -z "$TARGET" ]] && exit 0
@@ -53,8 +53,8 @@ ABS_TARGET=$(realpath -q "$TARGET" 2>/dev/null || echo "$TARGET")
 
 # Not under the vault — allow
 case "$ABS_TARGET" in
-    "$VAULT"|"$VAULT"/*) ;;
-    *) exit 0 ;;
+"$VAULT" | "$VAULT"/*) ;;
+*) exit 0 ;;
 esac
 
 # Scope check.
@@ -66,54 +66,57 @@ esac
 #     - Directory: always block (search intent → search_notes / list_all_tags).
 #     - File: block only if the extension matches.
 if [[ "$TOOL_NAME" == "Grep" && -d "$ABS_TARGET" ]]; then
-    : # directory target — fall through to block
+	: # directory target — fall through to block
 else
-    shopt -s nocasematch
-    case "$ABS_TARGET" in
-        *.md|*.markdown|*.txt|*.base|*.canvas) ;;
-        *) shopt -u nocasematch; exit 0 ;;
-    esac
-    shopt -u nocasematch
+	shopt -s nocasematch
+	case "$ABS_TARGET" in
+	*.md | *.markdown | *.txt | *.base | *.canvas) ;;
+	*)
+		shopt -u nocasematch
+		exit 0
+		;;
+	esac
+	shopt -u nocasematch
 fi
 
 # Block with tool-family-aware redirect message
 {
-    echo "Vault file detected: $ABS_TARGET"
-    echo ""
-    echo "mcpvault parses this file. Use Obsidian MCP for the operation:"
-    echo ""
-    case "$TOOL_NAME" in
-        Read)
-            echo "  Read one note:        mcp__obsidian__read_note"
-            echo "  Read batch (<=10):    mcp__obsidian__read_multiple_notes"
-            echo "  Search content:       mcp__obsidian__search_notes"
-            echo "  Metadata only:        mcp__obsidian__get_notes_info"
-            ;;
-        Grep)
-            echo "  Content / frontmatter: mcp__obsidian__search_notes"
-            echo "                          (set searchFrontmatter: true for frontmatter)"
-            echo "  Vault-wide tag list:   mcp__obsidian__list_all_tags"
-            echo "  Directory listing:     mcp__obsidian__list_directory"
-            echo "  Metadata scan:         mcp__obsidian__get_notes_info"
-            ;;
-        Edit)
-            echo "  Targeted replace:     mcp__obsidian__patch_note"
-            echo "                          (vault-aware Edit — same exact-match semantics)"
-            echo "  Frontmatter update:   mcp__obsidian__update_frontmatter"
-            echo "  Tag add / remove:     mcp__obsidian__manage_tags"
-            ;;
-        Write)
-            echo "  Create / overwrite:   mcp__obsidian__write_note"
-            echo "  Append / prepend:     mcp__obsidian__write_note with mode: append or prepend"
-            echo "  Delete:               mcp__obsidian__delete_note"
-            ;;
-    esac
-    echo ""
-    echo "Non-Obsidian file types in the vault (.json, images, PDFs, scripts,"
-    echo "YAML, binaries) use generic tools. Move/rename uses Obsidian CLI via Bash."
-    echo ""
-    echo "Full mapping: global CLAUDE.md > Tool Selection Rules > Vault files"
-    echo "Detail:        see global CLAUDE.md > Tool Selection Rules"
+	echo "Vault file detected: $ABS_TARGET"
+	echo ""
+	echo "mcpvault parses this file. Use Obsidian MCP for the operation:"
+	echo ""
+	case "$TOOL_NAME" in
+	Read)
+		echo "  Read one note:        mcp__obsidian__read_note"
+		echo "  Read batch (<=10):    mcp__obsidian__read_multiple_notes"
+		echo "  Search content:       mcp__obsidian__search_notes"
+		echo "  Metadata only:        mcp__obsidian__get_notes_info"
+		;;
+	Grep)
+		echo "  Content / frontmatter: mcp__obsidian__search_notes"
+		echo "                          (set searchFrontmatter: true for frontmatter)"
+		echo "  Vault-wide tag list:   mcp__obsidian__list_all_tags"
+		echo "  Directory listing:     mcp__obsidian__list_directory"
+		echo "  Metadata scan:         mcp__obsidian__get_notes_info"
+		;;
+	Edit)
+		echo "  Targeted replace:     mcp__obsidian__patch_note"
+		echo "                          (vault-aware Edit — same exact-match semantics)"
+		echo "  Frontmatter update:   mcp__obsidian__update_frontmatter"
+		echo "  Tag add / remove:     mcp__obsidian__manage_tags"
+		;;
+	Write)
+		echo "  Create / overwrite:   mcp__obsidian__write_note"
+		echo "  Append / prepend:     mcp__obsidian__write_note with mode: append or prepend"
+		echo "  Delete:               mcp__obsidian__delete_note"
+		;;
+	esac
+	echo ""
+	echo "Non-Obsidian file types in the vault (.json, images, PDFs, scripts,"
+	echo "YAML, binaries) use generic tools. Move/rename uses Obsidian CLI via Bash."
+	echo ""
+	echo "Full mapping: global CLAUDE.md > Tool Selection Rules > Vault files"
+	echo "Detail:        see global CLAUDE.md > Tool Selection Rules"
 } >&2
 
 exit 2

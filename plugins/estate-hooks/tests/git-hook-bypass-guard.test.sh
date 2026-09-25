@@ -23,18 +23,33 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/assert.sh"
 
 HOOK="${HOOK:-${SCRIPT_DIR}/../hooks/git-hook-bypass-guard.sh}"
-[[ -x "$HOOK" ]] || { echo "FATAL: $HOOK not executable"; exit 2; }
+[[ -x "$HOOK" ]] || {
+	echo "FATAL: $HOOK not executable"
+	exit 2
+}
 
-command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required to build test fixtures"; exit 2; }
+command -v jq >/dev/null 2>&1 || {
+	echo "FATAL: jq required to build test fixtures"
+	exit 2
+}
 
 # mkjson <command-string> -> PreToolUse stdin JSON for the Bash tool
 mkjson() { jq -n --arg c "$1" '{tool_name:"Bash",tool_input:{command:$c}}'; }
 
 # fire <json> -> hook exit code (in RC)
-fire() { printf '%s' "$1" | bash "$HOOK" >/dev/null 2>&1; RC=$?; }
+fire() {
+	printf '%s' "$1" | bash "$HOOK" >/dev/null 2>&1
+	RC=$?
+}
 
-expect_block() { fire "$(mkjson "$1")"; assert_eq "BLOCK: $1" "2" "$RC"; }
-expect_allow() { fire "$(mkjson "$1")"; assert_eq "allow: $1" "0" "$RC"; }
+expect_block() {
+	fire "$(mkjson "$1")"
+	assert_eq "BLOCK: $1" "2" "$RC"
+}
+expect_allow() {
+	fire "$(mkjson "$1")"
+	assert_eq "allow: $1" "0" "$RC"
+}
 
 # === Vector 1: commit --no-verify / -n (incl. bundled clusters) ===
 section "Vector 1 — commit hook bypass"
@@ -45,7 +60,7 @@ expect_block 'git commit "-n" -m "x"'
 expect_block 'git commit -an -m "x"'
 expect_block 'git commit -nm "x"'
 expect_block 'git commit -vn -m "x"'
-expect_block 'GIT COMMIT --NO-VERIFY'          # case-insensitive match
+expect_block 'GIT COMMIT --NO-VERIFY' # case-insensitive match
 
 # === Regression: shell operator abutting -n (Defect 1) ===
 section "Vector 1 regression — -n abutting a shell operator"
@@ -74,7 +89,7 @@ expect_allow 'git push -an origin main'
 section "Vector 3 — pre-commit SKIP var"
 expect_block 'SKIP=gitleaks git commit -m "x"'
 expect_block 'SKIP=gitleaks git push origin main'
-expect_allow 'SKIP=gitleaks make build'        # SKIP= without git commit/push
+expect_allow 'SKIP=gitleaks make build' # SKIP= without git commit/push
 
 # === Vector 4: core.hooksPath override ===
 section "Vector 4 — hooksPath override"
@@ -95,17 +110,17 @@ expect_allow "git commit -m 'fix; done'"
 
 # === Honesty-note claims (Defect 2) ===
 section "Honesty note — porous examples pass, env -i does NOT bypass"
-expect_block 'env -i git commit --no-verify'   # NOT porous — still blocked
+expect_block 'env -i git commit --no-verify' # NOT porous — still blocked
 # shellcheck disable=SC2016  # literal $c is the point — guard sees it unexpanded
-expect_allow 'c=commit; git $c --no-verify'    # variable-assembled: porous
+expect_allow 'c=commit; git $c --no-verify' # variable-assembled: porous
 # shellcheck disable=SC2016  # literal $cmd is the point — guard sees it unexpanded
-expect_allow 'eval "$cmd"'                     # eval indirection: porous
-expect_allow 'gc'                              # alias/function name: porous
+expect_allow 'eval "$cmd"' # eval indirection: porous
+expect_allow 'gc'          # alias/function name: porous
 
 # === Accepted over-blocks (documented, safe direction) ===
 section "Accepted over-blocks (safe direction)"
-expect_block 'git commit -m "use -n for dry run"'   # -n inside message
-expect_block 'git commit -m x && echo -n done'      # unrelated -n in compound
+expect_block 'git commit -m "use -n for dry run"' # -n inside message
+expect_block 'git commit -m x && echo -n done'    # unrelated -n in compound
 
 # === Fail-open posture on infra errors ===
 section "Fail-open — infra errors never block"

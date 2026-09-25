@@ -86,13 +86,13 @@ CMD_NORM=$(tr -s '[:space:]' ' ' <<<"$CMD")
 LOWER_NORM=$(tr '[:upper:]' '[:lower:]' <<<"$CMD_NORM")
 
 deny() {
-    {
-        echo "git-push-publish-guard: blocked — a session's own commits publish through"
-        echo "the App's publish helper (scans, then creates a Verified commit via the"
-        echo "GitHub API), never a bare git push. This is not a bypass to route around —"
-        echo "ask the operator if the helper genuinely cannot do what you need."
-    } >&2
-    exit 2
+	{
+		echo "git-push-publish-guard: blocked — a session's own commits publish through"
+		echo "the App's publish helper (scans, then creates a Verified commit via the"
+		echo "GitHub API), never a bare git push. This is not a bypass to route around —"
+		echo "ask the operator if the helper genuinely cannot do what you need."
+	} >&2
+	exit 2
 }
 
 BND="[[:space:];&|\"']"
@@ -104,7 +104,7 @@ BND="[[:space:];&|\"']"
 RE_GIT_WORD="(^|$BND)git($|$BND)"
 RE_PUSH_WORD="(^|$BND)push($|$BND)"
 if [[ "$LOWER_NORM" =~ $RE_GIT_WORD && "$LOWER_NORM" =~ $RE_PUSH_WORD ]]; then
-    deny "git push (including git -C <path> push and similar flagged forms)"
+	deny "git push (including git -C <path> push and similar flagged forms)"
 fi
 
 exit 0

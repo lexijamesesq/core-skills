@@ -1,0 +1,5 @@
+# tests/fixtures/pull_request_template.md is a VERBATIM copy of dotty's
+# .github/pull_request_template.md (the PR-body template guard's suite runs the
+# vendored checker against the real template). It is not authored here and
+# must stay byte-for-byte dotty's, so markdownlint does not judge it.
+plugins/estate-hooks/tests/fixtures/pull_request_template.md

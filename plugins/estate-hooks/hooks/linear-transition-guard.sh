@@ -32,23 +32,23 @@ INPUT=$(cat 2>/dev/null)
 TOOL=$(jq -r '.tool_name // empty' <<<"$INPUT" 2>/dev/null)
 
 warn() {
-    echo "linear-transition-guard (warn-only): $1 — transitions route through traffic-cone's fused scripts: cone_preflight.py <verb> <id> --execute-if-clean (see the traffic-cone skill's Dispatch table)." >&2
+	echo "linear-transition-guard (warn-only): $1 — transitions route through traffic-cone's fused scripts: cone_preflight.py <verb> <id> --execute-if-clean (see the traffic-cone skill's Dispatch table)." >&2
 }
 
 case "$TOOL" in
-  mcp__linear-tactic__linear_updateIssue)
-    STATEID=$(jq -r '.tool_input.stateId // empty' <<<"$INPUT" 2>/dev/null)
-    [[ -n "$STATEID" ]] && warn "raw MCP state write (updateIssue with stateId)"
-    ;;
-  Bash)
-    CMD=$(jq -r '.tool_input.command // empty' <<<"$INPUT" 2>/dev/null)
-    [[ -z "$CMD" ]] && exit 0
-    if grep -q "linear-gql" <<<"$CMD" && grep -qE "stateId|delegateId" <<<"$CMD"; then
-        if ! grep -qE "cone_preflight\.py|linear_bridge\.py|map_sweep\.py" <<<"$CMD"; then
-            warn "hand-built bridge payload carrying stateId/delegateId"
-        fi
-    fi
-    ;;
+mcp__linear-tactic__linear_updateIssue)
+	STATEID=$(jq -r '.tool_input.stateId // empty' <<<"$INPUT" 2>/dev/null)
+	[[ -n "$STATEID" ]] && warn "raw MCP state write (updateIssue with stateId)"
+	;;
+Bash)
+	CMD=$(jq -r '.tool_input.command // empty' <<<"$INPUT" 2>/dev/null)
+	[[ -z "$CMD" ]] && exit 0
+	if grep -q "linear-gql" <<<"$CMD" && grep -qE "stateId|delegateId" <<<"$CMD"; then
+		if ! grep -qE "cone_preflight\.py|linear_bridge\.py|map_sweep\.py" <<<"$CMD"; then
+			warn "hand-built bridge payload carrying stateId/delegateId"
+		fi
+	fi
+	;;
 esac
 
 exit 0

@@ -1,7 +1,7 @@
 {
   "name": "estate-hooks",
-  "version": "0.4.16",
-  "description": "The estate's eleven Claude Code hook scripts plus a shared gitleaks helper, packaged as a plugin.",
+  "version": "0.4.17",
+  "description": "The estate's thirteen Claude Code hook scripts plus two shared helpers (gitleaks, gh scope) and the vendored PR-body template checker, packaged as a plugin.",
   "author": {
     "name": "Lexi James",
     "url": "https://github.com/lexijamesesq"
