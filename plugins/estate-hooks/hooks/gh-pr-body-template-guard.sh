@@ -41,6 +41,11 @@
 # FAIL-CLOSED contract (the secret guard's, verbatim): an inability to run
 # the check BLOCKS, never silently passes.
 #   * jq / python3 missing                      -> BLOCK
+#     (jq is needed before the guard can even self-scope, and the hook is
+#     registered with no `if:` prefilter, so a machine WITHOUT jq is blocked
+#     on EVERY Bash call — fail-closed by contract; provisioned machines
+#     carry jq. The former prefilter only ever narrowed this to commands
+#     carrying $VAR or $(...), and dropped the estate's real creates.)
 #   * the vendored checker missing              -> BLOCK
 #   * the command cannot be tokenized           -> BLOCK
 #   * --body / --body-file with no argument     -> BLOCK
@@ -216,7 +221,9 @@ command -v python3 >/dev/null 2>&1 || block \
 #   {verb, has_body, body|null, body_file|null, indeterminate: <why>|null}
 # Exit 3: a body flag with no argument.  Exit 4: the command cannot be
 # tokenized.  Exit 5: the scope regex matched but no `pr create|edit` token
-# pair exists (indeterminate — the fail-closed answer is BLOCK).
+# pair exists (indeterminate — the fail-closed answer is BLOCK).  Exit 6: a
+# quoted heredoc whose delimiter also stands alone inside the body (bash
+# ends the heredoc there; the body gh gets is truncated) — BLOCK.
 # ---------------------------------------------------------------------------
 # shellcheck disable=SC2016  # the python source is a literal; its $( is a string, not an expansion
 EXTRACT="$(printf '%s' "$COMMAND" | python3 -c '
@@ -233,17 +240,43 @@ cmd = sys.stdin.read()
 # which blocks it (expansions inside are the shell to make, not readable
 # here). \x27 is the single quote: this source sits inside a bash
 # single-quoted string, so the character itself cannot appear.
-HEREDOC_RE = re.compile(
-    r"""(--body|-b)[ \t]+"\$\([ \t]*cat[ \t]*<<(-?)[ \t]*([\x27"])(\w+)\3[ \t]*\n(.*?)\n[ \t]*\4[ \t]*\n[ \t]*\)\"""",
-    re.S,
+#
+# WHERE THE HEREDOC ENDS is decided the way bash decides it: at the FIRST
+# line that is exactly the delimiter (for <<-, after stripping leading
+# tabs), no matter what follows. A regex that looked for the first
+# delimiter line followed by the closing )" read PAST a delimiter standing
+# alone mid-body, vouched for the long conforming text, and let bash hand
+# gh a truncated body — the exact CI failure this guard exists to stop
+# (found by non-author review). So: the first bare delimiter line ends the
+# body; if the closing )" does not follow it directly (whitespace only),
+# the text in between is not the body and not readable -> BLOCK (exit 6).
+OPENER_RE = re.compile(
+    r"""(--body|-b)[ \t]+"\$\([ \t]*cat[ \t]*<<(-?)[ \t]*([\x27"])(\w+)\3[ \t]*\n"""
 )
 heredoc_body = None
-m = HEREDOC_RE.search(cmd)
+m = OPENER_RE.search(cmd)
 if m:
-    heredoc_body = m.group(5)
-    if m.group(2) == "-":              # <<- strips leading tabs, as bash does
-        heredoc_body = "\n".join(ln.lstrip("\t") for ln in heredoc_body.split("\n"))
-    cmd = cmd[:m.start()] + m.group(1) + " HEREDOC_BODY_PLACEHOLDER" + cmd[m.end():]
+    delim = m.group(4)
+    dash = m.group(2) == "-"
+    lines = cmd[m.end():].split("\n")
+    term = None
+    for idx, ln in enumerate(lines):
+        if (ln.lstrip("\t") if dash else ln) == delim:
+            term = idx
+            break
+    if term is not None:
+        after = "\n".join(lines[term + 1:])
+        m2 = re.match(r"""[ \t\n]*\)\"""", after)
+        if m2 is None:
+            # The first terminator is mid-body: bash ends the heredoc there.
+            sys.stdout.write(json.dumps({"midbody_delim": delim}))
+            sys.exit(6)
+        body_lines = lines[:term]
+        if dash:
+            body_lines = [ln.lstrip("\t") for ln in body_lines]
+        heredoc_body = "\n".join(body_lines)
+        end = m.end() + len("\n".join(lines[:term + 1])) + 1 + m2.end()
+        cmd = cmd[:m.start()] + m.group(1) + " HEREDOC_BODY_PLACEHOLDER" + cmd[end:]
 try:
     toks = shlex.split(cmd)
 except ValueError:
@@ -319,6 +352,17 @@ case "$ex_rc" in
 	"shlex could not tokenize the 'gh pr create' invocation (unbalanced" \
 	"quotes?). Refusing to allow a PR whose body cannot be determined. Fix" \
 	"the command's quoting and retry. (Fail-closed.)" ;;
+6)
+	_delim="$(printf '%s' "$EXTRACT" | jq -r '.midbody_delim // "EOF"')"
+	block "PR-template-guard BLOCKED: the heredoc delimiter appears inside the PR body" \
+		"The body is a quoted heredoc ending at '$_delim', but a line equal to" \
+		"'$_delim' stands alone INSIDE the body. bash ends the heredoc at the" \
+		"FIRST such line, so gh would receive a truncated body (everything" \
+		"after that line is lost) and this guard cannot vouch for what remains." \
+		"Choose a delimiter that does not appear in the body on its own line," \
+		"or write the body to a file and pass --body-file <path>." \
+		"This is the same check CI runs; fix the body before \`gh pr create\`"
+	;;
 5) block "PR-template-guard BLOCKED: the PR subcommand could not be determined" \
 	"The command looks like a 'gh pr create' / 'gh pr edit' but its tokens do" \
 	"not carry a 'pr create' or 'pr edit' pair, so the body cannot be" \

@@ -299,6 +299,44 @@ body_not_echoed "quoted-heredoc missing marker"
 run_hook "$(mkjson "$(heredoc_cmd gh "'" "$PLACEHOLDER_BODY")" "$REPO")"
 assert_eq "<<'EOF' leftover placeholder exits 2 (block)" "2" "$RC"
 
+# The heredoc ends where BASH ends it: at the FIRST bare delimiter line. A
+# delimiter standing alone mid-body truncates what gh receives; a guard that
+# read past it and vouched for the long text would certify the very CI
+# failure it exists to stop (the non-author review's HIGH finding).
+section "delimiter standing alone MID-BODY -> BLOCK (never PASS): bash truncates there"
+MIDBODY_CMD="$(printf 'gh pr create --title "t" --body "$(cat <<'"'"'EOF'"'"'\n<!-- pr-body:v1 -->\n## Intent\nTo close a heredoc, write:\nEOF\non its own line. That is not the terminator here.\n%s\nEOF\n)"' "${GOOD_BODY#*$'\n\n'}")"
+run_hook "$(mkjson "$MIDBODY_CMD" "$REPO")"
+assert_eq "mid-body bare EOF exits 2 (block)" "2" "$RC"
+grep -q "heredoc delimiter appears inside the PR body" "$ERRFILE" && pass "names the mid-body delimiter cause" || fail "names the mid-body delimiter cause" "$(cat "$ERRFILE")"
+grep -q "'EOF' stands alone INSIDE the body" "$ERRFILE" && pass "names the delimiter itself" || fail "names the delimiter itself" "$(cat "$ERRFILE")"
+grep -q "Choose a delimiter that does not appear in the body" "$ERRFILE" && pass "gives the choose-another-delimiter remediation" || fail "gives the remediation" "$(cat "$ERRFILE")"
+grep -q "\-\-body-file <path>" "$ERRFILE" && pass "gives the body-file remediation" || fail "gives the body-file remediation" "$(cat "$ERRFILE")"
+body_not_echoed "mid-body delimiter"
+# Same body, the delimiter chosen so it does not collide -> read and PASS.
+run_hook "$(mkjson "$(printf 'gh pr create --title "t" --body "$(cat <<'"'"'PRBODY'"'"'\n<!-- pr-body:v1 -->\n## Intent\nTo close a heredoc, write:\nEOF\non its own line. That is not the terminator here.\n%s\nPRBODY\n)"' "${GOOD_BODY#*$'\n\n'}")" "$REPO")"
+assert_eq "same body with a non-colliding delimiter exits 0 (allow)" "0" "$RC"
+
+section "delimiter mid-LINE (not bare: 'see EOF handling', 'EOF ' with trailing space) -> still read correctly"
+run_hook "$(mkjson "$(heredoc_cmd gh "'" "${GOOD_BODY/One hook./One hook; see EOF handling and the EOFerror class.}")" "$REPO")"
+assert_eq "EOF inside a line: good body exits 0" "0" "$RC"
+run_hook "$(mkjson "$(heredoc_cmd gh "'" "${NO_MARKER_BODY/One hook./One hook; see EOF handling.}")" "$REPO")"
+assert_eq "EOF inside a line: bad body exits 2 (the real body was read, not a truncation)" "2" "$RC"
+grep -q "missing the" "$ERRFILE" && pass "blocked on the checker's marker line, not on the delimiter" || fail "blocked on the checker's marker line" "$(cat "$ERRFILE")"
+run_hook "$(mkjson "$(printf 'gh pr create --title "t" --body "$(cat <<'"'"'EOF'"'"'\n%s\nEOF \n%s\nEOF\n)"' "$GOOD_BODY" "## Extra")" "$REPO")"
+assert_eq "'EOF ' with a trailing space is NOT a terminator (body read through to the bare EOF)" "0" "$RC"
+
+section "<<- with a tab-indented terminator and tab-indented body lines"
+run_hook "$(mkjson "$(printf 'gh pr create --title "t" --body "$(cat <<-'"'"'EOF'"'"'\n%s\n\tEOF\n)"' "$(printf '%s\n' "$GOOD_BODY" | sed $'s/^/\t/')")" "$REPO")"
+assert_eq "<<- tab-indented body and terminator exits 0 (allow)" "0" "$RC"
+run_hook "$(mkjson "$(printf 'gh pr create --title "t" --body "$(cat <<-'"'"'EOF'"'"'\n%s\n\tEOF\n)"' "$(printf '%s\n' "$NO_MARKER_BODY" | sed $'s/^/\t/')")" "$REPO")"
+assert_eq "<<- tab-indented BAD body exits 2 (block)" "2" "$RC"
+
+section "two heredocs in one command; the second is the body"
+run_hook "$(mkjson "$(printf 'cat <<'"'"'NOTE'"'"' > /dev/null\nEOF\nnot the body; a bare EOF here belongs to the first heredoc\nNOTE\ngh pr create --title "t" --body "$(cat <<'"'"'EOF'"'"'\n%s\nEOF\n)"' "$GOOD_BODY")" "$REPO")"
+assert_eq "second heredoc is the body: good body exits 0" "0" "$RC"
+run_hook "$(mkjson "$(printf 'cat <<'"'"'NOTE'"'"' > /dev/null\nnotes\nNOTE\ngh pr create --title "t" --body "$(cat <<'"'"'EOF'"'"'\n%s\nEOF\n)"' "$NO_MARKER_BODY")" "$REPO")"
+assert_eq "second heredoc is the body: bad body exits 2 (block)" "2" "$RC"
+
 section "UNQUOTED heredoc delimiter (<<EOF) -> BLOCK, fail-closed (the shell expands inside it)"
 run_hook "$(mkjson "$(heredoc_cmd gh "" "$GOOD_BODY")" "$REPO")"
 assert_eq "<<EOF good body exits 2 (block)" "2" "$RC"

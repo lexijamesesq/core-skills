@@ -33,6 +33,11 @@
 # FAIL-CLOSED contract (North star: a missing binary, an unresolvable config, or
 # an indeterminate target must BLOCK, never silently pass):
 #   * jq / python3 missing   -> BLOCK (cannot parse the invocation / its args).
+#     jq is needed before the guard can even self-scope, and the hook is
+#     registered with no `if:` prefilter, so a machine WITHOUT jq is blocked on
+#     EVERY Bash call — fail-closed by contract; provisioned machines carry jq.
+#     (The former prefilter only narrowed this to commands carrying $VAR or
+#     $(...), and dropped the estate's real wrapper-path creates entirely.)
 #   * gitleaks missing       -> BLOCK (via gl_resolve; names the install).
 #   * no ruleset located (payload-cwd / cd-prefix / fixed-path / env var) -> BLOCK.
 #   * located .gitleaks.toml broken ([extend] unresolvable) -> BLOCK (gl_resolve).

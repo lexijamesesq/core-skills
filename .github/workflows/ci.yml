@@ -78,7 +78,7 @@ jobs:
         with:
           version: '8.30.1'
 
-      - name: estate-hooks test suites (519 tests)
+      - name: estate-hooks test suites (534 tests)
         working-directory: plugins/estate-hooks/tests
         run: |
           set -euo pipefail
