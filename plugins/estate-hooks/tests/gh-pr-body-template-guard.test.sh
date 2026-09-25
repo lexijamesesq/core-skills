@@ -271,16 +271,49 @@ BODY_WITH_F="${GOOD_BODY/One hook./Use -F to pass a file. Also --body-file works
 run_hook "$(mkjson "$(cmd_body gh create "$BODY_WITH_F")" "$REPO")"
 assert_eq "good body mentioning -F exits 0 (no spurious block)" "0" "$RC"
 
-section "body computed at run time (\$(cat <<EOF), \$VAR, --body-file -) -> BLOCK, fail-closed"
-run_hook "$(mkjson 'gh pr create --title t --body "$(cat <<'"'"'EOF'"'"'
-<!-- pr-body:v1 -->
-## Intent
-x
-EOF
-)"' "$REPO")"
-assert_eq "\$(cat <<EOF) body exits 2 (block)" "2" "$RC"
+# ============================================================================
+# The quoted-heredoc body — the harness's own default shape. The delimiter is
+# QUOTED, so the shell expands nothing inside and the body is a literal the
+# guard reads exactly (from the raw command text; shlex would drop the body's
+# own double quotes). An UNQUOTED delimiter is the shell's to expand -> BLOCK.
+# ============================================================================
+heredoc_cmd() { # <gh-prefix> <quote-char> <body> -> --body "$(cat <<'EOF' … EOF)"
+	printf '%s pr create --title "t" --body "$(cat <<%sEOF%s\n%s\nEOF\n)"' "$1" "$2" "$2" "$3"
+}
+section "quoted-heredoc body (<<'EOF') conforming -> PASS; the body's own quotes, dollars and backticks are literal"
+QUOTED_GOOD="${GOOD_BODY/One hook./One hook: \"quoted\", \$5 and \`code\` are literal here.}"
+run_hook "$(mkjson "$(heredoc_cmd gh "'" "$QUOTED_GOOD")" "$REPO")"
+assert_eq "<<'EOF' good body exits 0 (allow)" "0" "$RC"
+run_hook "$(mkjson "$(heredoc_cmd /opt/estate/bin/gh "'" "$GOOD_BODY")" "$REPO")"
+assert_eq "<<'EOF' via wrapper path exits 0" "0" "$RC"
+run_hook "$(mkjson "$(heredoc_cmd '$GH' '"' "$GOOD_BODY")" "$REPO")"
+assert_eq "<<\"EOF\" (double-quoted delimiter) via \$GH exits 0" "0" "$RC"
+run_hook "$(mkjson "$(printf 'cd %s && gh pr create --title "t" -b "$(cat <<-'"'"'EOF'"'"'\n%s\nEOF\n)"' "$REPO" "$GOOD_BODY")" "$NOREPO")"
+assert_eq "-b with <<-'EOF' after a cd prefix exits 0" "0" "$RC"
+
+section "quoted-heredoc body missing the marker -> BLOCK with the checker's line"
+run_hook "$(mkjson "$(heredoc_cmd gh "'" "$NO_MARKER_BODY")" "$REPO")"
+assert_eq "<<'EOF' missing marker exits 2 (block)" "2" "$RC"
+grep -q "missing the \`<!-- pr-body:v1 -->\` marker as the first line" "$ERRFILE" && pass "quotes the checker's marker line" || fail "quotes the checker's marker line" "$(cat "$ERRFILE")"
+body_not_echoed "quoted-heredoc missing marker"
+run_hook "$(mkjson "$(heredoc_cmd gh "'" "$PLACEHOLDER_BODY")" "$REPO")"
+assert_eq "<<'EOF' leftover placeholder exits 2 (block)" "2" "$RC"
+
+section "UNQUOTED heredoc delimiter (<<EOF) -> BLOCK, fail-closed (the shell expands inside it)"
+run_hook "$(mkjson "$(heredoc_cmd gh "" "$GOOD_BODY")" "$REPO")"
+assert_eq "<<EOF good body exits 2 (block)" "2" "$RC"
+grep -q "computed at run time" "$ERRFILE" && pass "names the indeterminate body" || fail "names the indeterminate body" "$(cat "$ERRFILE")"
+grep -q "UNQUOTED heredoc delimiter" "$ERRFILE" && pass "names the unquoted-delimiter cause" || fail "names the unquoted-delimiter cause" "$(cat "$ERRFILE")"
+grep -q "delimiter QUOTED" "$ERRFILE" && pass "gives the quoted-heredoc remediation" || fail "gives the quoted-heredoc remediation" "$(cat "$ERRFILE")"
+body_not_echoed "unquoted heredoc"
+
+section "body computed at run time (\$(other cmd), \$VAR, --body-file -) -> BLOCK, fail-closed"
+run_hook "$(mkjson 'gh pr create --title t --body "$(python3 render.py)"' "$REPO")"
+assert_eq "\$(python3 …) body exits 2 (block)" "2" "$RC"
 grep -q "computed at run time" "$ERRFILE" && pass "names the indeterminate body" || fail "names the indeterminate body" "$(cat "$ERRFILE")"
 grep -q "\-\-body-file <path>" "$ERRFILE" && pass "gives the body-file remediation" || fail "gives the body-file remediation" "$(cat "$ERRFILE")"
+run_hook "$(mkjson "gh pr create --title t --body-file \"\$SCRATCH/body.md\"" "$REPO")"
+assert_eq "--body-file \"\$VAR/…\" exits 2 (block)" "2" "$RC"
 run_hook "$(mkjson 'gh pr create --title t --body "$BODY"' "$REPO")"
 assert_eq "--body \"\$BODY\" exits 2 (block)" "2" "$RC"
 run_hook "$(mkjson 'gh pr create --title t --body-file -' "$REPO")"

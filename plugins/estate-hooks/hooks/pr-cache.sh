@@ -39,11 +39,12 @@ if [[ "$TOOL_NAME" == "Bash" ]]; then
 	CMD=$(printf '%s' "$CMD" | tr -s '[:space:]' ' ')
 	CMD="${CMD//\"/}"
 	CMD="${CMD//\'/}"
-	# GH IN COMMAND POSITION — one definition, kept IDENTICAL in four hooks:
-	# gh-pr-body-guard.sh, gh-pr-body-template-guard.sh, pr-cache.sh and
-	# pr-verdict-watch-arm.sh. No shared file fits: the two helpers these hooks
-	# source (gitleaks-common.sh, house-code-common.sh) are drift-checked
-	# byte-for-byte against dotty. Change all four together.
+	# GH IN COMMAND POSITION — one definition, kept IDENTICAL in five hooks:
+	# gh-pr-body-guard.sh, gh-pr-body-template-guard.sh, pr-cache.sh,
+	# pr-verdict-watch-arm.sh and security-review-reminder.sh. No shared file
+	# fits: the two helpers these hooks source (gitleaks-common.sh,
+	# house-code-common.sh) are drift-checked byte-for-byte against dotty.
+	# Change all five together.
 	#
 	# Command position = start of string, or after a separator (; && || | ( `),
 	# optionally preceded by wrapper words (env/time/sudo/nohup/command) and by

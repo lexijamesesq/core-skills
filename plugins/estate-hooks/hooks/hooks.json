@@ -1,5 +1,5 @@
 {
-  "description": "Estate hooks: the twelve Claude Code hook scripts the estate registers, packaged as a plugin. The PR hooks carry no `if` prefilter: a `Bash(gh pr *)` prefilter drops every wrapper-path or variable-held gh command before the hook runs, so each PR hook self-scopes and exits fast instead.",
+  "description": "Estate hooks: the thirteen Claude Code hook scripts the estate registers, packaged as a plugin. The PR hooks carry no `if` prefilter: a `Bash(gh pr *)` prefilter drops every wrapper-path or variable-held gh command before the hook runs, so each PR hook self-scopes and exits fast instead.",
   "hooks": {
     "PostToolUse": [
       {
@@ -32,8 +32,7 @@
       {
         "hooks": [
           {
-            "command": "echo 'Reminder: run /security-review before creating PRs for substantive changes.'",
-            "if": "Bash(gh pr create *)",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/security-review-reminder.sh",
             "timeout": 5,
             "type": "command"
           },

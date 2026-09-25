@@ -46,9 +46,13 @@
 #   * --body / --body-file with no argument     -> BLOCK
 #   * --body-file / -F unreadable, or `-` (stdin) -> BLOCK
 #   * a body that is computed at run time — a `$(...)`, a backtick, or a
-#     `$VAR` inside the body token (`--body "$(cat <<'EOF' ...)"`) — cannot
-#     be read here                              -> BLOCK, with the fix: write
-#     the body to a file and pass --body-file
+#     `$VAR` inside the body token, or a heredoc with an UNQUOTED delimiter
+#     (`<<EOF`, which the shell expands) — cannot be read here -> BLOCK,
+#     with the fix: write the body to a file and pass --body-file
+#   The one statically-safe computed shape is READ, not blocked:
+#     --body "$(cat <<'EOF' ... EOF)"  (delimiter quoted, 'EOF' or "EOF")
+#   is the harness's own default for a PR body and expands nothing, so its
+#   literal text is extracted from the raw command and checked as-is.
 #   * checker exit 2 (could not run) / unknown  -> BLOCK
 #   * checker exit 1 (findings)                 -> BLOCK, quoting its lines
 #   * checker exit 0                            -> exit 0
@@ -112,11 +116,12 @@ _scope_norm="$(tr -s '[:space:]' ' ' <<<"$_scope_raw")"
 _scope_norm="${_scope_norm//\"/}"
 _scope_norm="${_scope_norm//\'/}"
 
-# GH IN COMMAND POSITION — one definition, kept IDENTICAL in four hooks:
-# gh-pr-body-guard.sh, gh-pr-body-template-guard.sh, pr-cache.sh and
-# pr-verdict-watch-arm.sh. No shared file fits: the two helpers these hooks
-# source (gitleaks-common.sh, house-code-common.sh) are drift-checked
-# byte-for-byte against dotty. Change all four together.
+# GH IN COMMAND POSITION — one definition, kept IDENTICAL in five hooks:
+# gh-pr-body-guard.sh, gh-pr-body-template-guard.sh, pr-cache.sh,
+# pr-verdict-watch-arm.sh and security-review-reminder.sh. No shared file
+# fits: the two helpers these hooks source (gitleaks-common.sh,
+# house-code-common.sh) are drift-checked byte-for-byte against dotty.
+# Change all five together.
 #
 # Command position = start of string, or after a separator (; && || | ( `),
 # optionally preceded by wrapper words (env/time/sudo/nohup/command) and by
@@ -215,9 +220,32 @@ command -v python3 >/dev/null 2>&1 || block \
 # ---------------------------------------------------------------------------
 # shellcheck disable=SC2016  # the python source is a literal; its $( is a string, not an expansion
 EXTRACT="$(printf '%s' "$COMMAND" | python3 -c '
-import json, shlex, sys
+import json, re, shlex, sys
+cmd = sys.stdin.read()
+# THE QUOTED-HEREDOC BODY: the default shape the harness itself uses for a
+# PR body is  --body "$(cat <<EOF ... EOF)"  with the delimiter QUOTED
+# (single or double quotes around EOF). Quoted, the shell expands nothing
+# inside, so the body is a literal this guard can read exactly. It is taken
+# from the RAW command text, not from shlex: inside a double-quoted "$(...)"
+# shlex treats the body text double quotes as quote boundaries and drops
+# them. The span is replaced by a placeholder before tokenizing. An UNQUOTED
+# delimiter does not match and falls through to the run-time check below,
+# which blocks it (expansions inside are the shell to make, not readable
+# here). \x27 is the single quote: this source sits inside a bash
+# single-quoted string, so the character itself cannot appear.
+HEREDOC_RE = re.compile(
+    r"""(--body|-b)[ \t]+"\$\([ \t]*cat[ \t]*<<(-?)[ \t]*([\x27"])(\w+)\3[ \t]*\n(.*?)\n[ \t]*\4[ \t]*\n[ \t]*\)\"""",
+    re.S,
+)
+heredoc_body = None
+m = HEREDOC_RE.search(cmd)
+if m:
+    heredoc_body = m.group(5)
+    if m.group(2) == "-":              # <<- strips leading tabs, as bash does
+        heredoc_body = "\n".join(ln.lstrip("\t") for ln in heredoc_body.split("\n"))
+    cmd = cmd[:m.start()] + m.group(1) + " HEREDOC_BODY_PLACEHOLDER" + cmd[m.end():]
 try:
-    toks = shlex.split(sys.stdin.read())
+    toks = shlex.split(cmd)
 except ValueError:
     sys.exit(4)                        # command could not be tokenized
 verb = None
@@ -268,12 +296,16 @@ while i < n:
     i += 1
 # A body (or body-file path) that the shell computes at run time cannot be
 # read here: a command substitution, a backtick, or a variable reference.
+# (A quoted-heredoc body is a literal and is exempt: it is swapped back in
+# after this check, dollars and backticks included.)
 for key in ("body", "body_file"):
     v = res[key]
     if v is not None and ("$(" in v or "`" in v or "$" in v):
         res["indeterminate"] = key
 if res["body_file"] == "-":
     res["indeterminate"] = "body_file"
+if heredoc_body is not None and res["body"] == "HEREDOC_BODY_PLACEHOLDER":
+    res["body"] = heredoc_body
 sys.stdout.write(json.dumps(res))
 ')"
 ex_rc=$?
@@ -317,9 +349,11 @@ fi
 if [[ -n "$INDET" ]]; then
 	block "PR-template-guard BLOCKED: the PR body is computed at run time" \
 		"The $INDET argument contains a command substitution, a backtick, a" \
-		"variable reference, or is '-' (stdin), so this guard cannot read the" \
-		"body gh will publish. (Fail-closed: an unreadable body is not a pass.)" \
-		"Write the body to a file first, then pass --body-file <path>." \
+		"variable reference, an UNQUOTED heredoc delimiter (<<EOF), or is '-'" \
+		"(stdin), so this guard cannot read the body gh will publish." \
+		"(Fail-closed: an unreadable body is not a pass.)" \
+		"Write the body to a file first, then pass --body-file <path>, or use" \
+		"--body \"\$(cat <<'EOF' ... EOF)\" with the delimiter QUOTED." \
 		"This is the same check CI runs; fix the body before \`gh pr create\`"
 fi
 

@@ -76,6 +76,7 @@ Claude Code lifecycle hooks.
 | `git-hook-bypass-guard.sh` | PreToolUse | Blocks `--no-verify` and other attempts to skip the git hooks |
 | `pr-cache.sh` | SessionStart, PostToolUse | Caches PR metadata to cut redundant API calls |
 | `pr-verdict-watch-arm.sh` | PostToolUse | After a PR is opened (by `gh pr create` in any shape, or by the provisioner's caller rollout), tells the session to arm a Monitor on each new PR so verdicts and comments landing on the PR reach it |
+| `security-review-reminder.sh` | PreToolUse | Prints the run-a-security-review reminder before a `gh pr create` in any shape (advisory, never blocks) |
 
 ## CI and releases
 
