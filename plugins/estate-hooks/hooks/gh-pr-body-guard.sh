@@ -75,7 +75,12 @@
 #
 # Blocks a PreToolUse tool call by exiting 2 with the reason on stderr.
 #
-# Tests: .claude/eval/gh-pr-body-guard.test.sh
+# SCOPE WIDTH: the scope match accepts `gh` bare, by path (`.../gh`), or via a
+# shell variable (`$GH`) — see GH IN COMMAND POSITION below. Widening the scope
+# of a fail-closed guard only ever ADDS scans; it can never let a previously
+# scanned command through unscanned. That is the safe direction.
+#
+# Tests: ../tests/gh-pr-body-guard.test.sh
 # Spec: {workspace_root}/System/Knowledge/leak-prevention-architecture.md
 
 set -uo pipefail
@@ -157,10 +162,27 @@ _scope_norm="$(tr -s '[:space:]' ' ' <<<"$_scope_raw")"
 _scope_norm="${_scope_norm//\"/}"
 _scope_norm="${_scope_norm//\'/}"
 
+# GH IN COMMAND POSITION — one definition, kept IDENTICAL in four hooks:
+# gh-pr-body-guard.sh, gh-pr-body-template-guard.sh, pr-cache.sh and
+# pr-verdict-watch-arm.sh. No shared file fits: the two helpers these hooks
+# source (gitleaks-common.sh, house-code-common.sh) are drift-checked
+# byte-for-byte against dotty. Change all four together.
+#
 # Command position = start of string, or after a separator (; && || | ( `),
 # optionally preceded by wrapper words (env/time/sudo/nohup/command) and by
-# leading env assignments (FOO=bar gh pr create ...).
-_RE_GHPR='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*gh[[:space:]]+pr[[:space:]]+(create|edit)([[:space:]]|$)'
+# leading env assignments (FOO=bar gh pr create ...). The gh token is any of:
+#   gh                       bare, on PATH
+#   <anything>/gh            a path ending in /gh — the estate's mandated
+#                            wrapper is invoked by path, never as bare `gh`
+#   $NAME / ${NAME}          a shell variable holding that path
+# The bare-`gh`-only version of this pattern silently skipped every
+# wrapper-path create (found live: the arm-a-Monitor hook never fired on
+# the estate's real PR-opening commands). Widening scope here only ever ADDS
+# scans — a command that was unscanned before is scanned now — which is the
+# safe direction for a fail-closed guard.
+# shellcheck disable=SC2016  # regex-literal dollar (\$NAME), not a shell expansion
+_GH_CMD='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*(gh|[^ ;&|(`]*/gh|\$[A-Za-z_][A-Za-z0-9_]*|\$\{[A-Za-z_][A-Za-z0-9_]*\})[[:space:]]+pr[[:space:]]+'
+_RE_GHPR="${_GH_CMD}"'(create|edit)([[:space:]]|$)'
 [[ "$_scope_norm" =~ $_RE_GHPR ]] || exit 0 # not a PR-publishing command
 
 ORIG_CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)"

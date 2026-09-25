@@ -31,13 +31,30 @@
 # (no jq, no PR URL in the output, malformed input) exits 0 silently and emits
 # nothing — it must never block a `gh pr create` or spam an unrelated command.
 #
-# SELF-SCOPE: the settings `"if": "Bash(gh pr create *)"` pre-filter FAILS OPEN
-# into running this hook for any command containing $(...), backticks, or $VAR
-# (Claude Code cannot statically evaluate those), so this hook decides its own
-# scope: it fires only when `gh pr create` appears in command position AND the
-# tool output contains a real PR URL. The URL check matters twice — it is the
-# PR to watch, and it keeps the hook silent on a `gh pr create --help`, a
-# dry run, or a failed create.
+# SELF-SCOPE: this hook decides its own scope — it is registered with NO
+# settings `"if"` pre-filter. A `"Bash(gh pr create *)"` pre-filter drops any
+# command that does not START with the bare words `gh pr create` unless it
+# also carries $(...), backticks, or $VAR (which Claude Code cannot evaluate
+# statically), so a plain wrapper-path create (`.../bin/gh pr create`) never
+# reached this hook at all — found live: the estate opens every PR through
+# its mandated gh wrapper, and this hook was silent on all of them. The hook
+# fires when EITHER
+#   * a `gh pr create` stands in command position — gh bare, by path, or via
+#     a shell variable (see GH IN COMMAND POSITION below), OR
+#   * the command runs the estate provisioner's caller rollout or new-repo
+#     front door (`provision-public-repo.sh ... --callers ...`, `new-repo.sh`),
+#     which open PRs themselves and print each one's URL,
+# AND the tool output carries at least one real PR URL. The URL check matters
+# twice — it names the PR(s) to watch, and it keeps the hook silent on a
+# `gh pr create --help`, a dry run, or a failed create.
+#
+# MULTIPLE PRs: a `--callers` rollout opens up to one PR per caller repo. Every
+# distinct PR URL in the output is listed, and the Monitor command is given
+# ONCE, filled in for the first PR, with the instruction to arm one per PR
+# (substituting R and N). For a plain create, only URLs standing ALONE on a
+# line count (gh prints the created PR's URL as its own last line; a PR URL
+# quoted inside a notice line is not a PR this command opened); if none
+# stands alone, the last URL in the output wins.
 #
 # Tests: ../tests/pr-verdict-watch-arm.test.sh
 
@@ -68,26 +85,80 @@ _norm="${_norm//$'\n'/ ; }"   # newlines are command separators
 _norm="$(tr -s '[:space:]' ' ' <<<"$_norm")"
 _norm="${_norm//\"/}"
 _norm="${_norm//\'/}"
-_RE='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*gh[[:space:]]+pr[[:space:]]+create([[:space:]]|$)'
-[[ "$_norm" =~ $_RE ]] || exit 0
+# GH IN COMMAND POSITION — one definition, kept IDENTICAL in four hooks:
+# gh-pr-body-guard.sh, gh-pr-body-template-guard.sh, pr-cache.sh and
+# pr-verdict-watch-arm.sh. No shared file fits: the two helpers these hooks
+# source (gitleaks-common.sh, house-code-common.sh) are drift-checked
+# byte-for-byte against dotty. Change all four together.
+#
+# Command position = start of string, or after a separator (; && || | ( `),
+# optionally preceded by wrapper words (env/time/sudo/nohup/command) and by
+# leading env assignments (FOO=bar gh pr create ...). The gh token is any of:
+#   gh                       bare, on PATH
+#   <anything>/gh            a path ending in /gh — the estate's mandated
+#                            wrapper is invoked by path, never as bare `gh`
+#   $NAME / ${NAME}          a shell variable holding that path
+# shellcheck disable=SC2016  # regex-literal dollar (\$NAME), not a shell expansion
+_GH_CMD='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*(gh|[^ ;&|(`]*/gh|\$[A-Za-z_][A-Za-z0-9_]*|\$\{[A-Za-z_][A-Za-z0-9_]*\})[[:space:]]+pr[[:space:]]+'
+_RE_CREATE="${_GH_CMD}"'create([[:space:]]|$)'
+# The provisioner's PR-opening front doors, in command position (optionally
+# behind `bash`/`sh` and a path prefix): a caller rollout, or a new repo.
+# shellcheck disable=SC2016  # regex-literal dollar (\$NAME), not a shell expansion
+_RE_ROLLOUT='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command|bash|sh)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*[^ ;&|(`]*(provision-public-repo\.sh[^;&|(`]*[[:space:]]--callers([[:space:]=]|$)|new-repo\.sh([[:space:]]|$))'
+if [[ "$_norm" =~ $_RE_CREATE ]]; then
+	MODE=create
+elif [[ "$_norm" =~ $_RE_ROLLOUT ]]; then
+	MODE=rollout
+else
+	exit 0
+fi
 
 # ---------------------------------------------------------------------------
-# Find the PR URL in the tool output. tool_response may be a string or an
-# object ({stdout, stderr, ...}); tojson stringifies either, and gh prints the
-# new PR's URL to stdout as the LAST line on success (any notices print above
-# it), so the last match is the created PR — a decoy PR URL in an earlier
-# notice line does not win. No URL -> fail-open (a --help, a dry run, or a
-# failed create).
+# Find the PR URL(s) in the tool output. tool_response may be a string or an
+# object ({stdout, stderr, ...}): the string is used as-is, an object's
+# stdout+stderr text is used when present (so line structure survives), and
+# anything else is stringified with tojson. No URL -> fail-open (a --help, a
+# dry run, or a failed create).
+#   create:  URLs standing alone on a line (gh prints the created PR's URL as
+#            its own LAST line; notices print above it), so a decoy PR URL
+#            inside a notice line does not win; none alone -> the last URL.
+#   rollout: every distinct URL, in order of first appearance (the rollout
+#            prints one `PR    opened <url>` line per caller repo).
 # ---------------------------------------------------------------------------
-RESP="$(printf '%s' "$INPUT" | jq -r '.tool_response // empty | if type=="string" then . else tojson end' 2>/dev/null || true)"
-PR_URL="$(printf '%s' "$RESP" | grep -oE 'https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[0-9]+' | tail -1)"
-[[ -n "$PR_URL" ]] || exit 0
+RESP="$(printf '%s' "$INPUT" | jq -r '.tool_response // empty
+	| if type=="string" then .
+	  elif type=="object" and ((.stdout|type)=="string" or (.stderr|type)=="string")
+	  then ((.stdout // "")|tostring) + "\n" + ((.stderr // "")|tostring)
+	  else tojson end' 2>/dev/null || true)"
+_URL_RE='https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[0-9]+'
+if [[ "$MODE" == "create" ]]; then
+	URLS="$(printf '%s\n' "$RESP" | grep -E "^[[:space:]]*${_URL_RE}[[:space:]]*\$" | tr -d '[:space:]' | awk 'NF && !seen[$0]++')"
+	[[ -n "$URLS" ]] || URLS="$(printf '%s' "$RESP" | grep -oE "$_URL_RE" | tail -1)"
+else
+	URLS="$(printf '%s' "$RESP" | grep -oE "$_URL_RE" | awk '!seen[$0]++')"
+fi
+[[ -n "$URLS" ]] || exit 0
 
-# owner/repo and number from the URL.
-PR_NUM="${PR_URL##*/}"
-_rest="${PR_URL#https://github.com/}" # owner/repo/pull/N
-PR_REPO="${_rest%%/pull/*}"           # owner/repo
-[[ "$PR_NUM" =~ ^[0-9]+$ && "$PR_REPO" == */* ]] || exit 0
+# owner/repo and number from each URL; a malformed one is dropped.
+PR_URLS=()
+PR_NUMS=()
+PR_REPOS=()
+while IFS= read -r u; do
+	[[ -n "$u" ]] || continue
+	n="${u##*/}"
+	r="${u#https://github.com/}" # owner/repo/pull/N
+	r="${r%%/pull/*}"            # owner/repo
+	[[ "$n" =~ ^[0-9]+$ && "$r" == */* ]] || continue
+	PR_URLS+=("$u")
+	PR_NUMS+=("$n")
+	PR_REPOS+=("$r")
+done <<<"$URLS"
+[[ ${#PR_URLS[@]} -gt 0 ]] || exit 0
+PR_URL="${PR_URLS[0]}"
+PR_NUM="${PR_NUMS[0]}"
+PR_REPO="${PR_REPOS[0]}"
+PR_COUNT=${#PR_URLS[@]}
+PR_LIST="$(printf -- '- %s\n' "${PR_URLS[@]}")"
 
 # agent_id is present ONLY inside a subagent call (Claude Code docs).
 AGENT_ID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null || true)"
@@ -95,7 +166,11 @@ AGENT_ID="$(printf '%s' "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null || tru
 # ---------------------------------------------------------------------------
 # Build the paragraph.
 # ---------------------------------------------------------------------------
-if [[ -n "$AGENT_ID" ]]; then
+if [[ -n "$AGENT_ID" && "$PR_COUNT" -gt 1 ]]; then
+	CTX="You opened ${PR_COUNT} PRs from inside a subagent:
+${PR_LIST}
+Submission is not completion, but a subagent's background tasks are killed when you return your final result, so a Monitor armed here would die seconds later — do NOT arm one. Instead, report these PR URLs as the FIRST LINES of your result, one per line, exactly as listed above. The parent session — the owner — arms the watch on each and sees every PR through, not you the mechanical opener. (Their CI, Margot's verdict, and the operator's comments land on each PR, not in this session, so none is mergeable until acted on.)"
+elif [[ -n "$AGENT_ID" ]]; then
 	CTX="You opened PR #${PR_NUM} on ${PR_REPO} (${PR_URL}) from inside a subagent. Submission is not completion, but a subagent's background tasks are killed when you return your final result, so a Monitor armed here would die seconds later — do NOT arm one. Instead, report this PR URL as the FIRST LINE of your result, exactly:
 ${PR_URL}
 The parent session — the owner — arms the watch and sees the PR through, not you the mechanical opener. (Its CI, Margot's verdict, and the operator's comments land on the PR, not in this session, so it is not mergeable until acted on.)"
@@ -129,11 +204,21 @@ while :; do
   sleep 45
 done"
 
-	CTX="You just opened PR #${PR_NUM} on ${PR_REPO} (${PR_URL}). Submission is not completion — you own this PR through to merged (finish what you start). Its CI, Margot's verdict, and the operator's comments all land ON THE PR, not back in this session, so it is NOT mergeable until you act on what lands there. Arm ONE persistent Monitor now (persistent: true) with exactly this command, then keep working — do not poll by hand:
+	if [[ "$PR_COUNT" -gt 1 ]]; then
+		CTX="You just opened ${PR_COUNT} PRs:
+${PR_LIST}
+Submission is not completion — you own every one of these PRs through to merged (finish what you start). Each PR's CI, Margot's verdict, and the operator's comments all land ON THAT PR, not back in this session, so none is mergeable until you act on what lands there. Arm one persistent Monitor per PR — one per PR, each with persistent: true — then keep working; do not poll by hand. The command below is filled in for the first PR (#${PR_NUM} on ${PR_REPO}); arm it once as written, then once more for each remaining PR with R (owner/repo) and N (the PR number) substituted from its URL:
+
+${WATCH_CMD}
+
+Each wakes you on a failing CI check (fix it and push — a red check is yours, not the PR-body/template check's excuse), on any new review (Margot's verdict, or the operator's Approve/Request-changes click, which is her authority), and on any new comment by the operator or Margot, and exits when its PR merges or closes. When one wakes you, open the link, read what landed, and act: fix and push, or reply in the thread. If you opened these PRs on behalf of a caller or owner rather than as your own work, hand the monitors to them — the owner sees them through, not the mechanical opener."
+	else
+		CTX="You just opened PR #${PR_NUM} on ${PR_REPO} (${PR_URL}). Submission is not completion — you own this PR through to merged (finish what you start). Its CI, Margot's verdict, and the operator's comments all land ON THE PR, not back in this session, so it is NOT mergeable until you act on what lands there. Arm ONE persistent Monitor now (persistent: true) with exactly this command, then keep working — do not poll by hand:
 
 ${WATCH_CMD}
 
 It wakes you on a failing CI check (fix it and push — a red check is yours, not the PR-body/template check's excuse), on any new review (Margot's verdict, or the operator's Approve/Request-changes click, which is her authority), and on any new comment by the operator or Margot, and exits when the PR merges or closes. When it wakes you, open the link, read what landed, and act: fix and push, or reply in the thread. If you opened this PR on behalf of a caller or owner rather than as your own work, hand the monitor to them — the owner sees it through, not the mechanical opener."
+	fi
 fi
 
 jq -n --arg ctx "$CTX" \

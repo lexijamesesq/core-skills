@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016,SC2088  # payload strings are LITERAL shell text ($GH, ~/…): never expanded here
 # Test suite for the fail-closed PR-body/title guard:
 #   .claude/hooks/gh-pr-body-guard.sh   (PreToolUse guard for `gh pr create`)
 #
@@ -299,6 +300,41 @@ assert_eq "all-quoted canary exits 2 (block)" "2" "$RC"
 section "self-scope: command substitution 'out=\$(gh pr create ...)' stays in scope — canary blocks"
 run_hook "$(mkjson "out=\$(gh pr create --body \"leak $CANARY\")" "$REPO")"
 assert_eq "command-subst canary exits 2 (block)" "2" "$RC"
+
+# --- self-scope: the shapes the estate ACTUALLY publishes with. The estate never
+# runs bare `gh`; it runs its wrapper by path or through a variable holding that
+# path. The bare-`gh` scope regex skipped every one of these — a fail-closed
+# scan that was silently not running. Each must now be scanned: a canary blocks.
+# (A neutral wrapper path — the SHAPE is under test, never a real machine path.)
+section "self-scope: wrapper path '/opt/estate/bin/gh pr create' is in scope — canary blocks"
+run_hook "$(mkjson "/opt/estate/bin/gh pr create --title \"x\" --body \"leak $CANARY\"" "$REPO")"
+assert_eq "wrapper-path canary exits 2 (block)" "2" "$RC"
+grep -q "aws-access-token" "$ERRFILE" && pass "wrapper-path scan reports the rule id" || fail "wrapper-path scan reports the rule id" "$(cat "$ERRFILE")"
+
+section "self-scope: tilde wrapper path '~/.local/bin/gh pr edit' is in scope — canary blocks"
+run_hook "$(mkjson "~/.local/bin/gh pr edit 7 --body \"leak $CANARY\"" "$REPO")"
+assert_eq "tilde-wrapper canary exits 2 (block)" "2" "$RC"
+
+section "self-scope: variable-held gh '\$GH pr create' is in scope — canary blocks"
+run_hook "$(mkjson "\$GH pr create --title \"x\" --body \"leak $CANARY\"" "$REPO")"
+assert_eq "\$GH canary exits 2 (block)" "2" "$RC"
+grep -q "aws-access-token" "$ERRFILE" && pass "\$GH scan reports the rule id" || fail "\$GH scan reports the rule id" "$(cat "$ERRFILE")"
+
+section "self-scope: braced/quoted variable '\"\${GH}\" pr create' is in scope — canary blocks"
+run_hook "$(mkjson "\"\${GH}\" pr create --title \"x\" --body \"leak $CANARY\"" "$REPO")"
+assert_eq "\${GH} canary exits 2 (block)" "2" "$RC"
+
+section "self-scope: heredoc'd script running '\$GH pr create' is in scope — canary blocks"
+run_hook "$(mkjson "$(printf 'bash <<'"'"'B'"'"'\nGH=/opt/estate/bin/gh\n$GH pr create --title x --body "leak %s"\nB' "$CANARY")" "$REPO")"
+assert_eq "heredoc \$GH canary exits 2 (block)" "2" "$RC"
+
+section "self-scope: wrapper path with a clean body still PASSES (scope widened, not the verdict)"
+run_hook "$(mkjson '/opt/estate/bin/gh pr create --title "x" --body "entirely clean"' "$REPO")"
+assert_eq "wrapper-path clean exits 0 (allow)" "0" "$RC"
+
+section "self-scope: a path merely CONTAINING gh ('/opt/bin/ghost pr create') is out of scope"
+run_hook "$(mkjson "/opt/bin/ghost pr create --body \"$CANARY\"" "$BARE")"
+assert_eq "ghost exits 0 (out of scope, not scanned)" "0" "$RC"
 
 # --- self-scope: no over-block on commands that merely MENTION the string --------
 section "no over-block: 'echo \"gh pr create now ...\"' from a repo without config stays out of scope"

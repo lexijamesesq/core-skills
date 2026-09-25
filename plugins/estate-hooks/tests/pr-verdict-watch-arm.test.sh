@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2016,SC2088  # payload strings are LITERAL shell text ($GH, ~/…): never expanded here
 # Test suite for estate-hooks/hooks/pr-verdict-watch-arm.sh
 #
 # Covers:
@@ -177,6 +178,111 @@ for c in "FOO=bar gh pr create --fill" "sudo gh pr create --fill" "time env FOO=
 done
 fire "$(jq -nc --arg url "$PR_URL" '{tool_name:"Bash",tool_input:{command:"gh pr createfoo"},tool_response:($url+"\n")}')"
 if [[ -z "$OUT" ]]; then pass "does not fire on 'gh pr createfoo'"; else fail "does not fire on 'gh pr createfoo'" "fired: $OUT"; fi
+
+# === Self-scope: every shape the estate actually opens PRs with ===
+# The receipted defect: the estate never runs bare `gh` — it runs its wrapper
+# by path, or a variable holding that path, often inside a heredoc'd script,
+# or lets the provisioner's caller rollout open the PRs. The bare-`gh` regex
+# was silent on all of them. Each shape below carries a real PR URL and must
+# fire. (A neutral wrapper path — the SHAPE is what is under test.)
+section "Self-scope: wrapper path, \$VAR, heredoc, and provisioner rollout all fire"
+shape_fires() { # <label> <command> [tool_response]
+	local resp="${3:-$PR_URL$'\n'}"
+	fire "$(jq -nc --arg cmd "$2" --arg resp "$resp" '{tool_name:"Bash",tool_input:{command:$cmd},tool_response:$resp}')"
+	assert_eq "$1: exits 0" "0" "$RC"
+	case "$CTX" in
+	*"PR #123"*) pass "$1: fires (names PR #123)" ;;
+	*) fail "$1: fires (names PR #123)" "no context (got: $OUT)" ;;
+	esac
+}
+shape_fires "bare gh" 'gh pr create --title x'
+shape_fires "wrapper path ending in /gh" '/opt/estate/bin/gh pr create --title x'
+shape_fires "tilde wrapper path" '~/.local/bin/gh pr create --title x'
+shape_fires "variable holding the wrapper (\$GH)" '$GH pr create --title x'
+shape_fires "braced variable (\${GH})" '${GH} pr create --title x'
+shape_fires "quoted variable (\"\$GH\")" '"$GH" pr create --title x'
+shape_fires "heredoc'd script running \$GH pr create" $'bash <<\'BASH\'\nset -e\nGH=/opt/estate/bin/gh\n$GH pr create --title x --body-file body.md\nBASH'
+shape_fires "cd prefix + wrapper path" 'cd ~/Repos/x && /opt/estate/bin/gh pr create --fill'
+shape_fires "provisioner caller rollout (--callers)" 'bash provision-public-repo.sh --callers lexijamesesq/wiki' "PR    opened $PR_URL"$'\n'
+shape_fires "provisioner rollout by path, --callers later" 'bash ./scripts/provision-public-repo.sh --dry-run=false --callers a/b' "rolling out"$'\n'"PR    opened $PR_URL"$'\n'
+shape_fires "new-repo front door" 'bash new-repo.sh --name x' "created"$'\n'"PR    opened $PR_URL"$'\n'
+
+# Negatives: the same shapes with nothing to watch, or a URL with no opener.
+section "Self-scope negatives: no URL, or a URL without a create/rollout command"
+noop_case "\$GH pr create only mentioned in an echo (no URL)" \
+	"$(jq -nc '{tool_name:"Bash",tool_input:{command:"echo \"$GH pr create\""},tool_response:"$GH pr create\n"}')"
+noop_case "\$GH pr create only mentioned in an echo (URL in output)" \
+	"$(jq -nc --arg url "$PR_URL" '{tool_name:"Bash",tool_input:{command:"echo \"$GH pr create\""},tool_response:($url+"\n")}')"
+noop_case "wrapper-path create with no URL in the output (failed create)" \
+	'{"tool_name":"Bash","tool_input":{"command":"/opt/estate/bin/gh pr create --fill"},"tool_response":"pull request create failed: GraphQL: something"}'
+noop_case "URL in the output but the command is a wrapper-path 'gh pr view'" \
+	"$(jq -nc --arg url "$PR_URL" '{tool_name:"Bash",tool_input:{command:"/opt/estate/bin/gh pr view 123"},tool_response:($url+"\n")}')"
+noop_case "URL in the output but the command is a provisioner run WITHOUT --callers" \
+	"$(jq -nc --arg url "$PR_URL" '{tool_name:"Bash",tool_input:{command:"bash provision-public-repo.sh --name x"},tool_response:("PR    opened "+$url+"\n")}')"
+noop_case "a path that merely CONTAINS gh (…/ghost pr create) is not gh" \
+	"$(jq -nc --arg url "$PR_URL" '{tool_name:"Bash",tool_input:{command:"/opt/bin/ghost pr create"},tool_response:($url+"\n")}')"
+
+# === Multiple PRs in one output (a --callers rollout opens one per repo) ===
+section "Multiple PR URLs (--callers rollout): all listed, one Monitor command, one per PR"
+U1="https://github.com/lexijamesesq/alpha/pull/11"
+U2="https://github.com/lexijamesesq/beta/pull/22"
+U3="https://github.com/lexijamesesq/gamma/pull/33"
+fire "$(jq -nc --arg u1 "$U1" --arg u2 "$U2" --arg u3 "$U3" '{tool_name:"Bash",tool_input:{command:"bash provision-public-repo.sh --callers lexijamesesq/alpha,lexijamesesq/beta,lexijamesesq/gamma"},tool_response:("PR    opened "+$u1+"\nPR    opened "+$u2+"\nnote: "+$u2+" again\nPR    opened "+$u3+"\n")}')"
+assert_eq "exits 0" "0" "$RC"
+for u in "$U1" "$U2" "$U3"; do
+	case "$CTX" in
+	*"$u"*) pass "lists $u" ;;
+	*) fail "lists $u" "absent from context" ;;
+	esac
+done
+case "$CTX" in
+*"3 PRs"*) pass "states the PR count" ;;
+*) fail "states the PR count" "no '3 PRs' in context" ;;
+esac
+case "$CTX" in
+*"one per PR"*) pass "instructs one Monitor per PR" ;;
+*) fail "instructs one Monitor per PR" "phrase absent" ;;
+esac
+N_WATCH="$(printf '%s' "$CTX" | grep -c "^R='lexijamesesq/")"
+assert_eq "exactly one Monitor command is given" "1" "$N_WATCH"
+case "$CTX" in
+*"R='lexijamesesq/alpha'; N=11;"*) pass "the Monitor command is filled in for the FIRST PR" ;;
+*) fail "the Monitor command is filled in for the FIRST PR" "R/N for alpha#11 absent" ;;
+esac
+N_U2="$(printf '%s' "$CTX" | grep -o "$U2" | wc -l | tr -d ' ')"
+assert_eq "a repeated URL is listed once (distinct)" "1" "$N_U2"
+WATCH="$(printf '%s' "$CTX" | sed -n "/^R='lexijamesesq/,/^done$/p")"
+if [[ -n "$WATCH" ]] && bash -n <(printf '%s\n' "$WATCH") 2>/dev/null; then
+	pass "multi-PR embedded watch command parses as valid bash"
+else
+	fail "multi-PR embedded watch command parses as valid bash" "bash -n failed"
+fi
+
+section "Multiple PRs inside a subagent: report every URL first, no Monitor"
+fire "$(jq -nc --arg u1 "$U1" --arg u2 "$U2" '{tool_name:"Bash",agent_id:"agent-x",tool_input:{command:"bash provision-public-repo.sh --callers a/b,c/d"},tool_response:("PR    opened "+$u1+"\nPR    opened "+$u2+"\n")}')"
+case "$CTX" in
+*"$U1"*"$U2"*) pass "lists both URLs" ;;
+*) fail "lists both URLs" "got: $CTX" ;;
+esac
+case "$CTX" in
+*"FIRST LINES"*) pass "tells the subagent to report the URLs first" ;;
+*) fail "tells the subagent to report the URLs first" "phrase absent" ;;
+esac
+case "$CTX" in
+*"gh pr view"*) fail "subagent multi-PR branch does NOT emit a Monitor command" "poll present" ;;
+*) pass "subagent multi-PR branch does NOT emit a Monitor command" ;;
+esac
+
+section "A plain create with several PR URLs standing alone (heredoc loop) lists each; a notice-line decoy does not"
+fire "$(jq -nc --arg u1 "$U1" --arg u2 "$U2" '{tool_name:"Bash",tool_input:{command:"bash <<'"'"'B'"'"'\n$GH pr create -R a/alpha --fill\n$GH pr create -R a/beta --fill\nB"},tool_response:("Warning: see https://github.com/o/r/pull/9 first\n"+$u1+"\n"+$u2+"\n")}')"
+case "$CTX" in
+*"$U1"*"$U2"*) pass "both created PRs listed" ;;
+*) fail "both created PRs listed" "got: $CTX" ;;
+esac
+case "$CTX" in
+*"o/r/pull/9"*) fail "decoy notice-line URL excluded" "decoy listed" ;;
+*) pass "decoy notice-line URL excluded" ;;
+esac
 
 # === Embedded WATCH command executed against a stubbed gh/sleep ===
 # The embedded poll loop is the highest-risk logic (dedup via the SEEN file,

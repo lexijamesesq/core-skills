@@ -1,18 +1,16 @@
 {
-  "description": "Estate hooks: the nine Claude Code hook scripts dotty registered in settings.json, packaged as a plugin.",
+  "description": "Estate hooks: the twelve Claude Code hook scripts the estate registers, packaged as a plugin. The PR hooks carry no `if` prefilter: a `Bash(gh pr *)` prefilter drops every wrapper-path or variable-held gh command before the hook runs, so each PR hook self-scopes and exits fast instead.",
   "hooks": {
     "PostToolUse": [
       {
         "hooks": [
           {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
-            "if": "Bash(gh pr *)",
             "timeout": 30,
             "type": "command"
           },
           {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-verdict-watch-arm.sh",
-            "if": "Bash(gh pr create *)",
             "timeout": 15,
             "type": "command"
           }
@@ -56,8 +54,12 @@
           },
           {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/gh-pr-body-guard.sh",
-            "if": "Bash(gh pr *)",
             "timeout": 30,
+            "type": "command"
+          },
+          {
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/gh-pr-body-template-guard.sh",
+            "timeout": 15,
             "type": "command"
           },
           {
