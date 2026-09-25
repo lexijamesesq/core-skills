@@ -82,31 +82,34 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -r "$HERE/gitleaks-common.sh" ]]; then
-    source "$HERE/gitleaks-common.sh"
+	source "$HERE/gitleaks-common.sh"
 else
-    source "$HERE/../../git-hooks/gitleaks-common.sh"
+	source "$HERE/../../git-hooks/gitleaks-common.sh"
 fi
 
-CONFIG=".gitleaks.toml"   # relative — resolved from cwd (= repo root, see below)
+CONFIG=".gitleaks.toml" # relative — resolved from cwd (= repo root, see below)
 
 # block <title> [line ...] — emit a formatted gl_block to stderr and BLOCK (exit 2).
-block() { gl_block "$@"; exit 2; }
+block() {
+	gl_block "$@"
+	exit 2
+}
 
 # ---------------------------------------------------------------------------
 # Parse the tool payload. jq is required; missing jq is fail-closed.
 # ---------------------------------------------------------------------------
 command -v jq >/dev/null 2>&1 || block \
-    "PR-guard BLOCKED: jq is not installed" \
-    "Cannot parse the tool invocation to scan the PR title/body." \
-    "This guard fails closed rather than allow an unscanned 'gh pr create'." \
-    "Install:  brew install jq"
+	"PR-guard BLOCKED: jq is not installed" \
+	"Cannot parse the tool invocation to scan the PR title/body." \
+	"This guard fails closed rather than allow an unscanned 'gh pr create'." \
+	"Install:  brew install jq"
 
 INPUT="$(cat)"
 TOOL_NAME="$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)"
-[[ "$TOOL_NAME" == "Bash" ]] || exit 0   # not a Bash tool call — not our concern
+[[ "$TOOL_NAME" == "Bash" ]] || exit 0 # not a Bash tool call — not our concern
 
 COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
-[[ -n "$COMMAND" ]] || exit 0            # nothing to scan
+[[ -n "$COMMAND" ]] || exit 0 # nothing to scan
 
 # ---------------------------------------------------------------------------
 # SELF-SCOPE. This guard concerns `gh pr create` / `gh pr edit` and nothing
@@ -143,8 +146,8 @@ COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/nu
 # collapsing them to whitespace would hide `gh pr create` on a later line of a
 # multi-line script behind a leading space, reopening the fail-open.
 # ---------------------------------------------------------------------------
-_scope_raw="${COMMAND//\\$'\n'/ }"        # line continuations -> single space
-_scope_raw="${_scope_raw//$'\n'/ ; }"     # newlines are command separators
+_scope_raw="${COMMAND//\\$'\n'/ }"    # line continuations -> single space
+_scope_raw="${_scope_raw//$'\n'/ ; }" # newlines are command separators
 _scope_norm="$(tr -s '[:space:]' ' ' <<<"$_scope_raw")"
 # Strip shell quote characters. The shell removes them before executing, so
 # `gh pr "create"`, `"gh" pr create`, and `g"h" pr create` are all REAL PR
@@ -158,7 +161,7 @@ _scope_norm="${_scope_norm//\'/}"
 # optionally preceded by wrapper words (env/time/sudo/nohup/command) and by
 # leading env assignments (FOO=bar gh pr create ...).
 _RE_GHPR='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*gh[[:space:]]+pr[[:space:]]+(create|edit)([[:space:]]|$)'
-[[ "$_scope_norm" =~ $_RE_GHPR ]] || exit 0   # not a PR-publishing command
+[[ "$_scope_norm" =~ $_RE_GHPR ]] || exit 0 # not a PR-publishing command
 
 ORIG_CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)"
 [[ -n "$ORIG_CWD" ]] || ORIG_CWD="$PWD"
@@ -168,7 +171,10 @@ ORIG_CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)"
 # exists (empty ones are a suppressed no-op). Inline, not a named handler:
 # every path exits explicitly, which defeats shellcheck's trap-invocation
 # detection for a named function (SC2329).
-scan_dir=""; report=""; errf=""; WRAPPER_TMP=""
+scan_dir=""
+report=""
+errf=""
+WRAPPER_TMP=""
 # GL_SCRATCH: gl_resolve's config-resolution DIRECTORY, when it builds one. It
 # replaces the retired gl_preflight's GL_TMP_CONFIG (a single file) — same
 # purpose, different shape, so the trap removes a tree rather than a file, which
@@ -192,10 +198,10 @@ trap 'rm -rf "$scan_dir" "$report" "$errf" "$WRAPPER_TMP" "${GL_SCRATCH:-}" 2>/d
 # repo_with_config <dir> -> prints the git repo root iff <dir> is inside a repo
 # whose root has a readable .gitleaks.toml; else returns 1.
 repo_with_config() {
-    local d="$1" root
-    root="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" || return 1
-    [[ -r "$root/.gitleaks.toml" ]] || return 1
-    printf '%s' "$root"
+	local d="$1" root
+	root="$(git -C "$d" rev-parse --show-toplevel 2>/dev/null)" || return 1
+	[[ -r "$root/.gitleaks.toml" ]] || return 1
+	printf '%s' "$root"
 }
 # resolve_cd_chain <normalised-command> -> the EFFECTIVE working directory after
 # consuming ALL leading `cd <path>` segments (delimited by && || ; or a newline,
@@ -206,29 +212,34 @@ repo_with_config() {
 # any segment fails to resolve (FAIL-CLOSED: never guess the effective dir — a
 # single-cd read would collapse the chain to the wrong dir and scan the wrong body).
 resolve_cd_chain() {
-    local s="$1" seg path eff=""
-    s="${s//&&/;}"; s="${s//||/;}"                  # canonicalise sequencing ops -> ;
-    while :; do
-        s="${s#"${s%%[![:space:]]*}"}"              # left-trim
-        [[ "$s" == cd[[:space:]]* ]] || break       # next segment isn't a cd -> stop
-        seg="${s%%;*}"                              # this segment, up to the first ;
-        if [[ "$seg" == "$s" ]]; then s=""; else s="${s#*;}"; fi
-        path="${seg#cd}"
-        path="${path#"${path%%[![:space:]]*}"}"     # strip leading ws after 'cd'
-        path="${path%"${path##*[![:space:]]}"}"     # right-trim
-        [[ -n "$path" ]] || return 0                # 'cd' with no arg -> bail (fail)
-        path="${path//\\ / }"                       # unescape backslash-spaces
-        path="${path/#\~/$HOME}"; path="${path//\$HOME/$HOME}"
-        case "$path" in
-            /*) eff="$path" ;;                      # absolute -> replace
-            *)  eff="${eff:-$ORIG_CWD}/$path" ;;    # relative -> append to running dir
-        esac
-        eff="$(cd "$eff" 2>/dev/null && pwd)" || return 0   # must be a real dir
-    done
-    [[ -n "$eff" ]] && printf '%s' "$eff"
+	local s="$1" seg path eff=""
+	s="${s//&&/;}"
+	s="${s//||/;}" # canonicalise sequencing ops -> ;
+	while :; do
+		s="${s#"${s%%[![:space:]]*}"}"        # left-trim
+		[[ "$s" == cd[[:space:]]* ]] || break # next segment isn't a cd -> stop
+		seg="${s%%;*}"                        # this segment, up to the first ;
+		if [[ "$seg" == "$s" ]]; then s=""; else s="${s#*;}"; fi
+		path="${seg#cd}"
+		path="${path#"${path%%[![:space:]]*}"}" # strip leading ws after 'cd'
+		path="${path%"${path##*[![:space:]]}"}" # right-trim
+		[[ -n "$path" ]] || return 0            # 'cd' with no arg -> bail (fail)
+		path="${path//\\ / }"                   # unescape backslash-spaces
+		path="${path/#\~/$HOME}"
+		path="${path//\$HOME/$HOME}"
+		case "$path" in
+		/*) eff="$path" ;;                  # absolute -> replace
+		*) eff="${eff:-$ORIG_CWD}/$path" ;; # relative -> append to running dir
+		esac
+		eff="$(cd "$eff" 2>/dev/null && pwd)" || return 0 # must be a real dir
+	done
+	[[ -n "$eff" ]] && printf '%s' "$eff"
 }
 
-CFG_DIR=""; CFG=""; BODY_CWD="$ORIG_CWD"; RULESET_DESC=""
+CFG_DIR=""
+CFG=""
+BODY_CWD="$ORIG_CWD"
+RULESET_DESC=""
 
 # Resolve the EFFECTIVE working dir once by walking the WHOLE leading cd chain
 # (see resolve_cd_chain). CD_DIR is that dir if the chain fully resolves, else
@@ -246,17 +257,19 @@ BODY_CWD="${CD_DIR:-$ORIG_CWD}"
 
 # Path 1 — the payload cwd's repo.
 if _root="$(repo_with_config "$ORIG_CWD")"; then
-    CFG_DIR="$_root"; CFG="$CONFIG"
-    RULESET_DESC="payload-cwd repo: $_root"
+	CFG_DIR="$_root"
+	CFG="$CONFIG"
+	RULESET_DESC="payload-cwd repo: $_root"
 fi
 
 # Path 2 — an explicit `cd <path> && ...` prefix (PreToolUse reports the SESSION
 # cwd, not the cd target, so we honour the cd from the command text).
 if [[ -z "$CFG_DIR" && -n "$CD_DIR" ]]; then
-    if _root="$(repo_with_config "$CD_DIR")"; then
-        CFG_DIR="$_root"; CFG="$CONFIG"
-        RULESET_DESC="cd-prefix repo: $_root"
-    fi
+	if _root="$(repo_with_config "$CD_DIR")"; then
+		CFG_DIR="$_root"
+		CFG="$CONFIG"
+		RULESET_DESC="cd-prefix repo: $_root"
+	fi
 fi
 
 # Path 3 — the machine's fixed-path operator ruleset (zero configuration),
@@ -274,58 +287,60 @@ fi
 # this hook happens to run from — the same signal Path 4's env-var override
 # already used, just unconditional instead of gated behind a variable.
 if [[ -z "$CFG_DIR" ]]; then
-    _fixed="$(gl_overlay_path)"
-    if [[ -r "$_fixed" ]]; then
-        _fixed_dir="$(cd "$(dirname "$_fixed")" && pwd)"
-        WRAPPER_TMP="$(mktemp)"
-        printf 'title = "pr-guard fixed-path wrapper"\n[extend]\npath = "%s"\n' \
-            "$_fixed_dir/$(basename "$_fixed")" > "$WRAPPER_TMP"
-        CFG_DIR="$_fixed_dir"; CFG="$WRAPPER_TMP"
-        RULESET_DESC="fixed-path operator ruleset: $_fixed"
-    fi
+	_fixed="$(gl_overlay_path)"
+	if [[ -r "$_fixed" ]]; then
+		_fixed_dir="$(cd "$(dirname "$_fixed")" && pwd)"
+		WRAPPER_TMP="$(mktemp)"
+		printf 'title = "pr-guard fixed-path wrapper"\n[extend]\npath = "%s"\n' \
+			"$_fixed_dir/$(basename "$_fixed")" >"$WRAPPER_TMP"
+		CFG_DIR="$_fixed_dir"
+		CFG="$WRAPPER_TMP"
+		RULESET_DESC="fixed-path operator ruleset: $_fixed"
+	fi
 fi
 
 # Path 4 — $GITLEAKS_OPERATOR_RULES. Kept ONLY as an override for an unprovisioned
 # machine (paths 1-3 cover the provisioned case). Set-but-unreadable is
 # fail-closed. The private path is NEVER hardcoded here.
 if [[ -z "$CFG_DIR" && -n "${GITLEAKS_OPERATOR_RULES:-}" ]]; then
-    _rules="${GITLEAKS_OPERATOR_RULES/#\~/$HOME}"
-    if [[ ! -r "$_rules" ]]; then
-        block "PR-guard BLOCKED: GITLEAKS_OPERATOR_RULES is unreadable" \
-            "GITLEAKS_OPERATOR_RULES points at a file that does not exist or" \
-            "cannot be read, so the operator ruleset cannot be applied." \
-            "Fix the path, or unset it — on a provisioned machine the guard's own" \
-            "repo supplies the ruleset with no env var."
-    fi
-    case "$_rules" in /*) : ;; *) _rules="$PWD/$_rules" ;; esac
-    _rdir="$(cd "$(dirname "$_rules")" && pwd)"
-    _rabs="$_rdir/$(basename "$_rules")"
-    WRAPPER_TMP="$(mktemp)"
-    printf 'title = "pr-guard operator-rules wrapper"\n[extend]\npath = "%s"\n' "$_rabs" > "$WRAPPER_TMP"
-    CFG_DIR="$_rdir"; CFG="$WRAPPER_TMP"
-    RULESET_DESC="GITLEAKS_OPERATOR_RULES: $_rabs"
+	_rules="${GITLEAKS_OPERATOR_RULES/#\~/$HOME}"
+	if [[ ! -r "$_rules" ]]; then
+		block "PR-guard BLOCKED: GITLEAKS_OPERATOR_RULES is unreadable" \
+			"GITLEAKS_OPERATOR_RULES points at a file that does not exist or" \
+			"cannot be read, so the operator ruleset cannot be applied." \
+			"Fix the path, or unset it — on a provisioned machine the guard's own" \
+			"repo supplies the ruleset with no env var."
+	fi
+	case "$_rules" in /*) : ;; *) _rules="$PWD/$_rules" ;; esac
+	_rdir="$(cd "$(dirname "$_rules")" && pwd)"
+	_rabs="$_rdir/$(basename "$_rules")"
+	WRAPPER_TMP="$(mktemp)"
+	printf 'title = "pr-guard operator-rules wrapper"\n[extend]\npath = "%s"\n' "$_rabs" >"$WRAPPER_TMP"
+	CFG_DIR="$_rdir"
+	CFG="$WRAPPER_TMP"
+	RULESET_DESC="GITLEAKS_OPERATOR_RULES: $_rabs"
 fi
 
 # None resolved -> BLOCK. On a provisioned machine this should not happen:
 # path 3 alone needs no configuration. Name all four ways.
 if [[ -z "$CFG_DIR" ]]; then
-    block "PR-guard BLOCKED: could not locate the operator gitleaks ruleset" \
-        "A PR title/body can carry secrets, employer/product names, private" \
-        "URLs, email, or infra paths, and must be scanned before it is public." \
-        "No ruleset was found. On a provisioned machine path 3 needs NO config;" \
-        "reaching this usually means the fixed-path ruleset itself is not" \
-        "installed on this machine. Satisfy ANY one of:" \
-        "  1. Publish from a session rooted in a repo that has .gitleaks.toml." \
-        "  2. Prefix the command:  cd <repo-with-.gitleaks.toml> && gh pr create ..." \
-        "  3. Install the operator ruleset via the blueprint (gitleaks-rules apply) —" \
-        "     works from any session, any repo, once installed." \
-        "  4. (override, unprovisioned machines only) export GITLEAKS_OPERATOR_RULES." \
-        "(payload cwd was: $ORIG_CWD)"
+	block "PR-guard BLOCKED: could not locate the operator gitleaks ruleset" \
+		"A PR title/body can carry secrets, employer/product names, private" \
+		"URLs, email, or infra paths, and must be scanned before it is public." \
+		"No ruleset was found. On a provisioned machine path 3 needs NO config;" \
+		"reaching this usually means the fixed-path ruleset itself is not" \
+		"installed on this machine. Satisfy ANY one of:" \
+		"  1. Publish from a session rooted in a repo that has .gitleaks.toml." \
+		"  2. Prefix the command:  cd <repo-with-.gitleaks.toml> && gh pr create ..." \
+		"  3. Install the operator ruleset via the blueprint (gitleaks-rules apply) —" \
+		"     works from any session, any repo, once installed." \
+		"  4. (override, unprovisioned machines only) export GITLEAKS_OPERATOR_RULES." \
+		"(payload cwd was: $ORIG_CWD)"
 fi
 
 cd "$CFG_DIR" || block \
-    "PR-guard BLOCKED: cannot enter the ruleset directory" \
-    "cd '$CFG_DIR' failed — refusing to allow an unscanned PR."
+	"PR-guard BLOCKED: cannot enter the ruleset directory" \
+	"cd '$CFG_DIR' failed — refusing to allow an unscanned PR."
 
 # Fail-closed preconditions, through the git-lifecycle hooks' own helper:
 # gitleaks binary present, config present, operator ruleset resolved.
@@ -359,8 +374,8 @@ cd "$CFG_DIR" || block \
 # directory`. The git-lifecycle hooks absolutise the same way for the same
 # reason.
 case "$CFG" in
-    /*) : ;;
-    *)  CFG="$CFG_DIR/$CFG" ;;
+/*) : ;;
+*) CFG="$CFG_DIR/$CFG" ;;
 esac
 
 gl_resolve "$CFG" "$CFG_DIR" || exit 2
@@ -370,8 +385,8 @@ gl_resolve "$CFG" "$CFG_DIR" || exit 2
 # the git-lifecycle hooks do; running from the wrong cwd makes gitleaks fail to
 # load the config, which this guard treats as a block, not a pass.
 cd "$GL_CWD" || block \
-    "PR-guard BLOCKED: cannot enter the config resolution directory" \
-    "cd '$GL_CWD' failed — refusing to allow an unscanned PR."
+	"PR-guard BLOCKED: cannot enter the config resolution directory" \
+	"cd '$GL_CWD' failed — refusing to allow an unscanned PR."
 
 # ---------------------------------------------------------------------------
 # Assemble the scan corpus. The scanned command text is the PR-publishing command
@@ -391,20 +406,23 @@ errf="$(mktemp)"
 # the payload cwd, or the `cd <path> && ...` prefix target), not the ruleset dir
 # we cd'd into.
 resolve_path() {
-    case "$1" in
-        /*) printf '%s' "$1" ;;
-        *)  printf '%s/%s' "$BODY_CWD" "$1" ;;
-    esac
+	case "$1" in
+	/*) printf '%s' "$1" ;;
+	*) printf '%s/%s' "$BODY_CWD" "$1" ;;
+	esac
 }
 
 bf_idx=0
 # add_body_file <resolved-path> -> 0 if scanned, 1 if unreadable
 add_body_file() {
-    local rp="$1"
-    if [[ -f "$rp" && -r "$rp" ]]; then
-        cp "$rp" "$scan_dir/bodyfile-${bf_idx}.txt" 2>/dev/null && { bf_idx=$((bf_idx + 1)); return 0; }
-    fi
-    return 1
+	local rp="$1"
+	if [[ -f "$rp" && -r "$rp" ]]; then
+		cp "$rp" "$scan_dir/bodyfile-${bf_idx}.txt" 2>/dev/null && {
+			bf_idx=$((bf_idx + 1))
+			return 0
+		}
+	fi
+	return 1
 }
 
 # strip_cd_prefix <raw-command> -> the command with the WHOLE leading `cd` chain
@@ -413,22 +431,29 @@ add_body_file() {
 # segment is a real cd command whose path is never published. A chained
 # `cd A && cd B && gh ...` must have BOTH cds excluded, not just the first.
 strip_cd_prefix() {
-    local c="$1" trimmed rest found minlen s before
-    while :; do
-        trimmed="${c#"${c%%[![:space:]]*}"}"         # left-trim
-        [[ "$trimmed" == cd[[:space:]]* ]] || break  # not a leading cd -> stop
-        rest=""; found=0; minlen=-1
-        for s in '&&' '||' ';' $'\n'; do
-            before="${trimmed%%"$s"*}"
-            [[ "$before" != "$trimmed" ]] || continue    # separator not present
-            if [[ "$found" -eq 0 || ${#before} -lt "$minlen" ]]; then
-                found=1; minlen=${#before}; rest="${trimmed#*"$s"}"
-            fi
-        done
-        [[ "$found" -eq 1 ]] || { c=""; break; }     # leading cd, no separator: all cd
-        c="$rest"
-    done
-    printf '%s' "$c"
+	local c="$1" trimmed rest found minlen s before
+	while :; do
+		trimmed="${c#"${c%%[![:space:]]*}"}"        # left-trim
+		[[ "$trimmed" == cd[[:space:]]* ]] || break # not a leading cd -> stop
+		rest=""
+		found=0
+		minlen=-1
+		for s in '&&' '||' ';' $'\n'; do
+			before="${trimmed%%"$s"*}"
+			[[ "$before" != "$trimmed" ]] || continue # separator not present
+			if [[ "$found" -eq 0 || ${#before} -lt "$minlen" ]]; then
+				found=1
+				minlen=${#before}
+				rest="${trimmed#*"$s"}"
+			fi
+		done
+		[[ "$found" -eq 1 ]] || {
+			c=""
+			break
+		} # leading cd, no separator: all cd
+		c="$rest"
+	done
+	printf '%s' "$c"
 }
 
 # Extract any --body-file / -F path with a SHELL-AWARE tokenizer (python3 shlex),
@@ -436,10 +461,10 @@ strip_cd_prefix() {
 # body token and is never a standalone argv element, so it is not mistaken for the
 # flag. Both --body-file and -F are fail-closed (see header). python3 required.
 command -v python3 >/dev/null 2>&1 || block \
-    "PR-guard BLOCKED: python3 is not installed" \
-    "Shell-aware tokenization (shlex) is required to extract --body-file / -F" \
-    "paths reliably; this guard fails closed rather than guess." \
-    "Install:  brew install python3"
+	"PR-guard BLOCKED: python3 is not installed" \
+	"Shell-aware tokenization (shlex) is required to extract --body-file / -F" \
+	"paths reliably; this guard fails closed rather than guess." \
+	"Install:  brew install python3"
 
 bf_paths="$(printf '%s' "$COMMAND" | python3 -c '
 import sys, shlex
@@ -464,55 +489,55 @@ while i < n:
 bf_rc=$?
 
 case "$bf_rc" in
-    0) ;;
-    3) block "PR-guard BLOCKED: --body-file / -F has no path argument" \
-            "A body-file flag was given with no following path — the intended PR" \
-            "body cannot be located or scanned. (Fail-closed.)" ;;
-    4) block "PR-guard BLOCKED: the command could not be parsed" \
-            "shlex could not tokenize the 'gh pr create' invocation (unbalanced" \
-            "quotes?). Refusing to allow a PR whose --body-file arguments cannot be" \
-            "determined. Fix the command's quoting and retry. (Fail-closed.)" ;;
-    *) block "PR-guard BLOCKED: body-file extraction failed" \
-            "The tokenizer exited $bf_rc unexpectedly — refusing to proceed" \
-            "unscanned. (Fail-closed.)" ;;
+0) ;;
+3) block "PR-guard BLOCKED: --body-file / -F has no path argument" \
+	"A body-file flag was given with no following path — the intended PR" \
+	"body cannot be located or scanned. (Fail-closed.)" ;;
+4) block "PR-guard BLOCKED: the command could not be parsed" \
+	"shlex could not tokenize the 'gh pr create' invocation (unbalanced" \
+	"quotes?). Refusing to allow a PR whose --body-file arguments cannot be" \
+	"determined. Fix the command's quoting and retry. (Fail-closed.)" ;;
+*) block "PR-guard BLOCKED: body-file extraction failed" \
+	"The tokenizer exited $bf_rc unexpectedly — refusing to proceed" \
+	"unscanned. (Fail-closed.)" ;;
 esac
 
 # Build the scanned command text: the raw command minus the never-published
 # spans (see the scan-corpus note above).
 scan_text="$COMMAND"
 if [[ -n "$CD_DIR" ]]; then
-    scan_text="$(strip_cd_prefix "$scan_text")"        # leading `cd <repo>` prefix
+	scan_text="$(strip_cd_prefix "$scan_text")" # leading `cd <repo>` prefix
 fi
 if [[ -n "$bf_paths" ]]; then
-    # Remove each --body-file / -F flag+PATH pair, all realistic raw forms, and
-    # ONLY flag-adjacent (literal match). A bare copy of the same path elsewhere
-    # (e.g. in --title) is NOT preceded by a body-file flag, so it stays scanned
-    # — a genuinely-published path is never dropped.
-    while IFS= read -r p; do
-        [[ -n "$p" ]] || continue
-        for _f in "--body-file $p" "--body-file \"$p\"" "--body-file '$p'" \
-                  "--body-file=$p" "--body-file=\"$p\"" "--body-file='$p'" \
-                  "-F $p" "-F \"$p\"" "-F '$p'" "-F=$p" "-F=\"$p\"" "-F='$p'" \
-                  "-F$p" "-F\"$p\"" "-F'$p'"; do
-            scan_text="${scan_text//"$_f"/}"
-        done
-    done <<< "$bf_paths"
+	# Remove each --body-file / -F flag+PATH pair, all realistic raw forms, and
+	# ONLY flag-adjacent (literal match). A bare copy of the same path elsewhere
+	# (e.g. in --title) is NOT preceded by a body-file flag, so it stays scanned
+	# — a genuinely-published path is never dropped.
+	while IFS= read -r p; do
+		[[ -n "$p" ]] || continue
+		for _f in "--body-file $p" "--body-file \"$p\"" "--body-file '$p'" \
+			"--body-file=$p" "--body-file=\"$p\"" "--body-file='$p'" \
+			"-F $p" "-F \"$p\"" "-F '$p'" "-F=$p" "-F=\"$p\"" "-F='$p'" \
+			"-F$p" "-F\"$p\"" "-F'$p'"; do
+			scan_text="${scan_text//"$_f"/}"
+		done
+	done <<<"$bf_paths"
 fi
-printf '%s\n' "$scan_text" > "$scan_dir/command.txt"
+printf '%s\n' "$scan_text" >"$scan_dir/command.txt"
 
 # Scan every extracted body-file; an unresolvable/unreadable one is fail-closed
 # (applies equally to --body-file and -F).
 if [[ -n "$bf_paths" ]]; then
-    while IFS= read -r p; do
-        rp="$(resolve_path "$p")"
-        add_body_file "$rp" || block \
-            "PR-guard BLOCKED: --body-file / -F path is unreadable" \
-            "Referenced: $p" \
-            "Resolved:   $rp" \
-            "gh would read this file as the PR body, but it does not exist or is" \
-            "not readable from here, so its contents cannot be scanned." \
-            "Fail-closed: fix the path (or run from where it resolves) and retry."
-    done <<< "$bf_paths"
+	while IFS= read -r p; do
+		rp="$(resolve_path "$p")"
+		add_body_file "$rp" || block \
+			"PR-guard BLOCKED: --body-file / -F path is unreadable" \
+			"Referenced: $p" \
+			"Resolved:   $rp" \
+			"gh would read this file as the PR body, but it does not exist or is" \
+			"not readable from here, so its contents cannot be scanned." \
+			"Fail-closed: fix the path (or run from where it resolves) and retry."
+	done <<<"$bf_paths"
 fi
 
 # ---------------------------------------------------------------------------
@@ -520,47 +545,47 @@ fi
 # stderr (FTL). Any nonzero we cannot explain is fail-closed.
 # ---------------------------------------------------------------------------
 gitleaks dir "$scan_dir" \
-    --config "$GL_CONFIG" \
-    --no-banner --redact --ignore-gitleaks-allow \
-    --report-format json --report-path "$report" \
-    >/dev/null 2>"$errf"
+	--config "$GL_CONFIG" \
+	--no-banner --redact --ignore-gitleaks-allow \
+	--report-format json --report-path "$report" \
+	>/dev/null 2>"$errf"
 rc=$?
 
 if grep -qE 'FTL|Failed to load config' "$errf"; then
-    block "PR-guard BLOCKED: gitleaks config failed to load" \
-        "Ruleset: $RULESET_DESC (operator rules: $GL_RULES_SOURCE)" \
-        "The operator ruleset could not be applied, so the PR was not scanned." \
-        "(gitleaks resolves a relative [extend] path against its cwd; the guard" \
-        " cd'd to the config's directory, so a load failure here means a missing" \
-        " or broken ruleset.)" \
-        "Install it via the blueprint (gitleaks-rules apply), or set" \
-        "GITLEAKS_OPERATOR_RULES."
+	block "PR-guard BLOCKED: gitleaks config failed to load" \
+		"Ruleset: $RULESET_DESC (operator rules: $GL_RULES_SOURCE)" \
+		"The operator ruleset could not be applied, so the PR was not scanned." \
+		"(gitleaks resolves a relative [extend] path against its cwd; the guard" \
+		" cd'd to the config's directory, so a load failure here means a missing" \
+		" or broken ruleset.)" \
+		"Install it via the blueprint (gitleaks-rules apply), or set" \
+		"GITLEAKS_OPERATOR_RULES."
 elif [[ "$rc" -ne 0 ]]; then
-    if [[ -s "$report" ]]; then
-        gl_block "PR-guard BLOCKED: guarded literal in the 'gh pr create' command" \
-            "gitleaks matched a guarded literal in the PR-publishing command. This" \
-            "is NOT necessarily the PR body — it may be the title, an unrelated flag," \
-            "or --body-file contents. Location (rule id + file:line; command.txt is" \
-            "the command text, bodyfile-N.txt is a --body-file's contents; matched" \
-            "values withheld):"
-        gl_summarize_report "$report" >&2
-        {
-            echo "  The scanned command text excludes the parts that are never"
-            echo "  published (a leading 'cd <repo>' prefix and any --body-file path);"
-            echo "  a guarded value ANYWHERE else in the command blocks (safe over-block)."
-            echo "  Remediation:"
-            echo "    * Go to the flagged location and remove the sensitive value from"
-            echo "      wherever it sits — title, body, or a flag."
-            echo "    * A title synced from a Linear issue can carry employer / internal"
-            echo "      product names (a guarded class) — rename it before creating the PR."
-            echo "    * Ticket refs like 'Closes <TEAM>-N' are ALLOWED and do not match."
-            echo ""
-        } >&2
-        exit 2
-    fi
-    block "PR-guard BLOCKED: scanner returned an error" \
-        "gitleaks exited $rc without a findings report — refusing to allow an" \
-        "unverified PR. (Fail-closed: an unexplained scanner error must not pass.)"
+	if [[ -s "$report" ]]; then
+		gl_block "PR-guard BLOCKED: guarded literal in the 'gh pr create' command" \
+			"gitleaks matched a guarded literal in the PR-publishing command. This" \
+			"is NOT necessarily the PR body — it may be the title, an unrelated flag," \
+			"or --body-file contents. Location (rule id + file:line; command.txt is" \
+			"the command text, bodyfile-N.txt is a --body-file's contents; matched" \
+			"values withheld):"
+		gl_summarize_report "$report" >&2
+		{
+			echo "  The scanned command text excludes the parts that are never"
+			echo "  published (a leading 'cd <repo>' prefix and any --body-file path);"
+			echo "  a guarded value ANYWHERE else in the command blocks (safe over-block)."
+			echo "  Remediation:"
+			echo "    * Go to the flagged location and remove the sensitive value from"
+			echo "      wherever it sits — title, body, or a flag."
+			echo "    * A title synced from a Linear issue can carry employer / internal"
+			echo "      product names (a guarded class) — rename it before creating the PR."
+			echo "    * Ticket refs like 'Closes <TEAM>-N' are ALLOWED and do not match."
+			echo ""
+		} >&2
+		exit 2
+	fi
+	block "PR-guard BLOCKED: scanner returned an error" \
+		"gitleaks exited $rc without a findings report — refusing to allow an" \
+		"unverified PR. (Fail-closed: an unexplained scanner error must not pass.)"
 fi
 
 exit 0

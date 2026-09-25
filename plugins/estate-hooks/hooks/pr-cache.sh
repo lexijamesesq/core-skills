@@ -16,8 +16,8 @@
 
 set -uo pipefail
 
-GH_TIMEOUT=5    # seconds per gh call
-GH_RETRIES=1    # retry once on failure
+GH_TIMEOUT=5 # seconds per gh call
+GH_RETRIES=1 # retry once on failure
 
 INPUT=$(cat 2>/dev/null || true)
 
@@ -30,10 +30,10 @@ INPUT=$(cat 2>/dev/null || true)
 # SessionStart payloads carry no tool_name and always refresh.
 TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 if [[ "$TOOL_NAME" == "Bash" ]]; then
-    CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
-    CMD=$(printf '%s' "$CMD" | tr -s '[:space:]' ' ')
-    RE_GHPR='(^|[;&|(`])[[:space:]]*gh[[:space:]]+pr[[:space:]]+(create|merge)'
-    [[ "$CMD" =~ $RE_GHPR ]] || exit 0
+	CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
+	CMD=$(printf '%s' "$CMD" | tr -s '[:space:]' ' ')
+	RE_GHPR='(^|[;&|(`])[[:space:]]*gh[[:space:]]+pr[[:space:]]+(create|merge)'
+	[[ "$CMD" =~ $RE_GHPR ]] || exit 0
 fi
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(printf '%s' "$INPUT" | jq -r '.workspace.project_dir // .cwd // empty' 2>/dev/null)}"
@@ -48,34 +48,34 @@ mkdir -p "$CACHE_DIR" 2>/dev/null || exit 0
 command -v gh >/dev/null 2>&1 || exit 0
 
 parse_repos() {
-    command -v yq >/dev/null 2>&1 || return
-    awk '/^---[[:space:]]*$/{c++; next} c==1' "$CLAUDE_MD" | yq -r '.build_home[]' - 2>/dev/null
+	command -v yq >/dev/null 2>&1 || return
+	awk '/^---[[:space:]]*$/{c++; next} c==1' "$CLAUDE_MD" | yq -r '.build_home[]' - 2>/dev/null
 }
 
 gh_with_retry() {
-    local attempt=0 prs=""
-    while [[ $attempt -le $GH_RETRIES ]]; do
-        prs=$(cd "$1" && timeout "${GH_TIMEOUT}" gh pr list --state open --json number,headRefName 2>/dev/null) && break
-        attempt=$((attempt + 1))
-        [[ $attempt -le $GH_RETRIES ]] && sleep 1
-    done
-    printf '%s' "${prs:-[]}"
+	local attempt=0 prs=""
+	while [[ $attempt -le $GH_RETRIES ]]; do
+		prs=$(cd "$1" && timeout "${GH_TIMEOUT}" gh pr list --state open --json number,headRefName 2>/dev/null) && break
+		attempt=$((attempt + 1))
+		[[ $attempt -le $GH_RETRIES ]] && sleep 1
+	done
+	printf '%s' "${prs:-[]}"
 }
 
 while IFS= read -r raw_path; do
-    [[ -z "$raw_path" ]] && continue
-    if [[ "$(printf '%s' "$raw_path" | tr '[:upper:]' '[:lower:]')" == "none" ]]; then
-        continue
-    fi
-    repo="${raw_path/#\~/$HOME}"
-    canonical=$(cd "$repo" 2>/dev/null && pwd) || continue
-    git -C "$canonical" rev-parse --git-dir >/dev/null 2>&1 || continue
+	[[ -z "$raw_path" ]] && continue
+	if [[ "$(printf '%s' "$raw_path" | tr '[:upper:]' '[:lower:]')" == "none" ]]; then
+		continue
+	fi
+	repo="${raw_path/#\~/$HOME}"
+	canonical=$(cd "$repo" 2>/dev/null && pwd) || continue
+	git -C "$canonical" rev-parse --git-dir >/dev/null 2>&1 || continue
 
-    cache_key=$(printf '%s' "$canonical" | shasum | cut -d' ' -f1)
-    cache_file="${CACHE_DIR}/${cache_key}.json"
+	cache_key=$(printf '%s' "$canonical" | shasum | cut -d' ' -f1)
+	cache_file="${CACHE_DIR}/${cache_key}.json"
 
-    prs=$(gh_with_retry "$canonical")
-    printf '%s' "$prs" > "$cache_file"
+	prs=$(gh_with_retry "$canonical")
+	printf '%s' "$prs" >"$cache_file"
 done < <(parse_repos)
 
 exit 0
