@@ -1,10 +1,12 @@
+# core-skills
+
 The `core` Claude Code plugin marketplace for the estate's harness: `core` (session-mechanics skills and the verification agent) and `estate-hooks` (lifecycle hooks). Publishing skills live in `publish-skills`, estate-maintenance skills in `system-skills`, and the authorial-voice skill in `personal-skills` — each its own marketplace. Both plugins install from this one marketplace; dotty (the public dotfiles repo this replaces the harness portion of) points here rather than carrying the content itself. Plugins live under `plugins/`; the marketplace manifest is `.claude-plugin/marketplace.json`.
 
 ## Installation
 
 Add the marketplace, then install and enable the plugins in the profile that should run them:
 
-```
+```sh
 claude plugin marketplace add lexijamesesq/core-skills
 claude plugin install core@core
 claude plugin enable core@core
@@ -23,7 +25,7 @@ Plugin install state is shared across Claude Code profiles on one machine; each 
 Bracket a working session — load state at the start, write it back at the end.
 
 | Artifact | Type | What it does |
-|----------|------|--------------|
+| --- | --- | --- |
 | `/session-start` | Skill | Loads project state, recent progress, and the pending backlog |
 | `/session-closeout` | Skill | Writes state back, records what changed |
 | `/project-state` | Skill | Reads and writes the Project State section of a project's CLAUDE.md |
@@ -31,20 +33,20 @@ Bracket a working session — load state at the start, write it back at the end.
 #### Projects and backlog
 
 | Artifact | Type | What it does |
-|----------|------|--------------|
+| --- | --- | --- |
 | `/linear` | Skill | Protocol reference for Linear operations — ticket creation, claiming, state transitions, and structured comment formats |
 
 #### Authoring and machine state
 
 | Artifact | Type | What it does |
-|----------|------|--------------|
+| --- | --- | --- |
 | `/grilling` | Skill | Interviews the operator one question at a time to stress-test a plan or decision — looks up facts instead of asking, puts decisions to them with a recommendation, and holds off acting until they agree |
 | `/domain-modeling` | Skill | Builds and sharpens a project's domain model — challenges fuzzy terminology, stress-tests edge cases, and records architectural decisions |
 
 #### Research and delegation
 
 | Artifact | Type | What it does |
-|----------|------|--------------|
+| --- | --- | --- |
 | `/research` | Skill | Classifies a search task (exploratory vs lookup), runs the right retrieval strategy, and knows when to stop |
 | `/dispatch` | Skill | Pre-spawn gate — decides whether to delegate, what shape the execution takes, and equips each delegate's brief. Enforces a depth model: L0 orchestrators, L1 discipline teammates, L2 leaf subagents |
 | `/wayfinder` | Skill | Charts a loose idea as a map of decision tickets on Linear, resolves them with the operator, then builds from the operator-confirmed Destination and Done When through validated slices |
@@ -57,7 +59,7 @@ Domain-specific agents — spawned by skills, never invoked directly. Each owns 
 Lifecycle transitions (claim, park, block, un-park, cancel, mark_done, resolve, close-map) are not an agent: they are the `/traffic-cone` skill and the `traffic-cone` script, run in-process by the caller. The `@traffic-cone` name in skill text refers to that transition law, not to a spawnable agent.
 
 | Artifact | Type | What it does |
-|----------|------|--------------|
+| --- | --- | --- |
 | `@attack-kitty` | Agent | Non-author verification — receives a typed mandate, fetches its own evidence, judges independently, and posts or returns a verdict. Twelve mandate types covering gate checks, formal verification, and thinking aids. Mandate authority enforcement: gate mandates require L0 callers; thinking-aid mandates are available at any depth |
 
 ### Hooks (`estate-hooks` plugin)
@@ -65,13 +67,15 @@ Lifecycle transitions (claim, park, block, un-park, cancel, mark_done, resolve, 
 Claude Code lifecycle hooks.
 
 | Hook | Event | What it does |
-|------|-------|--------------|
+| --- | --- | --- |
 | `session-init.sh` | SessionStart | Runs session initialization tasks |
 | `fix-obsidian-claude-sync.sh` | SessionStart | Works around Obsidian Sync skipping dot-prefixed directories |
 | `vault-mcp-redirect.sh` | PreToolUse | Sends vault file edits through the Obsidian MCP tools |
 | `gh-pr-body-guard.sh` | PreToolUse | Scans a PR title and body for secrets, and fails closed |
+| `gh-pr-body-template-guard.sh` | PreToolUse | Runs the estate's PR-body template check on a `gh pr create` / `gh pr edit` body before it reaches GitHub, and fails closed. The check is `hooks/pr-body-check.py`, a byte-identical copy of dotty's `.github/scripts/pr-body-check.py` (provenance in `hooks/pr-body-check.SOURCE`) |
 | `git-hook-bypass-guard.sh` | PreToolUse | Blocks `--no-verify` and other attempts to skip the git hooks |
 | `pr-cache.sh` | SessionStart, PostToolUse | Caches PR metadata to cut redundant API calls |
+| `pr-verdict-watch-arm.sh` | PostToolUse | After a PR is opened (by `gh pr create` in any shape, or by the provisioner's caller rollout), tells the session to arm a Monitor on each new PR so verdicts and comments landing on the PR reach it |
 
 ## CI and releases
 
