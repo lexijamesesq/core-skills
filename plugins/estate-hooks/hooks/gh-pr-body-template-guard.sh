@@ -67,8 +67,8 @@
 # written with `jq -n --arg` (the checker reads $GITHUB_EVENT_PATH, as it
 # does in CI), never interpolated into a command.
 #
-# SELF-SCOPE: registered with no `"if"` prefilter (see GH IN COMMAND POSITION
-# below) — `gh pr create` / `gh pr edit` in command position, gh bare, by
+# SELF-SCOPE: registered with no `"if"` prefilter (the rule is
+# gh-scope-common.sh's) — `gh pr create` / `gh pr edit` in command position, gh bare, by
 # path, or via a shell variable. Anything else -> exit 0 silently. The same
 # string-match porosity gh-pr-body-guard.sh discloses applies here.
 #
@@ -84,6 +84,18 @@ if [[ -r "$HERE/gitleaks-common.sh" ]]; then
 else
 	source "$HERE/../../git-hooks/gitleaks-common.sh"
 fi
+
+# The "gh in command position" rule lives in gh-scope-common.sh (one
+# definition for every PR hook). Missing -> BLOCK, as for a missing jq: an
+# unscoped fail-closed guard must not guess.
+[[ -r "$HERE/gh-scope-common.sh" ]] || {
+	gl_block "PR-template-guard BLOCKED: gh-scope-common.sh is missing" \
+		"Expected beside this hook: $HERE/gh-scope-common.sh" \
+		"Without it the guard cannot decide which commands publish a PR." \
+		"Reinstall the estate-hooks plugin."
+	exit 2
+}
+source "$HERE/gh-scope-common.sh"
 
 CHECKER="$HERE/pr-body-check.py"
 TEMPLATE_REL=".github/pull_request_template.md"
@@ -111,34 +123,11 @@ COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/nu
 [[ -n "$COMMAND" ]] || exit 0 # nothing to check
 
 # ---------------------------------------------------------------------------
-# SELF-SCOPE — the same normalisation and command-position match as
-# gh-pr-body-guard.sh: continuations stripped, newlines become separators,
-# whitespace collapsed, shell quotes dropped.
+# SELF-SCOPE — gh-scope-common.sh's normalisation and command-position
+# match, the same every PR hook uses.
 # ---------------------------------------------------------------------------
-_scope_raw="${COMMAND//\\$'\n'/ }"    # line continuations -> single space
-_scope_raw="${_scope_raw//$'\n'/ ; }" # newlines are command separators
-_scope_norm="$(tr -s '[:space:]' ' ' <<<"$_scope_raw")"
-_scope_norm="${_scope_norm//\"/}"
-_scope_norm="${_scope_norm//\'/}"
-
-# GH IN COMMAND POSITION — one definition, kept IDENTICAL in five hooks:
-# gh-pr-body-guard.sh, gh-pr-body-template-guard.sh, pr-cache.sh,
-# pr-verdict-watch-arm.sh and security-review-reminder.sh. No shared file
-# fits: the two helpers these hooks source (gitleaks-common.sh,
-# house-code-common.sh) are drift-checked byte-for-byte against dotty.
-# Change all five together.
-#
-# Command position = start of string, or after a separator (; && || | ( `),
-# optionally preceded by wrapper words (env/time/sudo/nohup/command) and by
-# leading env assignments (FOO=bar gh pr create ...). The gh token is any of:
-#   gh                       bare, on PATH
-#   <anything>/gh            a path ending in /gh — the estate's mandated
-#                            wrapper is invoked by path, never as bare `gh`
-#   $NAME / ${NAME}          a shell variable holding that path
-# shellcheck disable=SC2016  # regex-literal dollar (\$NAME), not a shell expansion
-_GH_CMD='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*(gh|[^ ;&|(`]*/gh|\$[A-Za-z_][A-Za-z0-9_]*|\$\{[A-Za-z_][A-Za-z0-9_]*\})[[:space:]]+pr[[:space:]]+'
-_RE_GHPR="${_GH_CMD}"'(create|edit)([[:space:]]|$)'
-[[ "$_scope_norm" =~ $_RE_GHPR ]] || exit 0 # not a PR-publishing command
+_scope_norm="$(gh_scope_normalize "$COMMAND")"
+gh_pr_in_command_position "$COMMAND" "create|edit" || exit 0 # not a PR-publishing command
 
 ORIG_CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)"
 [[ -n "$ORIG_CWD" ]] || ORIG_CWD="$PWD"

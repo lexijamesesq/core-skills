@@ -156,6 +156,7 @@ make_iso() { # <dir> — lay out a runnable hook copy under <dir>
 	mkdir -p "$1/.claude/hooks" "$1/git-hooks"
 	cp "$HOOK" "$1/.claude/hooks/gh-pr-body-guard.sh"
 	cp "$COMMON_SRC" "$1/git-hooks/gitleaks-common.sh"
+	cp "${SCRIPT_DIR}/../hooks/gh-scope-common.sh" "$1/.claude/hooks/gh-scope-common.sh"
 }
 # (a) own repo IS a provisioned repo (synthetic ruleset) -> path 3 resolves.
 ISO_PROV="$TMP/iso-prov"

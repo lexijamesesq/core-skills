@@ -377,7 +377,7 @@ grep -q "jq is not installed" "$ERRFILE" && pass "names the missing jq" || fail 
 section "missing vendored checker -> BLOCK"
 ISO="$TMP/iso"
 mkdir -p "$ISO"
-cp "$HOOK" "$COMMON" "$ISO/"
+cp "$HOOK" "$COMMON" "${SCRIPT_DIR}/../hooks/gh-scope-common.sh" "$ISO/"
 printf '%s' "$(mkjson "$(cmd_body gh create "$GOOD_BODY")" "$REPO")" | bash "$ISO/gh-pr-body-template-guard.sh" >/dev/null 2>"$ERRFILE"
 RC=$?
 assert_eq "checker absent exits 2 (block)" "2" "$RC"

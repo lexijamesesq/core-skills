@@ -81,7 +81,7 @@
 # Blocks a PreToolUse tool call by exiting 2 with the reason on stderr.
 #
 # SCOPE WIDTH: the scope match accepts `gh` bare, by path (`.../gh`), or via a
-# shell variable (`$GH`) — see GH IN COMMAND POSITION below. Widening the scope
+# shell variable (`$GH`) — the rule is gh-scope-common.sh's. Widening the scope
 # of a fail-closed guard only ever ADDS scans; it can never let a previously
 # scanned command through unscanned. That is the safe direction.
 #
@@ -96,6 +96,19 @@ if [[ -r "$HERE/gitleaks-common.sh" ]]; then
 else
 	source "$HERE/../../git-hooks/gitleaks-common.sh"
 fi
+
+# The "gh in command position" rule lives in gh-scope-common.sh (this repo's
+# own helper, one definition for every PR hook). Missing -> BLOCK: without it
+# this guard cannot tell a PR-publishing command from any other, and an
+# unscoped fail-closed guard must not guess (same contract as a missing jq).
+[[ -r "$HERE/gh-scope-common.sh" ]] || {
+	gl_block "PR-guard BLOCKED: gh-scope-common.sh is missing" \
+		"Expected beside this hook: $HERE/gh-scope-common.sh" \
+		"Without it the guard cannot decide which commands publish a PR." \
+		"Reinstall the estate-hooks plugin."
+	exit 2
+}
+source "$HERE/gh-scope-common.sh"
 
 CONFIG=".gitleaks.toml" # relative — resolved from cwd (= repo root, see below)
 
@@ -156,40 +169,8 @@ COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/nu
 # collapsing them to whitespace would hide `gh pr create` on a later line of a
 # multi-line script behind a leading space, reopening the fail-open.
 # ---------------------------------------------------------------------------
-_scope_raw="${COMMAND//\\$'\n'/ }"    # line continuations -> single space
-_scope_raw="${_scope_raw//$'\n'/ ; }" # newlines are command separators
-_scope_norm="$(tr -s '[:space:]' ' ' <<<"$_scope_raw")"
-# Strip shell quote characters. The shell removes them before executing, so
-# `gh pr "create"`, `"gh" pr create`, and `g"h" pr create` are all REAL PR
-# invocations that must normalise to `gh pr create`. Removing quotes only ever
-# ADDS matches (surfaces a genuine command) — it deletes no separator, so it
-# cannot mask an out-of-scope command as in-scope beyond the safe over-block.
-_scope_norm="${_scope_norm//\"/}"
-_scope_norm="${_scope_norm//\'/}"
-
-# GH IN COMMAND POSITION — one definition, kept IDENTICAL in five hooks:
-# gh-pr-body-guard.sh, gh-pr-body-template-guard.sh, pr-cache.sh,
-# pr-verdict-watch-arm.sh and security-review-reminder.sh. No shared file
-# fits: the two helpers these hooks source (gitleaks-common.sh,
-# house-code-common.sh) are drift-checked byte-for-byte against dotty.
-# Change all five together.
-#
-# Command position = start of string, or after a separator (; && || | ( `),
-# optionally preceded by wrapper words (env/time/sudo/nohup/command) and by
-# leading env assignments (FOO=bar gh pr create ...). The gh token is any of:
-#   gh                       bare, on PATH
-#   <anything>/gh            a path ending in /gh — the estate's mandated
-#                            wrapper is invoked by path, never as bare `gh`
-#   $NAME / ${NAME}          a shell variable holding that path
-# The bare-`gh`-only version of this pattern silently skipped every
-# wrapper-path create (found live: the arm-a-Monitor hook never fired on
-# the estate's real PR-opening commands). Widening scope here only ever ADDS
-# scans — a command that was unscanned before is scanned now — which is the
-# safe direction for a fail-closed guard.
-# shellcheck disable=SC2016  # regex-literal dollar (\$NAME), not a shell expansion
-_GH_CMD='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*(gh|[^ ;&|(`]*/gh|\$[A-Za-z_][A-Za-z0-9_]*|\$\{[A-Za-z_][A-Za-z0-9_]*\})[[:space:]]+pr[[:space:]]+'
-_RE_GHPR="${_GH_CMD}"'(create|edit)([[:space:]]|$)'
-[[ "$_scope_norm" =~ $_RE_GHPR ]] || exit 0 # not a PR-publishing command
+_scope_norm="$(gh_scope_normalize "$COMMAND")"
+gh_pr_in_command_position "$COMMAND" "create|edit" || exit 0 # not a PR-publishing command
 
 ORIG_CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)"
 [[ -n "$ORIG_CWD" ]] || ORIG_CWD="$PWD"

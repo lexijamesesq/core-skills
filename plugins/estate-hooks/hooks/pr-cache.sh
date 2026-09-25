@@ -21,6 +21,14 @@ GH_RETRIES=1 # retry once on failure
 
 INPUT=$(cat 2>/dev/null || true)
 
+# The "gh in command position" rule lives in gh-scope-common.sh (one
+# definition for every PR hook). Missing -> fail-open: a cache refresh is a
+# convenience, and this hook never blocks or spams a session over its own
+# absence.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[[ -r "$HERE/gh-scope-common.sh" ]] || exit 0
+source "$HERE/gh-scope-common.sh"
+
 # Self-scope. As a PostToolUse hook this fires for far more than `gh pr
 # create`/`merge`: the settings `if:` field is a pre-filter that FAILS OPEN into
 # running the hook whenever the pattern names more than the bare command and the
@@ -31,35 +39,11 @@ INPUT=$(cat 2>/dev/null || true)
 TOOL_NAME=$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 if [[ "$TOOL_NAME" == "Bash" ]]; then
 	CMD=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
-	# Normalise the way gh-pr-body-guard.sh does: line continuations become a
-	# space, newlines become command separators (a heredoc'd or multi-line
-	# script must still match), whitespace collapses, shell quotes drop.
-	CMD="${CMD//\\$'\n'/ }"
-	CMD="${CMD//$'\n'/ ; }"
-	CMD=$(printf '%s' "$CMD" | tr -s '[:space:]' ' ')
-	CMD="${CMD//\"/}"
-	CMD="${CMD//\'/}"
-	# GH IN COMMAND POSITION — one definition, kept IDENTICAL in five hooks:
-	# gh-pr-body-guard.sh, gh-pr-body-template-guard.sh, pr-cache.sh,
-	# pr-verdict-watch-arm.sh and security-review-reminder.sh. No shared file
-	# fits: the two helpers these hooks source (gitleaks-common.sh,
-	# house-code-common.sh) are drift-checked byte-for-byte against dotty.
-	# Change all five together.
-	#
-	# Command position = start of string, or after a separator (; && || | ( `),
-	# optionally preceded by wrapper words (env/time/sudo/nohup/command) and by
-	# leading env assignments (FOO=bar gh pr create ...). The gh token is any of:
-	#   gh                       bare, on PATH
-	#   <anything>/gh            a path ending in /gh — the estate's mandated
-	#                            wrapper is invoked by path, never as bare `gh`
-	#   $NAME / ${NAME}          a shell variable holding that path
-	# The bare-`gh`-only version of this pattern never refreshed the cache on a
-	# wrapper-path create or merge (found live alongside the arm-a-Monitor
+	# gh bare, by path, or via a variable, in command position — the shared
+	# rule (the bare-`gh`-only regex this replaced never refreshed on a
+	# wrapper-path create or merge, found live alongside the arm-a-Monitor
 	# hook's silence on the same commands).
-	# shellcheck disable=SC2016  # regex-literal dollar (\$NAME), not a shell expansion
-	_GH_CMD='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*(gh|[^ ;&|(`]*/gh|\$[A-Za-z_][A-Za-z0-9_]*|\$\{[A-Za-z_][A-Za-z0-9_]*\})[[:space:]]+pr[[:space:]]+'
-	RE_GHPR="${_GH_CMD}"'(create|merge)([[:space:]]|$)'
-	[[ "$CMD" =~ $RE_GHPR ]] || exit 0
+	gh_pr_in_command_position "$CMD" "create|merge" || exit 0
 fi
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(printf '%s' "$INPUT" | jq -r '.workspace.project_dir // .cwd // empty' 2>/dev/null)}"

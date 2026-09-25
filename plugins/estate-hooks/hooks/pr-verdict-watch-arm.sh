@@ -40,7 +40,7 @@
 # its mandated gh wrapper, and this hook was silent on all of them. The hook
 # fires when EITHER
 #   * a `gh pr create` stands in command position — gh bare, by path, or via
-#     a shell variable (see GH IN COMMAND POSITION below), OR
+#     a shell variable (gh-scope-common.sh's rule), OR
 #   * the command runs the estate provisioner's caller rollout or new-repo
 #     front door (`provision-public-repo.sh ... --callers ...`, `new-repo.sh`),
 #     which open PRs themselves and print each one's URL,
@@ -73,40 +73,26 @@ TOOL_NAME="$(printf '%s' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null || t
 COMMAND="$(printf '%s' "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
 [[ -n "$COMMAND" ]] || exit 0
 
+# The "gh in command position" rule lives in gh-scope-common.sh (one
+# definition for every PR hook). Missing -> fail-open (this hook never
+# blocks or spams; with no rule it has no opinion).
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[[ -r "$HERE/gh-scope-common.sh" ]] || exit 0
+source "$HERE/gh-scope-common.sh"
+
 # ---------------------------------------------------------------------------
 # SELF-SCOPE: `gh pr create` in COMMAND POSITION (start, or after a shell
 # separator, optionally behind wrapper words and leading env assignments) —
 # never a bare substring, so an `echo "gh pr create"` or a doc edit does not
-# match. Line continuations are stripped and newlines become separators first,
-# the same normalisation gh-pr-body-guard.sh uses.
+# match. gh-scope-common.sh normalises (continuations, newlines as
+# separators, quotes) and matches; the rollout regex below reuses its text.
 # ---------------------------------------------------------------------------
-_norm="${COMMAND//\\$'\n'/ }" # line continuations -> single space
-_norm="${_norm//$'\n'/ ; }"   # newlines are command separators
-_norm="$(tr -s '[:space:]' ' ' <<<"$_norm")"
-_norm="${_norm//\"/}"
-_norm="${_norm//\'/}"
-# GH IN COMMAND POSITION — one definition, kept IDENTICAL in five hooks:
-# gh-pr-body-guard.sh, gh-pr-body-template-guard.sh, pr-cache.sh,
-# pr-verdict-watch-arm.sh and security-review-reminder.sh. No shared file
-# fits: the two helpers these hooks source (gitleaks-common.sh,
-# house-code-common.sh) are drift-checked byte-for-byte against dotty.
-# Change all five together.
-#
-# Command position = start of string, or after a separator (; && || | ( `),
-# optionally preceded by wrapper words (env/time/sudo/nohup/command) and by
-# leading env assignments (FOO=bar gh pr create ...). The gh token is any of:
-#   gh                       bare, on PATH
-#   <anything>/gh            a path ending in /gh — the estate's mandated
-#                            wrapper is invoked by path, never as bare `gh`
-#   $NAME / ${NAME}          a shell variable holding that path
-# shellcheck disable=SC2016  # regex-literal dollar (\$NAME), not a shell expansion
-_GH_CMD='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*(gh|[^ ;&|(`]*/gh|\$[A-Za-z_][A-Za-z0-9_]*|\$\{[A-Za-z_][A-Za-z0-9_]*\})[[:space:]]+pr[[:space:]]+'
-_RE_CREATE="${_GH_CMD}"'create([[:space:]]|$)'
+_norm="$(gh_scope_normalize "$COMMAND")"
 # The provisioner's PR-opening front doors, in command position (optionally
 # behind `bash`/`sh` and a path prefix): a caller rollout, or a new repo.
 # shellcheck disable=SC2016  # regex-literal dollar (\$NAME), not a shell expansion
 _RE_ROLLOUT='(^|[;&|(`])[[:space:]]*((env|time|sudo|nohup|command|bash|sh)[[:space:]]+)*([A-Za-z_][A-Za-z0-9_]*=[^ ]* )*[^ ;&|(`]*(provision-public-repo\.sh[^;&|(`]*[[:space:]]--callers([[:space:]=]|$)|new-repo\.sh([[:space:]]|$))'
-if [[ "$_norm" =~ $_RE_CREATE ]]; then
+if gh_pr_in_command_position "$COMMAND" create; then
 	MODE=create
 elif [[ "$_norm" =~ $_RE_ROLLOUT ]]; then
 	MODE=rollout
