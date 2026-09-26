@@ -72,7 +72,7 @@ Claude Code lifecycle hooks.
 | `fix-obsidian-claude-sync.sh` | SessionStart | Works around Obsidian Sync skipping dot-prefixed directories |
 | `vault-mcp-redirect.sh` | PreToolUse | Sends vault file edits through the Obsidian MCP tools |
 | `gh-pr-body-guard.sh` | PreToolUse | Scans a PR title and body for secrets, and fails closed |
-| `gh-pr-body-template-guard.sh` | PreToolUse | Runs the estate's PR-body template check on a `gh pr create` / `gh pr edit` body before it reaches GitHub, and fails closed. The check is `hooks/pr-body-check.py`, a byte-identical copy of dotty's `.github/scripts/pr-body-check.py` at `lexijamesesq/dotty@bfc658d6064e` (main, 2026-09-25); never edited here, re-copied from dotty |
+| `gh-pr-body-template-guard.sh` | PreToolUse | Runs the estate's PR-body template check on a `gh pr create` / `gh pr edit` body before it reaches GitHub, and fails closed. The check is `hooks/pr-body-check.py`, a byte-identical copy of dotty's `.github/scripts/pr-body-check.py` at `lexijamesesq/dotty@864b24a92b58` (main, 2026-09-25); never edited here, re-copied from dotty |
 | `git-hook-bypass-guard.sh` | PreToolUse | Blocks `--no-verify` and other attempts to skip the git hooks |
 | `pr-cache.sh` | SessionStart, PostToolUse | Caches PR metadata to cut redundant API calls |
 | `pr-verdict-watch-arm.sh` | PostToolUse | After a PR is opened (by `gh pr create` in any shape, or by the provisioner's caller rollout), tells the session to arm a Monitor on each new PR so verdicts and comments landing on the PR reach it |
