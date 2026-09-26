@@ -11,7 +11,7 @@
 # into a block the session must fix before the PR exists. The verdict is
 # the checker's own: hooks/pr-body-check.py is a BYTE-IDENTICAL copy of
 # dotty's .github/scripts/pr-body-check.py, copied from lexijamesesq/dotty
-# main at commit bfc658d6064e9a52be563b85c172e7faa1a15cad (2026-09-25); a drift
+# main at commit 864b24a92b58cbfd22e836359de34f2c890eada1 (2026-09-25); a drift
 # audit compares bytes — never edit it here, re-copy it from dotty. What
 # passes here passes CI, and what CI rejects is rejected here, by the same
 # code.
