@@ -26,25 +26,48 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  universal-ci:
+  floor:
+    # Read scopes the floor uses with github.token (Jev's triage answer on the
+    # head's check-runs). A called workflow gets no more than this; on a
+    # private repo the triage read 403s without it and the PR runs the full
+    # suite. No write scope, no secret: this is the lane a PR controls.
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: read
     uses: lexijamesesq/dotty/.github/workflows/estate-ci.yml@v1
     with:
       dotty_ref: v1
 
   all-checks-passed:
-    needs: [universal-ci, validate-and-test, drift-check, standalone-check]
+    needs: [floor, validate-and-test, drift-check, standalone-check]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require every dependency to have succeeded
+      - name: Require every dependency to have succeeded (a job skipped on a mechanical PR is satisfied)
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          MECHANICAL: ${{ needs.floor.outputs.mechanical }}
+          EVENT: ${{ github.event_name }}
         run: |
-          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}" == "true" ]]; then
-            echo "one or more required jobs failed"
+          set -euo pipefail
+          # skipped is satisfied on a mechanical PR, and on any non-PR event (a
+          # push to main skips the PR-only jobs by their own `if:`); on a
+          # functional PR a skipped job is a failure.
+          bad="$(jq -r --arg mech "$MECHANICAL" --arg event "$EVENT" '
+            to_entries[]
+            | select(.value.result == "failure" or .value.result == "cancelled"
+                     or (.value.result == "skipped" and $mech != "true" and $event == "pull_request"))
+            | .key' <<<"$RESULTS")"
+          if [[ -n "$bad" ]]; then
+            echo "required job(s) not satisfied: $bad"
             exit 1
           fi
-          echo "all checks passed"
+          echo "all checks passed (event=${EVENT} mechanical=${MECHANICAL:-false})"
 
   validate-and-test:
+    needs: [floor]
+    if: ${{ needs.floor.outputs.mechanical != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -89,6 +112,8 @@ jobs:
           done
 
   drift-check:
+    needs: [floor]
+    if: ${{ needs.floor.outputs.mechanical != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -105,6 +130,8 @@ jobs:
         run: bash core-skills/.github/scripts/drift-check.sh dotty core-skills
 
   standalone-check:
+    needs: [floor]
+    if: ${{ needs.floor.outputs.mechanical != 'true' }}
     # Deliberately does NOT check dotty out — identity (drift-check, above)
     # and portability (this job) are different questions; this one only
     # proves the packaged copies work with dotty simply absent from the
@@ -127,6 +154,7 @@ jobs:
         run: bash core-skills/.github/scripts/standalone-check.sh core-skills
 
   release-check:
+    needs: [floor]
     # PR-time check, no writes. Required by this repo's
     # branch-protection ruleset (added alongside this job, strict), so a
     # merge that changes a plugin's content without bumping its version is
@@ -134,7 +162,7 @@ jobs:
     # `paths:` filter on the workflow — a path-skipped required check
     # stays "Pending" forever and blocks every other PR (GitHub docs).
     # Runs on every PR; the job itself is cheap when nothing changed.
-    if: github.event_name == 'pull_request'
+    if: ${{ (github.event_name == 'pull_request') && needs.floor.outputs.mechanical != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -156,8 +184,8 @@ jobs:
     # plugin whose declared version isn't tagged yet. Idempotent (safe to
     # re-run; see tag-plugin-release.sh). contents: write scoped to this
     # job only — every other job in this workflow stays contents: read.
-    if: github.event_name == 'push'
-    needs: [validate-and-test]
+    if: ${{ (github.event_name == 'push') && needs.floor.outputs.mechanical != 'true' }}
+    needs: [floor, validate-and-test]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
