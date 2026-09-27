@@ -155,7 +155,9 @@ jobs:
         run: bash core-skills/.github/scripts/standalone-check.sh core-skills
 
   release-check:
-    needs: [floor]
+    # floor: always-run
+    # release-check refuses a plugin change without a version bump;
+    # a mechanical PR (a Renovate bump inside a plugin) can still need one.
     # PR-time check, no writes. Required by this repo's
     # branch-protection ruleset (added alongside this job, strict), so a
     # merge that changes a plugin's content without bumping its version is
@@ -163,7 +165,7 @@ jobs:
     # `paths:` filter on the workflow — a path-skipped required check
     # stays "Pending" forever and blocks every other PR (GitHub docs).
     # Runs on every PR; the job itself is cheap when nothing changed.
-    if: ${{ (github.event_name == 'pull_request') && needs.floor.outputs.mechanical != 'true' }}
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
