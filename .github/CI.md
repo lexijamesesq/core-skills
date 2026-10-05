@@ -43,10 +43,11 @@ Two jobs, not one:
 - `release-tag` (`push` to `main`) re-runs the same comparison against the
   *declared* version specifically and, if untagged, cuts
   `claude plugin tag --push` + a GitHub Release. Idempotent — safe to
-  re-run after a cancelled or failed attempt (see
-  `.github/scripts/tag-plugin-release.sh`; the tag and the Release are
-  checked and created independently, so a failure between the two never
-  leaves a tag with no Release).
+  re-run after a cancelled or failed attempt (see dotty's shared
+  `tag-plugin-release.sh`, invoked via `estate-plugin-release.yml@v1`
+  — this repo carries neither script, just the two calling jobs; the
+  tag and the Release are checked and created independently, so a
+  failure between the two never leaves a tag with no Release).
 
 **Branch-protection ruleset requires `release-check`, `strict`.** Before
 this, work-lifecycle's ruleset required no status checks at all — the

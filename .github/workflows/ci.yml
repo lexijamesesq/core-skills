@@ -135,7 +135,7 @@ jobs:
         run: bash core-skills/.github/scripts/standalone-check.sh core-skills
 
   release-check:
-    name: ci / release-check
+    name: ci
     # floor: always-run
     # release-check refuses a plugin change without a version bump;
     # a mechanical PR (a Renovate bump inside a plugin) can still need one.
@@ -145,63 +145,25 @@ jobs:
     # blocked, not just reported red after the fact. Deliberately no
     # `paths:` filter on the workflow — a path-skipped required check
     # stays "Pending" forever and blocks every other PR (GitHub docs).
-    # Runs on every PR; the job itself is cheap when nothing changed.
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Check plugin version discipline
-        run: |
-          set -uo pipefail
-          FAILED=0
-          bash .github/scripts/check-plugin-version.sh plugins/core core || FAILED=1
-          bash .github/scripts/check-plugin-version.sh plugins/estate-hooks estate-hooks || FAILED=1
-          exit "$FAILED"
+    permissions:
+      contents: read
+    uses: lexijamesesq/dotty/.github/workflows/estate-plugin-release.yml@v1
+    with:
+      dotty_ref: v1
+      plugins: '[{"path":"plugins/core","name":"core"},{"path":"plugins/estate-hooks","name":"estate-hooks"}]'
 
   release-tag:
-    name: ci / release-tag
+    name: ci
     # Push-time, main only. Cuts a tag + GitHub Release for any
-    # plugin whose declared version isn't tagged yet. Idempotent (safe to
-    # re-run; see tag-plugin-release.sh). contents: write scoped to this
-    # job only — every other job in this workflow stays contents: read.
+    # plugin whose declared version isn't tagged yet. contents: write
+    # scoped to this job only — every other job in this workflow stays
+    # contents: read.
     if: ${{ (github.event_name == 'push') && needs.floor.outputs.mechanical != 'true' }}
     needs: [floor, validate-and-test]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
     permissions:
       contents: write
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      # claude plugin tag creates an annotated tag (-m), which needs a
-      # committer identity; a fresh runner checkout has none configured.
-      # Standard github-actions[bot] identity, same as GitHub's own
-      # first-party actions use for automated commits/tags.
-      - name: Configure git identity for the release commit
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '22'
-      - name: Install Claude Code CLI 2.1.259
-        run: npm install -g @anthropic-ai/claude-code@2.1.259
-
-      - name: Tag and release changed plugins
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -uo pipefail
-          FAILED=0
-          bash .github/scripts/tag-plugin-release.sh plugins/core core || FAILED=1
-          bash .github/scripts/tag-plugin-release.sh plugins/estate-hooks estate-hooks || FAILED=1
-          exit "$FAILED"
+    uses: lexijamesesq/dotty/.github/workflows/estate-plugin-release.yml@v1
+    with:
+      dotty_ref: v1
+      plugins: '[{"path":"plugins/core","name":"core"},{"path":"plugins/estate-hooks","name":"estate-hooks"}]'
