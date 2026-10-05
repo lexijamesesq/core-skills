@@ -67,7 +67,7 @@ jobs:
       - name: Install uv 0.11.22
         run: pip install uv==0.11.22
 
-      - name: linear scripts pytest suite (235 tests)
+      - name: linear scripts pytest suite
         working-directory: plugins/core/skills/linear/scripts
         run: uvx pytest@9.1.1 tests
 
@@ -80,7 +80,7 @@ jobs:
         with:
           version: '8.30.1'
 
-      - name: estate-hooks test suites (628 tests)
+      - name: estate-hooks test suites
         working-directory: plugins/estate-hooks/tests
         run: |
           set -euo pipefail
