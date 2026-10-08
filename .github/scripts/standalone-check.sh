@@ -18,6 +18,8 @@
 set -euo pipefail
 
 WL_CHECKOUT="${1:?usage: standalone-check.sh <path-to-this-repo>}"
+# This script creates fixture repos and must not inherit the author's Git state.
+source "$WL_CHECKOUT/plugins/estate-hooks/tests/lib/fixture-env.sh"
 FAIL=0
 
 # A real installed plugin cache has no .git anywhere in its ancestry — `git
@@ -37,7 +39,7 @@ cp -a "$WL_CHECKOUT/plugins" "$WL_ROOT/plugins"
 # the real machine install. Exported for every check below.
 export XDG_CONFIG_HOME="$WL_ROOT/xdg"
 mkdir -p "$XDG_CONFIG_HOME/gitleaks"
-cat > "$XDG_CONFIG_HOME/gitleaks/operator-rules.toml" <<'EOF'
+cat >"$XDG_CONFIG_HOME/gitleaks/operator-rules.toml" <<'EOF'
 title = "standalone-check fixture operator rules (fixed path)"
 [extend]
 useDefault = true
@@ -46,14 +48,14 @@ EOF
 trap 'rm -rf "$WL_ROOT"' EXIT
 
 check() { # <label> <status:0|1> [detail...]
-    local label="$1" status="$2"
-    shift 2
-    if [[ "$status" -eq 0 ]]; then
-        echo "OK: $label"
-    else
-        echo "STANDALONE-CHECK FAIL: $label${*:+ — $*}"
-        FAIL=1
-    fi
+	local label="$1" status="$2"
+	shift 2
+	if [[ "$status" -eq 0 ]]; then
+		echo "OK: $label"
+	else
+		echo "STANDALONE-CHECK FAIL: $label${*:+ — $*}"
+		FAIL=1
+	fi
 }
 
 # ---------------------------------------------------------------------------
@@ -64,19 +66,19 @@ check() { # <label> <status:0|1> [detail...]
 GUARD="$WL_ROOT/plugins/estate-hooks/hooks/gh-pr-body-guard.sh"
 scratch_repo="$(mktemp -d)"
 git -C "$scratch_repo" init -q
-echo "standalone-check scratch body, no secrets" > "$scratch_repo/body.md"
+echo "standalone-check scratch body, no secrets" >"$scratch_repo/body.md"
 payload="$(printf '{"cwd":"%s","tool_name":"Bash","tool_input":{"command":"gh pr create --title standalone-check --body-file body.md"}}' "$scratch_repo")"
 if [[ -x "$GUARD" ]]; then
-    if printf '%s' "$payload" | bash "$GUARD" >/tmp/standalone-guard-out.$$ 2>&1; then
-        check "gh-pr-body-guard.sh scans a config-less repo via the fixed-path ruleset" 0
-    else
-        check "gh-pr-body-guard.sh scans a config-less repo via the fixed-path ruleset" 1 \
-            "$(tail -n 5 /tmp/standalone-guard-out.$$ | tr '\n' '|')"
-    fi
-    rm -f /tmp/standalone-guard-out.$$
+	if printf '%s' "$payload" | bash "$GUARD" >/tmp/standalone-guard-out.$$ 2>&1; then
+		check "gh-pr-body-guard.sh scans a config-less repo via the fixed-path ruleset" 0
+	else
+		check "gh-pr-body-guard.sh scans a config-less repo via the fixed-path ruleset" 1 \
+			"$(tail -n 5 /tmp/standalone-guard-out.$$ | tr '\n' '|')"
+	fi
+	rm -f /tmp/standalone-guard-out.$$
 else
-    check "gh-pr-body-guard.sh scans a config-less repo via the fixed-path ruleset" 1 \
-        "missing or not executable at $GUARD"
+	check "gh-pr-body-guard.sh scans a config-less repo via the fixed-path ruleset" 1 \
+		"missing or not executable at $GUARD"
 fi
 rm -rf "$scratch_repo"
 
@@ -86,24 +88,24 @@ rm -rf "$scratch_repo"
 # ---------------------------------------------------------------------------
 TC_WRAPPER="$WL_ROOT/plugins/core/skills/traffic-cone/scripts/traffic-cone"
 if [[ -f "$TC_WRAPPER" ]]; then
-    if PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v 'bin/dotty' | tr '\n' ':')" \
-        python3 "$TC_WRAPPER" --help >/tmp/standalone-tc-out.$$ 2>&1; then
-        check "traffic-cone wrapper resolves its scripts with dotty stripped from PATH" 0
-    else
-        check "traffic-cone wrapper resolves its scripts with dotty stripped from PATH" 1 \
-            "$(tail -n 5 /tmp/standalone-tc-out.$$ | tr '\n' '|')"
-    fi
-    rm -f /tmp/standalone-tc-out.$$
+	if PATH="$(printf '%s' "$PATH" | tr ':' '\n' | grep -v 'bin/dotty' | tr '\n' ':')" \
+		python3 "$TC_WRAPPER" --help >/tmp/standalone-tc-out.$$ 2>&1; then
+		check "traffic-cone wrapper resolves its scripts with dotty stripped from PATH" 0
+	else
+		check "traffic-cone wrapper resolves its scripts with dotty stripped from PATH" 1 \
+			"$(tail -n 5 /tmp/standalone-tc-out.$$ | tr '\n' '|')"
+	fi
+	rm -f /tmp/standalone-tc-out.$$
 else
-    check "traffic-cone wrapper resolves its scripts with dotty stripped from PATH" 1 \
-        "missing at $TC_WRAPPER"
+	check "traffic-cone wrapper resolves its scripts with dotty stripped from PATH" 1 \
+		"missing at $TC_WRAPPER"
 fi
 
 if [[ "$FAIL" -ne 0 ]]; then
-    echo
-    echo "STANDALONE CHECK FAILED — a packaged copy depends on something dotty"
-    echo "supplies that this repo's own cache does not."
-    exit 1
+	echo
+	echo "STANDALONE CHECK FAILED — a packaged copy depends on something dotty"
+	echo "supplies that this repo's own cache does not."
+	exit 1
 fi
 
 echo

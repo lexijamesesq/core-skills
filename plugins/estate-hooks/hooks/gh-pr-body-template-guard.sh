@@ -1,20 +1,9 @@
 #!/usr/bin/env bash
 # gh-pr-body-template-guard.sh — FAIL-CLOSED PreToolUse guard that runs the
 # estate's PR-body TEMPLATE check on a `gh pr create` / `gh pr edit` body
-# BEFORE the command runs — the same structural check CI's required
-# pr-body-check gate runs on the PR once it exists.
-#
-# WHY LOCAL: the template check was the single biggest cause of PR-check
-# failure in the estate, and it failed on GitHub, after the PR was open,
-# where the session that opened the PR never looks (it creates and hopes).
-# Moving the check in front of `gh pr create` turns a red check nobody reads
-# into a block the session must fix before the PR exists. The verdict is
-# the checker's own: hooks/pr-body-check.py is a BYTE-IDENTICAL copy of
-# dotty's .github/scripts/pr-body-check.py, copied from lexijamesesq/dotty
-# main at commit 864b24a92b58cbfd22e836359de34f2c890eada1 (2026-09-25); a drift
-# audit compares bytes — never edit it here, re-copy it from dotty. What
-# passes here passes CI, and what CI rejects is rejected here, by the same
-# code.
+# BEFORE the command runs. The parser is dotty's .github/scripts/pr-body-check.py,
+# packaged byte-identically here and checked by .github/scripts/drift-check.sh.
+# Its local file/stdin and legacy event interfaces share one validator.
 #
 # THE TEMPLATE is the repository's own .github/pull_request_template.md —
 # the one the provisioner installs in every enrolled repo — located from the
@@ -74,9 +63,8 @@
 #     to publish a PR                            -> BLOCK (EXIT trap; see it)
 # The body is never echoed: the block quotes only the checker's own
 # diagnostic lines, which name headings and template placeholders, never
-# body content. The body reaches the checker through a JSON event file
-# written with `jq -n --arg` (the checker reads $GITHUB_EVENT_PATH, as it
-# does in CI), never interpolated into a command.
+# body content. The checker reads the exact body file or a literal temporary
+# input for an inline body; body text is never interpolated into a command.
 #
 # SELF-SCOPE: registered with no `"if"` prefilter (the rule is
 # gh-scope-common.sh's) — `gh pr create` / `gh pr edit` in command position, gh bare, by
@@ -158,9 +146,10 @@ ORIG_CWD="$(printf '%s' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)"
 # died without output. The EXIT trap converts every exit that is not 0 or
 # 2 into a BLOCK naming the abort; `exit` inside an EXIT trap overrides
 # the status.
-EVENT=""
+BODY_PATH=""
+BODY_INPUT=""
 ERRF=""
-trap 'rc=$?; rm -f "$EVENT" "$ERRF" 2>/dev/null || true
+trap 'rc=$?; rm -f "$BODY_INPUT" "$ERRF" 2>/dev/null || true
 	if [[ "$rc" -ne 0 && "$rc" -ne 2 ]]; then
 		gl_block "PR-template-guard BLOCKED: the guard aborted before reaching a verdict (exit $rc)" \
 			"An unexpected error inside the guard is not a pass. (Fail-closed.)"
@@ -356,7 +345,7 @@ case "$ex_rc" in
 		"after that line is lost) and this guard cannot vouch for what remains." \
 		"Choose a delimiter that does not appear in the body on its own line," \
 		"or write the body to a file and pass --body-file <path>." \
-		"This is the same check CI runs; fix the body before \`gh pr create\`"
+		"This is the shared local check; fix the body before \`gh pr create\`"
 	;;
 5) block "PR-template-guard BLOCKED: the PR subcommand could not be determined" \
 	"The command looks like a 'gh pr create' / 'gh pr edit' but its tokens do" \
@@ -382,7 +371,7 @@ if [[ "$HAS_BODY" != "true" ]]; then
 		"section filled; gh's own fill never produces that, so CI would reject" \
 		"the PR. Write the body from $TEMPLATE_REL and pass it with" \
 		"--body-file <path> (or --body \"<text>\")." \
-		"This is the same check CI runs; fix the body before \`gh pr create\`"
+		"This is the shared local check; fix the body before \`gh pr create\`"
 fi
 
 if [[ -n "$INDET" ]]; then
@@ -393,7 +382,7 @@ if [[ -n "$INDET" ]]; then
 		"(Fail-closed: an unreadable body is not a pass.)" \
 		"Write the body to a file first, then pass --body-file <path>, or use" \
 		"--body \"\$(cat <<'EOF' ... EOF)\" with the delimiter QUOTED." \
-		"This is the same check CI runs; fix the body before \`gh pr create\`"
+		"This is the shared local check; fix the body before \`gh pr create\`"
 fi
 
 # The body text: inline, or the body file's contents (resolved where gh runs).
@@ -415,14 +404,13 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# RUN THE CHECKER exactly as CI does: the body in a JSON event file at
-# $GITHUB_EVENT_PATH, the template by path. Written with jq --arg — the
-# body is data and is never interpolated into a command.
+# RUN THE SHARED CHECKER through its local body-file interface. For --body-file
+# use the exact file gh will read; inline bodies become literal temporary data.
 # ---------------------------------------------------------------------------
-EVENT="$(mktemp)"
+BODY_INPUT="$(mktemp)"
 ERRF="$(mktemp)"
-jq -n --arg body "$BODY" '{pull_request: {body: $body}}' >"$EVENT" 2>/dev/null || block \
-	"PR-template-guard BLOCKED: could not write the event payload" \
+printf '%s' "$BODY" >"$BODY_INPUT" 2>/dev/null || block \
+	"PR-template-guard BLOCKED: could not write the body input" \
 	"The body could not be handed to the checker. (Fail-closed.)"
 
 # THE CHECKER'S EXIT CODE IS THE VERDICT: 0 passes; 1 blocks quoting its
@@ -433,7 +421,7 @@ jq -n --arg body "$BODY" '{pull_request: {body: $body}}' >"$EVENT" 2>/dev/null |
 # an array: an empty array expands as an unbound variable on bash 3.2 under
 # set -u — the abort the EXIT trap above now also catches).
 rc=0
-GITHUB_EVENT_PATH="$EVENT" python3 "$CHECKER" --template "$TEMPLATE" >/dev/null 2>"$ERRF" || rc=$?
+python3 "$CHECKER" --template "$TEMPLATE" --body-file "${BODY_PATH:-$BODY_INPUT}" >/dev/null 2>"$ERRF" || rc=$?
 
 CHECKER_OUT="(the checker printed nothing)"
 if [[ -s "$ERRF" ]]; then
@@ -462,7 +450,7 @@ case "$rc" in
 		"" \
 		"$@" \
 		"" \
-		"This is the same check CI runs; fix the body before \`gh pr create\`"
+		"This is the shared local check; fix the body before \`gh pr create\`"
 	;;
 *)
 	while IFS= read -r -d '' line; do
@@ -475,7 +463,7 @@ case "$rc" in
 		"run' (2) — so the body was NOT checked. Its output, if any:" \
 		"$@" \
 		"A checker that did not complete is not a pass. (Fail-closed.)" \
-		"This is the same check CI runs; fix the body before \`gh pr create\`"
+		"This is the shared local check; fix the body before \`gh pr create\`"
 	;;
 esac
 # Not reached: every branch above exits. The EXIT trap blocks anything else.

@@ -111,15 +111,16 @@ fi
 	fail "the estate credential helper $EXPECT_CRED_HELPER is missing or not executable"
 
 # A `git push` additionally requires the native pre-push scanner installed in
-# the current repo (the pre-commit shim at .git/hooks/pre-push). No global
-# templatedir/hooksPath exists, so a fresh clone has none until installed;
+# the current repo (the pre-commit shim at Git's effective hook path).
+# Clones and linked worktrees must resolve the same installed hook owner;
 # refusing here makes "the push was scanned" a real invariant.
 if [[ "$uses_git" == 1 && "$LOWER" =~ (^|$BND)push($|$BND) ]]; then
-	toplevel=$(git rev-parse --show-toplevel 2>/dev/null || true)
+	checkout=$(jq -r '.cwd // "."' <<<"$INPUT")
+	toplevel=$(git -C "$checkout" rev-parse --show-toplevel 2>/dev/null || true)
 	if [[ -n "$toplevel" ]]; then
-		hook="$toplevel/.git/hooks/pre-push"
-		[[ -f "$hook" ]] ||
-			fail "the pre-push scanner hook is not installed in $toplevel (.git/hooks/pre-push absent) — run 'pre-commit install --install-hooks'. A push must be scanned before it uploads."
+		hook=$(git -C "$toplevel" rev-parse --path-format=absolute --git-path hooks/pre-push)
+		[[ -x "$hook" ]] ||
+			fail "the pre-push scanner hook is not installed in $toplevel ($hook absent or not executable) — run dotty's scripts/prepare-checkout.sh for this checkout. A push must be scanned before it uploads."
 		grep -q "pre-commit" "$hook" 2>/dev/null ||
 			fail "the pre-push hook in $toplevel is not the pre-commit scanner shim (no pre-commit marker)"
 	fi

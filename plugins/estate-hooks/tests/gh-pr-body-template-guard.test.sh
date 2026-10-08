@@ -191,7 +191,7 @@ section "missing marker -> BLOCK with the checker's line"
 run_hook "$(mkjson "$(cmd_body gh create "$NO_MARKER_BODY")" "$REPO")"
 assert_eq "missing marker exits 2 (block)" "2" "$RC"
 grep -q "missing the \`<!-- pr-body:v1 -->\` marker as the first line" "$ERRFILE" && pass "quotes the checker's marker line" || fail "quotes the checker's marker line" "$(cat "$ERRFILE")"
-grep -q "This is the same check CI runs; fix the body before \`gh pr create\`" "$ERRFILE" && pass "ends with the CI-parity line" || fail "ends with the CI-parity line" "$(cat "$ERRFILE")"
+grep -q "This is the shared local check; fix the body before \`gh pr create\`" "$ERRFILE" && pass "ends with the shared-check guidance" || fail "ends with the shared-check guidance" "$(cat "$ERRFILE")"
 grep -q "PR-template-guard BLOCKED" "$ERRFILE" && pass "block title in gl_block format" || fail "block title in gl_block format" "$(cat "$ERRFILE")"
 body_not_echoed "missing marker"
 
@@ -233,7 +233,7 @@ for c in 'gh pr create --fill' 'gh pr create -f' 'gh pr create --fill-first' 'gh
 done
 grep -q "no PR body" "$ERRFILE" && pass "names the missing body" || fail "names the missing body" "$(cat "$ERRFILE")"
 grep -q "\-\-body-file <path>" "$ERRFILE" && pass "gives the remediation" || fail "gives the remediation" "$(cat "$ERRFILE")"
-grep -q "This is the same check CI runs" "$ERRFILE" && pass "ends with the CI-parity line" || fail "ends with the CI-parity line" "$(cat "$ERRFILE")"
+grep -q "This is the shared local check" "$ERRFILE" && pass "ends with the shared-check guidance" || fail "ends with the shared-check guidance" "$(cat "$ERRFILE")"
 
 section "'gh pr edit' without a body flag -> PASS (nothing to check)"
 for c in 'gh pr edit 12 --title "t"' 'gh pr edit 12 --add-label x' '/opt/estate/bin/gh pr edit 12 --add-reviewer a' '$GH pr edit --title t'; do
@@ -468,10 +468,12 @@ RC=$?
 assert_eq "checker absent exits 2 (block)" "2" "$RC"
 grep -q "vendored checker is missing" "$ERRFILE" && pass "names the missing checker" || fail "names the missing checker" "$(cat "$ERRFILE")"
 
-section "vendored checker provenance is recorded in the guard's header (dotty path + 40-hex commit)"
-grep -q "dotty's .github/scripts/pr-body-check.py" "$HOOK" && pass "header names the dotty path" || fail "header names the dotty path" "absent"
-grep -qE "lexijamesesq/dotty" "$HOOK" && grep -qE "commit [0-9a-f]{40}" "$HOOK" && pass "header names the repo and a 40-hex commit sha" || fail "header names the repo and a 40-hex commit sha" "absent"
-[[ ! -e "${SCRIPT_DIR}/../hooks/pr-body-check.SOURCE" ]] && pass "no .SOURCE note-file (provenance lives in the header and README)" || fail "no .SOURCE note-file" "present"
+section "An inherited BODY_PATH cannot redirect an inline body check"
+printf '%s' "$GOOD_BODY" >"$TMP/unrelated-valid-body"
+export BODY_PATH="$TMP/unrelated-valid-body"
+run_hook "$(mkjson "$(cmd_body gh create 'invalid inline body')" "$REPO")"
+assert_eq "inline invalid body is checked despite inherited BODY_PATH" 2 "$RC"
+unset BODY_PATH
 
 # ============================================================================
 # Out of scope.
