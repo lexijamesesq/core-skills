@@ -3,7 +3,7 @@
 # estate identity baseline, gated on enrollment being a DISK fact.
 #
 # Two invariants matter most here and are both tested:
-#  1. NOT ENROLLED -> personal pushes block, but reads/bootstrap stay available.
+#  1. NOT ENROLLED -> Claude pushes across profiles block, but reads/bootstrap stay available.
 #  2. ENROLLED but the baseline is wrong -> the guard blocks (the bad-relaunch
 #     case). Every break is one flipped value on an otherwise-good baseline.
 #
@@ -59,7 +59,7 @@ allows() {
 	assert_eq "allow: $1 ${*:2}" "0" "$RC"
 }
 
-section "Enrollment gate — personal pushes need enrollment; reads and setup stay available"
+section "Enrollment gate — all Claude profiles need enrollment to push"
 mv "$CE/estate-mode.gitconfig" "$SCRATCH/estate-mode.gitconfig.bak"
 allows 'git status'
 allows 'gh pr create'
@@ -67,7 +67,12 @@ blocks 'git push origin main'
 blocks 'git -C /fixture push origin main'
 allows 'bash scripts/prepare-checkout.sh'
 allows 'git clone https://github.com/lexijamesesq/core-skills.git'
-allows 'git push origin main' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
+blocks 'git push origin main' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
+blocks 'git push origin main' CLAUDE_CONFIG_DIR="$SCRATCH/.claude"
+blocks 'git push origin main' CLAUDE_CONFIG_DIR=""
+allows 'git status' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
+allows 'gh pr create' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
+allows 'bash scripts/prepare-checkout.sh' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
 allows 'git push origin main' CLAUDECODE=""
 mv "$SCRATCH/estate-mode.gitconfig.bak" "$CE/estate-mode.gitconfig"
 
@@ -75,6 +80,8 @@ section "Enrolled + good baseline is allowed"
 allows 'git status'
 allows 'gh pr list'
 allows 'git commit -m x'
+# Owner routing is independent of the personal estate identity environment.
+allows 'git push origin main' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional" GIT_CONFIG_GLOBAL="/owner-routing"
 
 section "Out of scope — no opinion"
 allows 'ls -la'

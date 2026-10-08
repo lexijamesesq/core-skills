@@ -13,10 +13,10 @@
 # ENROLLMENT IS A DISK FACT, NOT AN ENV FACT. The estate-identity blueprint
 # slice installs the estate gitconfig at a fixed path; until it does, this
 # machine is NOT enrolled. Reads and enrollment/bootstrap commands remain
-# available, but a personal-session git push requires enrollment. This retains
-# the former publishing guard's identity protection without requiring its
-# retired publishing helper. Once the file is present, the estate baseline MUST
-# be consistent --
+# available, but git push from any Claude profile requires enrollment. This
+# retains the former publishing guard's pre-enrollment scope without requiring
+# its retired publishing helper. Once enrolled, only personal sessions require
+# the estate baseline to be consistent --
 # the file present with the env missing is exactly the bad-relaunch case to
 # block, not to wave through.
 #
@@ -27,8 +27,9 @@
 # file exists; the estate PATH dir holds exactly one entry, `gh`, a symlink to
 # the adapter. Those are true iff the wiring was actually delivered.
 #
-# Scope: personal-profile sessions only (professional is owner-routed by the
-# adapter and the ~/.gitconfig includeIf; her terminal is her own).
+# Scope: pre-enrollment push refusal covers all Claude profiles. Enrolled
+# identity enforcement is personal-only; professional remains owner-routed by
+# the adapter and ~/.gitconfig includeIf. Her terminal is her own.
 # Fail-open on infra errors (no jq, unreadable input, non-Bash tool).
 
 set -uo pipefail
@@ -43,7 +44,6 @@ CMD=$(jq -r '.tool_input.command // empty' <<<"$INPUT" 2>/dev/null)
 [[ -z "$CMD" ]] && exit 0
 
 [[ "${CLAUDECODE:-}" == "1" ]] || exit 0
-[[ "$(basename "${CLAUDE_CONFIG_DIR:-}")" == ".claude-personal" ]] || exit 0
 
 LOWER=$(tr '[:upper:]' '[:lower:]' <<<"$CMD")
 BND="[[:space:];&|\"'()]"
@@ -63,15 +63,18 @@ EXPECT_ADAPTER="$HOME/.config/op-agent/bin/gh"
 EXPECT_CRED_HELPER="$HOME/.config/op-agent/bin/git-credential-estate"
 BOT_EMAIL="325510841+claude-the-enduring[bot]@users.noreply.github.com"
 
-# Preserve pre-enrollment personal push protection; reads and setup remain
-# available. Professional/human sessions already returned above.
+# Preserve the former guard's pre-enrollment push protection across Claude
+# profiles; reads and setup remain available. Human sessions returned above.
 if [[ ! -f "$EXPECT_GITCONFIG" ]]; then
 	if [[ "$uses_git" == 1 && "$LOWER" =~ (^|$BND)push($|$BND) ]]; then
-		echo "estate-identity-guard: BLOCKED — enroll this personal session in estate identity and prepare the checkout before git push; ordinary native pushes are supported after setup." >&2
+		echo "estate-identity-guard: BLOCKED — enroll this machine in estate identity and prepare the checkout before git push; ordinary native pushes are supported after setup." >&2
 		exit 2
 	fi
 	exit 0
 fi
+
+# Enrolled professional sessions retain their existing owner routing.
+[[ "$(basename "${CLAUDE_CONFIG_DIR:-}")" == ".claude-personal" ]] || exit 0
 
 fail() {
 	{

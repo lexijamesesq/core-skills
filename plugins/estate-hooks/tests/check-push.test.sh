@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # Exercise the shipped selector in a disposable Git repo with stubbed child duties.
+# Python keeps the Git fixture and subprocess assertions together, following the
+# Dotty selector fixture this suite was adapted from; shell owns env isolation.
+# Run: bash plugins/estate-hooks/tests/check-push.test.sh
 set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source "$HERE/lib/fixture-env.sh"
