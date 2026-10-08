@@ -398,7 +398,6 @@ if [[ -n "$BODY_FILE" ]]; then
 		"gh would read this file as the PR body, but it does not exist or is" \
 		"not readable from here, so its contents cannot be checked." \
 		"Fail-closed: fix the path (or run from where it resolves) and retry."
-	BODY="$(cat "$BODY_PATH")"
 else
 	BODY="$(printf '%s' "$EXTRACT" | jq -r '.body // empty')"
 fi
@@ -407,11 +406,13 @@ fi
 # RUN THE SHARED CHECKER through its local body-file interface. For --body-file
 # use the exact file gh will read; inline bodies become literal temporary data.
 # ---------------------------------------------------------------------------
-BODY_INPUT="$(mktemp)"
+if [[ -z "$BODY_PATH" ]]; then
+	BODY_INPUT="$(mktemp)"
+	printf '%s' "$BODY" >"$BODY_INPUT" 2>/dev/null || block \
+		"PR-template-guard BLOCKED: could not write the body input" \
+		"The body could not be handed to the checker. (Fail-closed.)"
+fi
 ERRF="$(mktemp)"
-printf '%s' "$BODY" >"$BODY_INPUT" 2>/dev/null || block \
-	"PR-template-guard BLOCKED: could not write the body input" \
-	"The body could not be handed to the checker. (Fail-closed.)"
 
 # THE CHECKER'S EXIT CODE IS THE VERDICT: 0 passes; 1 blocks quoting its
 # lines; ANY other code — 2 (could not run), a kill signal (137/143), a

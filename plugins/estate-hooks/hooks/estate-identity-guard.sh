@@ -12,10 +12,11 @@
 #
 # ENROLLMENT IS A DISK FACT, NOT AN ENV FACT. The estate-identity blueprint
 # slice installs the estate gitconfig at a fixed path; until it does, this
-# machine is NOT enrolled and this guard has NO opinion. That ordering is what
-# makes it safe to ship this plugin BEFORE the operator enrolls (applies the
-# slice + settings and relaunches): an unenrolled personal session is not
-# blocked. Once the file is present, the estate baseline MUST be consistent --
+# machine is NOT enrolled. Reads and enrollment/bootstrap commands remain
+# available, but a personal-session git push requires enrollment. This retains
+# the former publishing guard's identity protection without requiring its
+# retired publishing helper. Once the file is present, the estate baseline MUST
+# be consistent --
 # the file present with the env missing is exactly the bad-relaunch case to
 # block, not to wave through.
 #
@@ -62,9 +63,15 @@ EXPECT_ADAPTER="$HOME/.config/op-agent/bin/gh"
 EXPECT_CRED_HELPER="$HOME/.config/op-agent/bin/git-credential-estate"
 BOT_EMAIL="325510841+claude-the-enduring[bot]@users.noreply.github.com"
 
-# Enrollment gate: not enrolled -> no opinion (so shipping this before
-# enrollment cannot brick a session).
-[[ -f "$EXPECT_GITCONFIG" ]] || exit 0
+# Preserve pre-enrollment personal push protection; reads and setup remain
+# available. Professional/human sessions already returned above.
+if [[ ! -f "$EXPECT_GITCONFIG" ]]; then
+	if [[ "$uses_git" == 1 && "$LOWER" =~ (^|$BND)push($|$BND) ]]; then
+		echo "estate-identity-guard: BLOCKED — enroll this personal session in estate identity and prepare the checkout before git push; ordinary native pushes are supported after setup." >&2
+		exit 2
+	fi
+	exit 0
+fi
 
 fail() {
 	{
