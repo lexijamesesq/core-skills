@@ -1,5 +1,5 @@
 {
-  "description": "Estate hooks: the thirteen Claude Code hook scripts the estate registers, packaged as a plugin. The PR hooks carry no `if` prefilter: a `Bash(gh pr *)` prefilter drops every wrapper-path or variable-held gh command before the hook runs, so each PR hook self-scopes and exits fast instead.",
+  "description": "Estate lifecycle hooks for Claude Code, packaged as a plugin. The PR hooks carry no `if` prefilter: a `Bash(gh pr *)` prefilter drops every wrapper-path or variable-held gh command before the hook runs, so each PR hook self-scopes and exits fast instead.",
   "hooks": {
     "PostToolUse": [
       {
@@ -38,11 +38,6 @@
           },
           {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-hook-bypass-guard.sh",
-            "timeout": 5,
-            "type": "command"
-          },
-          {
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-push-publish-guard.sh",
             "timeout": 5,
             "type": "command"
           },
@@ -90,7 +85,7 @@
           },
           {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
-            "timeout": 5,
+            "timeout": 300,
             "type": "command"
           },
           {
@@ -110,7 +105,7 @@
         "hooks": [
           {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
-            "timeout": 5,
+            "timeout": 300,
             "type": "command"
           },
           {

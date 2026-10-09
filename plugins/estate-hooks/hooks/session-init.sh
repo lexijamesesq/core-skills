@@ -4,6 +4,7 @@
 # SessionStart hook: bootstraps per-session state.
 #   - Ensures ~/.cache/claude/ exists with 0700 permissions
 #   - Warns if VAULT_ROOT is unset inside what looks like a vault
+#   - Prepares native checks in enrolled estate checkouts (HA stays excluded)
 #
 # Tolerant: failures here would block all sessions. Stderr-warn but exit 0.
 
@@ -37,6 +38,25 @@ if [[ -z "${VAULT_ROOT:-}" && -n "$SESSION_CWD" ]]; then
 		fi
 		d="$(dirname "$d")"
 	done
+fi
+
+# Run the shared local readiness helper before authoring. Scope by the current
+# checkout's remote, not the plugin cache; unrelated projects have their own setup.
+if [[ -n "$SESSION_CWD" ]] && command -v git >/dev/null 2>&1; then
+	checkout=$(git -C "$SESSION_CWD" rev-parse --show-toplevel 2>/dev/null || true)
+	remote=$(git -C "$SESSION_CWD" remote get-url origin 2>/dev/null || true)
+	remote=${remote%/}
+	case "$remote" in
+	https://github.com/lexijamesesq/home-assistant | https://github.com/lexijamesesq/home-assistant.git | git@github.com:lexijamesesq/home-assistant | git@github.com:lexijamesesq/home-assistant.git) ;;
+	https://github.com/lexijamesesq/* | git@github.com:lexijamesesq/*)
+		helper="${DOTTY_CHECKOUT:-$HOME/bin/dotty}/scripts/prepare-checkout.sh"
+		if [[ ! -x "$helper" ]] || ! bash "$helper" "$checkout" >&2; then
+			jq -n --arg helper "$helper" '{hookSpecificOutput: {
+					hookEventName: "SessionStart", additionalContext:
+					("Checkout readiness is incomplete. Run " + $helper + " for this checkout and resolve its failure before authoring. Do not bypass hooks; use root AGENTS.md for the common contract.")}}'
+		fi
+		;;
+	esac
 fi
 
 exit 0

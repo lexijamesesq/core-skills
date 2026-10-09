@@ -5,7 +5,6 @@
     "pr-verdict-watch-arm.sh",
     "vault-mcp-redirect.sh",
     "git-hook-bypass-guard.sh",
-    "git-push-publish-guard.sh",
     "gh-pr-body-guard.sh",
     "gh-pr-body-template-guard.sh",
     "security-review-reminder.sh",

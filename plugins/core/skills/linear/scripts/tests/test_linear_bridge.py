@@ -13,6 +13,7 @@ ambiguous-operator refusal. `time.sleep` is patched out during retry tests
 so the suite stays fast — the retry *count* and *backoff schedule* are
 asserted directly instead of timed.
 """
+
 import json
 import os
 import sys
@@ -23,7 +24,9 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import linear_bridge as lb
 
-STUB_BRIDGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures", "stub_bridge.py")
+STUB_BRIDGE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "fixtures", "stub_bridge.py"
+)
 STUB_CMD = [sys.executable, STUB_BRIDGE]
 
 
@@ -112,12 +115,14 @@ class LintBodyTests(unittest.TestCase):
 class LintBodyCliTests(unittest.TestCase):
     def test_clean_input_via_stdin(self):
         import io
+
         with patch("sys.stdin", io.StringIO("nothing to escape here")):
             code = lb.main(["lint-body"])
         self.assertEqual(code, lb.EXIT_OK)
 
     def test_violation_input_exits_one(self):
         import io
+
         with patch("sys.stdin", io.StringIO("hey @linear look at this")):
             code = lb.main(["lint-body"])
         self.assertEqual(code, 1)
@@ -151,9 +156,11 @@ class ResolveBridgeCmdTests(unittest.TestCase):
 
 class RunGraphqlSuccessTests(unittest.TestCase):
     def setUp(self):
-        self.counter = script_responses([
-            {"stdout": {"data": {"viewer": {"id": "actor-1"}}}, "returncode": 0},
-        ])
+        self.counter = script_responses(
+            [
+                {"stdout": {"data": {"viewer": {"id": "actor-1"}}}, "returncode": 0},
+            ]
+        )
 
     def test_success_returns_parsed_data(self):
         result = lb.run_graphql(STUB_CMD, "query { viewer { id } }")
@@ -163,17 +170,28 @@ class RunGraphqlSuccessTests(unittest.TestCase):
 
 class RunGraphqlAuthFailureTests(unittest.TestCase):
     def test_auth_error_message_raises_immediately_no_retry(self):
-        counter = script_responses([
-            {"stdout": {"errors": [{"message": "Unauthorized: invalid token"}]}, "returncode": 1},
-        ])
+        counter = script_responses(
+            [
+                {
+                    "stdout": {"errors": [{"message": "Unauthorized: invalid token"}]},
+                    "returncode": 1,
+                },
+            ]
+        )
         with self.assertRaises(lb.BridgeAuthError):
             lb.run_graphql(STUB_CMD, "query { viewer { id } }")
         self.assertEqual(call_count(counter), 1, "auth failures must not retry")
 
     def test_stderr_401_pattern_raises_auth_error(self):
-        counter = script_responses([
-            {"stdout": "", "stderr": "curl: (22) The requested URL returned error: 401", "returncode": 22},
-        ])
+        counter = script_responses(
+            [
+                {
+                    "stdout": "",
+                    "stderr": "curl: (22) The requested URL returned error: 401",
+                    "returncode": 22,
+                },
+            ]
+        )
         with self.assertRaises(lb.BridgeAuthError):
             lb.run_graphql(STUB_CMD, "query { viewer { id } }")
         self.assertEqual(call_count(counter), 1)
@@ -181,9 +199,14 @@ class RunGraphqlAuthFailureTests(unittest.TestCase):
 
 class RunGraphqlGraphQLErrorTests(unittest.TestCase):
     def test_graphql_level_error_raises_with_payload_echoed(self):
-        script_responses([
-            {"stdout": {"errors": [{"message": "Entity not found: Issue"}]}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {"errors": [{"message": "Entity not found: Issue"}]},
+                    "returncode": 0,
+                },
+            ]
+        )
         with self.assertRaises(lb.GraphQLAPIError) as cm:
             lb.run_graphql(STUB_CMD, 'query { issue(id: "bad-id") { id } }')
         self.assertIn("Entity not found", str(cm.exception))
@@ -195,49 +218,91 @@ class RunGraphqlTransientTests(unittest.TestCase):
     def test_scope_glitch_recovers_after_retries(self):
         """'App user not valid' is the existing /linear law's named transient
         scope failure — it must retry, not raise immediately."""
-        counter = script_responses([
-            {"stdout": {"errors": [{"message": "App user not valid"}]}, "returncode": 1},
-            {"stdout": {"errors": [{"message": "App user not valid"}]}, "returncode": 1},
-            {"stdout": {"data": {"viewer": {"id": "actor-1"}}}, "returncode": 0},
-        ])
-        with patch("linear_bridge.time.sleep") as mock_sleep:
+        counter = script_responses(
+            [
+                {
+                    "stdout": {"errors": [{"message": "App user not valid"}]},
+                    "returncode": 1,
+                },
+                {
+                    "stdout": {"errors": [{"message": "App user not valid"}]},
+                    "returncode": 1,
+                },
+                {"stdout": {"data": {"viewer": {"id": "actor-1"}}}, "returncode": 0},
+            ]
+        )
+        with patch("linear_bridge.time") as clock:
             result = lb.run_graphql(STUB_CMD, "query { viewer { id } }")
         self.assertEqual(result["data"]["viewer"]["id"], "actor-1")
         self.assertEqual(call_count(counter), 3)
-        self.assertEqual(mock_sleep.call_args_list[0].args[0], 1)
-        self.assertEqual(mock_sleep.call_args_list[1].args[0], 3)
+        self.assertEqual([call.args[0] for call in clock.sleep.call_args_list], [1, 3])
 
     def test_scope_glitch_exhausts_retries_and_raises_transient(self):
-        counter = script_responses([
-            {"stdout": {"errors": [{"message": "App user not valid"}]}, "returncode": 1},
-        ])  # every attempt replays this same failure (clamped index)
-        with patch("linear_bridge.time.sleep"), self.assertRaises(lb.TransientBridgeError):
+        counter = script_responses(
+            [
+                {
+                    "stdout": {"errors": [{"message": "App user not valid"}]},
+                    "returncode": 1,
+                },
+            ]
+        )  # every attempt replays this same failure (clamped index)
+        with (
+            patch("linear_bridge.time.sleep"),
+            self.assertRaises(lb.TransientBridgeError),
+        ):
             lb.run_graphql(STUB_CMD, "query { viewer { id } }")
         self.assertEqual(call_count(counter), 3, "1 initial attempt + 2 retries")
 
     def test_network_pattern_in_stderr_is_transient(self):
-        counter = script_responses([
-            {"stdout": "", "stderr": "curl: (6) Could not resolve host: api.linear.app", "returncode": 6},
-        ])
-        with patch("linear_bridge.time.sleep"), self.assertRaises(lb.TransientBridgeError):
+        counter = script_responses(
+            [
+                {
+                    "stdout": "",
+                    "stderr": "curl: (6) Could not resolve host: api.linear.app",
+                    "returncode": 6,
+                },
+            ]
+        )
+        with (
+            patch("linear_bridge.time.sleep"),
+            self.assertRaises(lb.TransientBridgeError),
+        ):
             lb.run_graphql(STUB_CMD, "query { viewer { id } }")
         self.assertEqual(call_count(counter), 3)
 
     def test_curl_transient_returncode_without_pattern_is_transient(self):
-        counter = script_responses([
-            {"stdout": "", "stderr": "some unrecognized curl output", "returncode": 28},
-        ])
-        with patch("linear_bridge.time.sleep"), self.assertRaises(lb.TransientBridgeError):
+        counter = script_responses(
+            [
+                {
+                    "stdout": "",
+                    "stderr": "some unrecognized curl output",
+                    "returncode": 28,
+                },
+            ]
+        )
+        with (
+            patch("linear_bridge.time.sleep"),
+            self.assertRaises(lb.TransientBridgeError),
+        ):
             lb.run_graphql(STUB_CMD, "query { viewer { id } }")
         self.assertEqual(call_count(counter), 3)
 
     def test_unrecognized_failure_shape_retries_then_surfaces_transient(self):
         """A failure this script can't classify never gets silently dropped —
         it is treated conservatively as transient (retried, then surfaced)."""
-        counter = script_responses([
-            {"stdout": "", "stderr": "mystery failure nobody has seen before", "returncode": 99},
-        ])
-        with patch("linear_bridge.time.sleep"), self.assertRaises(lb.TransientBridgeError) as cm:
+        counter = script_responses(
+            [
+                {
+                    "stdout": "",
+                    "stderr": "mystery failure nobody has seen before",
+                    "returncode": 99,
+                },
+            ]
+        )
+        with (
+            patch("linear_bridge.time.sleep"),
+            self.assertRaises(lb.TransientBridgeError) as cm,
+        ):
             lb.run_graphql(STUB_CMD, "query { viewer { id } }")
         self.assertIn("mystery failure", str(cm.exception))
         self.assertEqual(call_count(counter), 3)
@@ -248,7 +313,18 @@ class MainExitCodeTests(unittest.TestCase):
     each error class from run_graphql surfaces through the correct code."""
 
     def test_viewer_success_exit_zero(self):
-        script_responses([{"stdout": {"data": {"viewer": {"id": "actor-1", "name": "App", "email": "a@x"}}}, "returncode": 0}])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "viewer": {"id": "actor-1", "name": "App", "email": "a@x"}
+                        }
+                    },
+                    "returncode": 0,
+                }
+            ]
+        )
         code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "viewer"])
         self.assertEqual(code, lb.EXIT_OK)
 
@@ -258,17 +334,28 @@ class MainExitCodeTests(unittest.TestCase):
         self.assertEqual(code, lb.EXIT_CONFIG_GAP)
 
     def test_auth_failure_exit_three(self):
-        script_responses([{"stdout": {"errors": [{"message": "Forbidden"}]}, "returncode": 1}])
+        script_responses(
+            [{"stdout": {"errors": [{"message": "Forbidden"}]}, "returncode": 1}]
+        )
         code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "viewer"])
         self.assertEqual(code, lb.EXIT_AUTH)
 
     def test_graphql_error_exit_four(self):
-        script_responses([{"stdout": {"errors": [{"message": "Entity not found: Issue"}]}, "returncode": 0}])
+        script_responses(
+            [
+                {
+                    "stdout": {"errors": [{"message": "Entity not found: Issue"}]},
+                    "returncode": 0,
+                }
+            ]
+        )
         code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "issue", "ACR-999"])
         self.assertEqual(code, lb.EXIT_GRAPHQL)
 
     def test_transient_exhausted_exit_five(self):
-        script_responses([{"stdout": "", "stderr": "Connection refused", "returncode": 7}])
+        script_responses(
+            [{"stdout": "", "stderr": "Connection refused", "returncode": 7}]
+        )
         with patch("linear_bridge.time.sleep"):
             code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "viewer"])
         self.assertEqual(code, lb.EXIT_TRANSIENT)
@@ -280,22 +367,36 @@ class MainExitCodeTests(unittest.TestCase):
         for this exact case rather than resolving it unconditionally up
         front."""
         os.environ.pop("LINEAR_GQL_CMD", None)
-        code = lb.main([
-            "claim-write", "uuid-123",
-            "--state", "state-ip", "--delegate", "viewer-1",
-            "--dry-run",
-        ])
-        self.assertEqual(code, lb.EXIT_OK, "dry-run must succeed with zero bridge configuration")
+        code = lb.main(
+            [
+                "claim-write",
+                "uuid-123",
+                "--state",
+                "state-ip",
+                "--delegate",
+                "viewer-1",
+                "--dry-run",
+            ]
+        )
+        self.assertEqual(
+            code, lb.EXIT_OK, "dry-run must succeed with zero bridge configuration"
+        )
 
     def test_claim_write_without_dry_run_still_requires_bridge_cmd(self):
         """Companion case: a REAL claim-write (no --dry-run) must still
         refuse on a missing bridge command — the deferral is dry-run-only,
         not a blanket skip."""
         os.environ.pop("LINEAR_GQL_CMD", None)
-        code = lb.main([
-            "claim-write", "uuid-123",
-            "--state", "state-ip", "--delegate", "viewer-1",
-        ])
+        code = lb.main(
+            [
+                "claim-write",
+                "uuid-123",
+                "--state",
+                "state-ip",
+                "--delegate",
+                "viewer-1",
+            ]
+        )
         self.assertEqual(code, lb.EXIT_CONFIG_GAP)
 
 
@@ -304,115 +405,294 @@ class SubcommandShapeTests(unittest.TestCase):
     contract's JSON. Verified against the stub's echoed responses."""
 
     def test_issue_falls_back_to_team_number_filter_on_not_found(self):
-        counter = script_responses([
-            {"stdout": {"errors": [{"message": "Entity not found: Issue"}]}, "returncode": 0},
-            {"stdout": {"data": {"issues": {"nodes": [{"id": "uuid-1", "identifier": "ACR-12", "title": "T",
-                                                        "state": {"name": "Todo", "type": "unstarted"},
-                                                        "labels": {"nodes": []}, "parent": None,
-                                                        "delegate": None, "assignee": None,
-                                                        "team": {"key": "ACR"},
-                                                        "inverseRelations": {"nodes": []}}]}}}, "returncode": 0},
-        ])
+        counter = script_responses(
+            [
+                {
+                    "stdout": {"errors": [{"message": "Entity not found: Issue"}]},
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issues": {
+                                "nodes": [
+                                    {
+                                        "id": "uuid-1",
+                                        "identifier": "ACR-12",
+                                        "title": "T",
+                                        "state": {"name": "Todo", "type": "unstarted"},
+                                        "labels": {"nodes": []},
+                                        "parent": None,
+                                        "delegate": None,
+                                        "assignee": None,
+                                        "team": {"key": "ACR"},
+                                        "inverseRelations": {"nodes": []},
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         node = lb.resolve_issue_ref(STUB_CMD, "ACR-12")
         self.assertEqual(node["identifier"], "ACR-12")
         self.assertEqual(call_count(counter), 2)
 
     def test_claim_write_dry_run_never_calls_bridge(self):
-        counter = script_responses([
-            {"stdout": {"data": {}}, "returncode": 0},
-        ])
-        result = lb.claim_write(STUB_CMD, "uuid-1", "state-ip", "delegate-1", dry_run=True)
+        counter = script_responses(
+            [
+                {"stdout": {"data": {}}, "returncode": 0},
+            ]
+        )
+        result = lb.claim_write(
+            STUB_CMD, "uuid-1", "state-ip", "delegate-1", dry_run=True
+        )
         self.assertTrue(result["dry_run"])
         self.assertIn("mutation", result["mutation"])
         self.assertEqual(call_count(counter), 0, "dry-run must never invoke the bridge")
 
     def test_claim_write_detects_lost_race(self):
-        script_responses([
-            {"stdout": {"data": {"issueUpdate": {"success": True}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"id": "uuid-1", "delegate": {"id": "someone-else"},
-                                            "state": {"id": "state-ip", "name": "In Progress", "type": "started"},
-                                            "assignee": None}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {"data": {"issueUpdate": {"success": True}}},
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "id": "uuid-1",
+                                "delegate": {"id": "someone-else"},
+                                "state": {
+                                    "id": "state-ip",
+                                    "name": "In Progress",
+                                    "type": "started",
+                                },
+                                "assignee": None,
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.claim_write(STUB_CMD, "uuid-1", "state-ip", "delegate-1")
         self.assertTrue(result["race_lost"])
         self.assertFalse(result["verified"])
 
     def test_claim_write_verifies_clean_win(self):
-        script_responses([
-            {"stdout": {"data": {"issueUpdate": {"success": True}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"id": "uuid-1", "delegate": {"id": "delegate-1"},
-                                            "state": {"id": "state-ip", "name": "In Progress", "type": "started"},
-                                            "assignee": None}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {"data": {"issueUpdate": {"success": True}}},
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "id": "uuid-1",
+                                "delegate": {"id": "delegate-1"},
+                                "state": {
+                                    "id": "state-ip",
+                                    "name": "In Progress",
+                                    "type": "started",
+                                },
+                                "assignee": None,
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.claim_write(STUB_CMD, "uuid-1", "state-ip", "delegate-1")
         self.assertFalse(result["race_lost"])
         self.assertTrue(result["verified"])
 
     def test_release_delegate_verified_when_cleared(self):
-        script_responses([
-            {"stdout": {"data": {"issueUpdate": {"success": True}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"id": "uuid-1", "delegate": None}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {"data": {"issueUpdate": {"success": True}}},
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {"data": {"issue": {"id": "uuid-1", "delegate": None}}},
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.release_delegate(STUB_CMD, "uuid-1")
         self.assertTrue(result["verified"])
 
     def test_release_delegate_not_verified_when_still_set(self):
-        script_responses([
-            {"stdout": {"data": {"issueUpdate": {"success": True}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"id": "uuid-1", "delegate": {"id": "still-there"}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {"data": {"issueUpdate": {"success": True}}},
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {"id": "uuid-1", "delegate": {"id": "still-there"}}
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.release_delegate(STUB_CMD, "uuid-1")
         self.assertFalse(result["verified"])
 
     def test_resolve_state_caches_per_process(self):
         lb._STATE_CACHE.clear()
-        counter = script_responses([
-            {"stdout": {"data": {"workflowStates": {"nodes": [
-                {"id": "state-todo", "name": "Todo", "type": "unstarted"},
-                {"id": "state-ip", "name": "In Progress", "type": "started"},
-            ]}}}, "returncode": 0},
-        ])
+        counter = script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "workflowStates": {
+                                "nodes": [
+                                    {
+                                        "id": "state-todo",
+                                        "name": "Todo",
+                                        "type": "unstarted",
+                                    },
+                                    {
+                                        "id": "state-ip",
+                                        "name": "In Progress",
+                                        "type": "started",
+                                    },
+                                ]
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         first = lb.resolve_state(STUB_CMD, "ACR", "In Progress")
         second = lb.resolve_state(STUB_CMD, "ACR", "Todo")
         self.assertEqual(first["id"], "state-ip")
         self.assertEqual(second["id"], "state-todo")
-        self.assertEqual(call_count(counter), 1, "second lookup must hit the cache, not the bridge")
+        self.assertEqual(
+            call_count(counter), 1, "second lookup must hit the cache, not the bridge"
+        )
 
     def test_operator_ambiguous_raises_with_candidates(self):
-        script_responses([
-            {"stdout": {"data": {"users": {"nodes": [
-                {"id": "u1", "name": "A", "email": "a@x", "admin": True, "app": False},
-                {"id": "u2", "name": "B", "email": "b@x", "admin": True, "app": False},
-            ]}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "users": {
+                                "nodes": [
+                                    {
+                                        "id": "u1",
+                                        "name": "A",
+                                        "email": "a@x",
+                                        "admin": True,
+                                        "app": False,
+                                    },
+                                    {
+                                        "id": "u2",
+                                        "name": "B",
+                                        "email": "b@x",
+                                        "admin": True,
+                                        "app": False,
+                                    },
+                                ]
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         with self.assertRaises(lb.AmbiguousOperatorError) as cm:
             lb.resolve_operator(STUB_CMD)
         self.assertEqual(len(cm.exception.candidates), 2)
 
     def test_operator_single_non_app_admin_resolves(self):
-        script_responses([
-            {"stdout": {"data": {"users": {"nodes": [
-                {"id": "u1", "name": "A", "email": "a@x", "admin": True, "app": False},
-                {"id": "bot", "name": "Bot", "email": "bot@x", "admin": True, "app": True},
-            ]}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "users": {
+                                "nodes": [
+                                    {
+                                        "id": "u1",
+                                        "name": "A",
+                                        "email": "a@x",
+                                        "admin": True,
+                                        "app": False,
+                                    },
+                                    {
+                                        "id": "bot",
+                                        "name": "Bot",
+                                        "email": "bot@x",
+                                        "admin": True,
+                                        "app": True,
+                                    },
+                                ]
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.resolve_operator(STUB_CMD)
         self.assertEqual(result["id"], "u1")
 
     def test_children_pagination_guard_raises_on_malformed_page(self):
-        script_responses([
-            {"stdout": {"data": {"issues": {"nodes": [{"id": "c1"}]}}}, "returncode": 0},  # no pageInfo
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {"data": {"issues": {"nodes": [{"id": "c1"}]}}},
+                    "returncode": 0,
+                },  # no pageInfo
+            ]
+        )
         with self.assertRaises(RuntimeError):
             lb.fetch_children(STUB_CMD, "map-uuid-1")
 
     def test_children_pages_through_multiple_pages(self):
-        script_responses([
-            {"stdout": {"data": {"issues": {"nodes": [{"id": "c1"}],
-                                             "pageInfo": {"hasNextPage": True, "endCursor": "cursor-1"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issues": {"nodes": [{"id": "c2"}],
-                                             "pageInfo": {"hasNextPage": False, "endCursor": None}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issues": {
+                                "nodes": [{"id": "c1"}],
+                                "pageInfo": {
+                                    "hasNextPage": True,
+                                    "endCursor": "cursor-1",
+                                },
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issues": {
+                                "nodes": [{"id": "c2"}],
+                                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         nodes = lb.fetch_children(STUB_CMD, "map-uuid-1")
         self.assertEqual([n["id"] for n in nodes], ["c1", "c2"])
 
@@ -424,84 +704,233 @@ class CreateCommentTests(unittest.TestCase):
     verified against the issue's own comments."""
 
     def test_clean_body_posts_and_verifies(self):
-        script_responses([
-            {"stdout": {"data": {"commentCreate": {"success": True, "comment": {"id": "c-new-1"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"comments": {"nodes": [
-                {"id": "c-new-1", "body": "All clear here."},
-            ]}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "commentCreate": {
+                                "success": True,
+                                "comment": {"id": "c-new-1"},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "comments": {
+                                    "nodes": [
+                                        {"id": "c-new-1", "body": "All clear here."},
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.create_comment(STUB_CMD, "uuid-1", "All clear here.")
         self.assertTrue(result["verified"])
         self.assertEqual(result["comment_id"], "c-new-1")
 
     def test_bare_mention_refuses_before_any_network_call(self):
-        counter = script_responses([
-            {"stdout": {"data": {}}, "returncode": 0},
-        ])
+        counter = script_responses(
+            [
+                {"stdout": {"data": {}}, "returncode": 0},
+            ]
+        )
         with self.assertRaises(lb.LintViolationError) as cm:
             lb.create_comment(STUB_CMD, "uuid-1", "ping @linear about this")
         self.assertEqual(len(cm.exception.violations), 1)
-        self.assertEqual(call_count(counter), 0, "a lint violation must never reach the bridge")
+        self.assertEqual(
+            call_count(counter), 0, "a lint violation must never reach the bridge"
+        )
 
     def test_escaped_mention_is_clean_and_posts(self):
-        script_responses([
-            {"stdout": {"data": {"commentCreate": {"success": True, "comment": {"id": "c-new-2"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"comments": {"nodes": [
-                {"id": "c-new-2", "body": "ping `@linear` about this"},
-            ]}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "commentCreate": {
+                                "success": True,
+                                "comment": {"id": "c-new-2"},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "comments": {
+                                    "nodes": [
+                                        {
+                                            "id": "c-new-2",
+                                            "body": "ping `@linear` about this",
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.create_comment(STUB_CMD, "uuid-1", "ping `@linear` about this")
         self.assertTrue(result["verified"])
 
     def test_not_verified_when_readback_body_mismatches(self):
-        script_responses([
-            {"stdout": {"data": {"commentCreate": {"success": True, "comment": {"id": "c-new-3"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"comments": {"nodes": [
-                {"id": "c-new-3", "body": "different text somehow"},
-            ]}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "commentCreate": {
+                                "success": True,
+                                "comment": {"id": "c-new-3"},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "comments": {
+                                    "nodes": [
+                                        {
+                                            "id": "c-new-3",
+                                            "body": "different text somehow",
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.create_comment(STUB_CMD, "uuid-1", "original text")
         self.assertFalse(result["verified"])
 
     def test_not_verified_when_id_absent_from_readback(self):
-        script_responses([
-            {"stdout": {"data": {"commentCreate": {"success": True, "comment": {"id": "c-missing"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"comments": {"nodes": []}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "commentCreate": {
+                                "success": True,
+                                "comment": {"id": "c-missing"},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {"data": {"issue": {"comments": {"nodes": []}}}},
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.create_comment(STUB_CMD, "uuid-1", "text")
         self.assertFalse(result["verified"])
         self.assertIsNone(result["observed_body"])
 
     def test_cli_create_comment_reads_body_file(self):
         import tempfile
+
         fd, path = tempfile.mkstemp(suffix=".txt")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write("clean body from a file")
-            script_responses([
-                {"stdout": {"data": {"commentCreate": {"success": True, "comment": {"id": "c-cli-1"}}}}, "returncode": 0},
-                {"stdout": {"data": {"issue": {"comments": {"nodes": [
-                    {"id": "c-cli-1", "body": "clean body from a file"},
-                ]}}}}, "returncode": 0},
-            ])
-            code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "create-comment", "uuid-1", "--body-file", path])
+            script_responses(
+                [
+                    {
+                        "stdout": {
+                            "data": {
+                                "commentCreate": {
+                                    "success": True,
+                                    "comment": {"id": "c-cli-1"},
+                                }
+                            }
+                        },
+                        "returncode": 0,
+                    },
+                    {
+                        "stdout": {
+                            "data": {
+                                "issue": {
+                                    "comments": {
+                                        "nodes": [
+                                            {
+                                                "id": "c-cli-1",
+                                                "body": "clean body from a file",
+                                            },
+                                        ]
+                                    }
+                                }
+                            }
+                        },
+                        "returncode": 0,
+                    },
+                ]
+            )
+            code = lb.main(
+                [
+                    "--bridge-cmd",
+                    " ".join(STUB_CMD),
+                    "create-comment",
+                    "uuid-1",
+                    "--body-file",
+                    path,
+                ]
+            )
             self.assertEqual(code, lb.EXIT_OK)
         finally:
             os.unlink(path)
 
     def test_cli_create_comment_lint_violation_exits_six(self):
         import tempfile
+
         fd, path = tempfile.mkstemp(suffix=".txt")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write("hey @attack-kitty look at this")
-            code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "create-comment", "uuid-1", "--body-file", path])
+            code = lb.main(
+                [
+                    "--bridge-cmd",
+                    " ".join(STUB_CMD),
+                    "create-comment",
+                    "uuid-1",
+                    "--body-file",
+                    path,
+                ]
+            )
             self.assertEqual(code, lb.EXIT_LINT_VIOLATION)
         finally:
             os.unlink(path)
 
     def test_cli_create_comment_missing_body_file_is_config_gap(self):
-        code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "create-comment", "uuid-1", "--body-file", "/no/such/file.txt"])
+        code = lb.main(
+            [
+                "--bridge-cmd",
+                " ".join(STUB_CMD),
+                "create-comment",
+                "uuid-1",
+                "--body-file",
+                "/no/such/file.txt",
+            ]
+        )
         self.assertEqual(code, lb.EXIT_CONFIG_GAP)
 
 
@@ -511,37 +940,120 @@ class CreateRelationTests(unittest.TestCase):
     source side of the relation it just created)."""
 
     def test_relation_created_and_verified(self):
-        script_responses([
-            {"stdout": {"data": {"issueRelationCreate": {"success": True,
-                                                           "issueRelation": {"id": "rel-1", "type": "duplicate_of",
-                                                                              "relatedIssue": {"id": "uuid-related"}}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"relations": {"nodes": [
-                {"type": "duplicate_of", "relatedIssue": {"id": "uuid-related"}},
-            ]}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issueRelationCreate": {
+                                "success": True,
+                                "issueRelation": {
+                                    "id": "rel-1",
+                                    "type": "duplicate_of",
+                                    "relatedIssue": {"id": "uuid-related"},
+                                },
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "relations": {
+                                    "nodes": [
+                                        {
+                                            "type": "duplicate_of",
+                                            "relatedIssue": {"id": "uuid-related"},
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.create_relation(STUB_CMD, "uuid-1", "uuid-related", "duplicate_of")
         self.assertTrue(result["verified"])
 
     def test_not_verified_when_readback_missing(self):
-        script_responses([
-            {"stdout": {"data": {"issueRelationCreate": {"success": True,
-                                                           "issueRelation": {"id": "rel-1", "type": "duplicate_of",
-                                                                              "relatedIssue": {"id": "uuid-related"}}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"relations": {"nodes": []}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issueRelationCreate": {
+                                "success": True,
+                                "issueRelation": {
+                                    "id": "rel-1",
+                                    "type": "duplicate_of",
+                                    "relatedIssue": {"id": "uuid-related"},
+                                },
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {"data": {"issue": {"relations": {"nodes": []}}}},
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.create_relation(STUB_CMD, "uuid-1", "uuid-related", "duplicate_of")
         self.assertFalse(result["verified"])
 
     def test_cli_create_relation(self):
-        script_responses([
-            {"stdout": {"data": {"issueRelationCreate": {"success": True,
-                                                           "issueRelation": {"id": "rel-1", "type": "duplicate_of",
-                                                                              "relatedIssue": {"id": "uuid-related"}}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"relations": {"nodes": [
-                {"type": "duplicate_of", "relatedIssue": {"id": "uuid-related"}},
-            ]}}}}, "returncode": 0},
-        ])
-        code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "create-relation", "uuid-1", "uuid-related", "--type", "duplicate_of"])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issueRelationCreate": {
+                                "success": True,
+                                "issueRelation": {
+                                    "id": "rel-1",
+                                    "type": "duplicate_of",
+                                    "relatedIssue": {"id": "uuid-related"},
+                                },
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "relations": {
+                                    "nodes": [
+                                        {
+                                            "type": "duplicate_of",
+                                            "relatedIssue": {"id": "uuid-related"},
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
+        code = lb.main(
+            [
+                "--bridge-cmd",
+                " ".join(STUB_CMD),
+                "create-relation",
+                "uuid-1",
+                "uuid-related",
+                "--type",
+                "duplicate_of",
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
 
 
@@ -557,7 +1069,9 @@ class DecisionsDocHelperTests(unittest.TestCase):
 
     def test_entry_link_extracts_url(self):
         self.assertEqual(
-            lb._entry_link("[Is X true?](https://linear.app/a/issue/TICKET-1/is-x-true) — yes, because Y."),
+            lb._entry_link(
+                "[Is X true?](https://linear.app/a/issue/TICKET-1/is-x-true) — yes, because Y."
+            ),
             "https://linear.app/a/issue/TICKET-1/is-x-true",
         )
 
@@ -567,18 +1081,53 @@ class DecisionsDocHelperTests(unittest.TestCase):
 
 
 class DecisionsAppendTests(unittest.TestCase):
-    ENTRY = "[Is X true?](https://linear.app/a/issue/TICKET-1/is-x-true) — yes, because Y."
+    ENTRY = (
+        "[Is X true?](https://linear.app/a/issue/TICKET-1/is-x-true) — yes, because Y."
+    )
 
     def test_creates_doc_when_absent(self):
-        script_responses([
-            {"stdout": {"data": {"issue": {"documents": {"nodes": []}}}}, "returncode": 0},
-            {"stdout": {"data": {"documentCreate": {"success": True,
-                                                      "document": {"id": "doc-1", "title": "Decisions — Map",
-                                                                   "content": self.ENTRY + "\n"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": self.ENTRY + "\n"},
-            ]}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {"data": {"issue": {"documents": {"nodes": []}}}},
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "documentCreate": {
+                                "success": True,
+                                "document": {
+                                    "id": "doc-1",
+                                    "title": "Decisions — Map",
+                                    "content": self.ENTRY + "\n",
+                                },
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": self.ENTRY + "\n",
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.decisions_append(STUB_CMD, "map-uuid", "Map", self.ENTRY)
         self.assertTrue(result["verified"])
         self.assertTrue(result["created"])
@@ -587,27 +1136,87 @@ class DecisionsAppendTests(unittest.TestCase):
     def test_appends_when_present_prior_content_preserved(self):
         prior = "[Older decision](https://linear.app/a/issue/TICKET-0/older) — the first one.\n"
         new_content = prior.rstrip() + "\n\n" + self.ENTRY + "\n"
-        script_responses([
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": prior},
-            ]}}}}, "returncode": 0},
-            {"stdout": {"data": {"documentUpdate": {"success": True,
-                                                      "document": {"id": "doc-1", "content": new_content}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": new_content},
-            ]}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": prior,
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "documentUpdate": {
+                                "success": True,
+                                "document": {"id": "doc-1", "content": new_content},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": new_content,
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.decisions_append(STUB_CMD, "map-uuid", "Map", self.ENTRY)
         self.assertTrue(result["verified"])
         self.assertFalse(result["created"])
 
     def test_duplicate_entry_refused_before_any_mutation(self):
-        counter_path = script_responses([
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None,
-                 "content": self.ENTRY + "\n"},
-            ]}}}}, "returncode": 0},
-        ])
+        counter_path = script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": self.ENTRY + "\n",
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         with self.assertRaises(lb.DuplicateEntryError):
             lb.decisions_append(STUB_CMD, "map-uuid", "Map", self.ENTRY)
         # Only the one fetch happened — no documentCreate/documentUpdate call
@@ -634,29 +1243,117 @@ class DecisionsAppendTests(unittest.TestCase):
         c0 = "[Older decision](https://linear.app/a/issue/TICKET-0/older) — the first one.\n"
         c_after_interloper = c0.rstrip() + "\n\n" + interloper_entry + "\n"
         final_content = c_after_interloper.rstrip() + "\n\n" + self.ENTRY + "\n"
-        script_responses([
-            # Attempt 1: fetch stale base C0, write against it, then read
-            # back and see the interloper's write landed in between.
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": c0},
-            ]}}}}, "returncode": 0},
-            {"stdout": {"data": {"documentUpdate": {"success": True, "document": {"id": "doc-1"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": c_after_interloper},
-            ]}}}}, "returncode": 0},
-            # Attempt 2: fetch now sees the interloper's entry as the live
-            # base, appends against that, and this time the read-back matches.
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": c_after_interloper},
-            ]}}}}, "returncode": 0},
-            {"stdout": {"data": {"documentUpdate": {"success": True, "document": {"id": "doc-1"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": final_content},
-            ]}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                # Attempt 1: fetch stale base C0, write against it, then read
+                # back and see the interloper's write landed in between.
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": c0,
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "documentUpdate": {
+                                "success": True,
+                                "document": {"id": "doc-1"},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": c_after_interloper,
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                # Attempt 2: fetch now sees the interloper's entry as the live
+                # base, appends against that, and this time the read-back matches.
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": c_after_interloper,
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "documentUpdate": {
+                                "success": True,
+                                "document": {"id": "doc-1"},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": final_content,
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.decisions_append(STUB_CMD, "map-uuid", "Map", self.ENTRY)
         self.assertTrue(result["verified"])
-        self.assertEqual(result["attempt"], 2)  # proves the first attempt's read-back failed and it retried
+        self.assertEqual(
+            result["attempt"], 2
+        )  # proves the first attempt's read-back failed and it retried
 
     def test_verified_true_when_readback_has_linear_autolink_wrapping(self):
         """Receipted regression: Linear stores a bare URL inside a markdown
@@ -670,18 +1367,53 @@ class DecisionsAppendTests(unittest.TestCase):
             "(https://linear.app/a/issue/TICKET-1/is-x-true)",
             "(<https://linear.app/a/issue/TICKET-1/is-x-true>)",
         )
-        script_responses([
-            {"stdout": {"data": {"issue": {"documents": {"nodes": []}}}}, "returncode": 0},
-            {"stdout": {"data": {"documentCreate": {"success": True,
-                                                      "document": {"id": "doc-1", "title": "Decisions — Map",
-                                                                   "content": wrapped_link + "\n"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": wrapped_link + "\n"},
-            ]}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {"data": {"issue": {"documents": {"nodes": []}}}},
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "documentCreate": {
+                                "success": True,
+                                "document": {
+                                    "id": "doc-1",
+                                    "title": "Decisions — Map",
+                                    "content": wrapped_link + "\n",
+                                },
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": wrapped_link + "\n",
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         result = lb.decisions_append(STUB_CMD, "map-uuid", "Map", self.ENTRY)
         self.assertTrue(result["verified"])
-        self.assertEqual(result["attempt"], 1)  # must not need a retry to recover from Linear's own formatting
+        self.assertEqual(
+            result["attempt"], 1
+        )  # must not need a retry to recover from Linear's own formatting
 
     def test_duplicate_check_tolerates_linear_autolink_wrapping(self):
         """Same wrapping, checked on the duplicate-refusal path: an existing
@@ -691,11 +1423,29 @@ class DecisionsAppendTests(unittest.TestCase):
             "(https://linear.app/a/issue/TICKET-1/is-x-true)",
             "(<https://linear.app/a/issue/TICKET-1/is-x-true>)",
         )
-        script_responses([
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": wrapped_link + "\n"},
-            ]}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": wrapped_link + "\n",
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         with self.assertRaises(lb.DuplicateEntryError):
             lb.decisions_append(STUB_CMD, "map-uuid", "Map", self.ENTRY)
 
@@ -703,28 +1453,116 @@ class DecisionsAppendTests(unittest.TestCase):
         c0 = "[Older decision](https://linear.app/a/issue/TICKET-0/older) — the first one.\n"
         mismatched = "[Someone else](https://linear.app/a/issue/TICKET-3/someone-else) — always in the way.\n"
         # Every attempt's read-back mismatches — 2 attempts x 3 calls each.
-        script_responses([
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": c0},
-            ]}}}}, "returncode": 0},
-            {"stdout": {"data": {"documentUpdate": {"success": True, "document": {"id": "doc-1"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": mismatched},
-            ]}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": mismatched},
-            ]}}}}, "returncode": 0},
-            {"stdout": {"data": {"documentUpdate": {"success": True, "document": {"id": "doc-1"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Map", "archivedAt": None, "content": mismatched},
-            ]}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": c0,
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "documentUpdate": {
+                                "success": True,
+                                "document": {"id": "doc-1"},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": mismatched,
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": mismatched,
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "documentUpdate": {
+                                "success": True,
+                                "document": {"id": "doc-1"},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Map",
+                                            "archivedAt": None,
+                                            "content": mismatched,
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         with self.assertRaises(lb.DecisionsAppendRetriesExhausted):
             lb.decisions_append(STUB_CMD, "map-uuid", "Map", self.ENTRY, max_attempts=2)
 
 
 class DecisionsAppendCliTests(unittest.TestCase):
-    ENTRY = "[Is X true?](https://linear.app/a/issue/TICKET-1/is-x-true) — yes, because Y."
+    ENTRY = (
+        "[Is X true?](https://linear.app/a/issue/TICKET-1/is-x-true) — yes, because Y."
+    )
 
     def _entry_file(self, text):
         fd, path = tempfile.mkstemp(prefix="decisions-entry-")
@@ -734,41 +1572,148 @@ class DecisionsAppendCliTests(unittest.TestCase):
 
     def test_cli_decisions_append_success(self):
         entry_path = self._entry_file(self.ENTRY)
-        script_responses([
-            {"stdout": {"data": {"issue": {"id": "map-uuid", "identifier": "ACR-1", "title": "Test Map",
-                                            "state": {"name": "Todo", "type": "unstarted"}, "project": None,
-                                            "labels": {"nodes": []}, "parent": None, "delegate": None,
-                                            "assignee": None, "team": {"key": "LEX"},
-                                            "inverseRelations": {"nodes": []}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"documents": {"nodes": []}}}}, "returncode": 0},
-            {"stdout": {"data": {"documentCreate": {"success": True,
-                                                      "document": {"id": "doc-1", "title": "Decisions — Test Map",
-                                                                   "content": self.ENTRY + "\n"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Test Map", "archivedAt": None, "content": self.ENTRY + "\n"},
-            ]}}}}, "returncode": 0},
-        ])
-        code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "decisions-append", "ACR-1", "--entry-file", entry_path])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "id": "map-uuid",
+                                "identifier": "ACR-1",
+                                "title": "Test Map",
+                                "state": {"name": "Todo", "type": "unstarted"},
+                                "project": None,
+                                "labels": {"nodes": []},
+                                "parent": None,
+                                "delegate": None,
+                                "assignee": None,
+                                "team": {"key": "LEX"},
+                                "inverseRelations": {"nodes": []},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {"data": {"issue": {"documents": {"nodes": []}}}},
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "documentCreate": {
+                                "success": True,
+                                "document": {
+                                    "id": "doc-1",
+                                    "title": "Decisions — Test Map",
+                                    "content": self.ENTRY + "\n",
+                                },
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Test Map",
+                                            "archivedAt": None,
+                                            "content": self.ENTRY + "\n",
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
+        code = lb.main(
+            [
+                "--bridge-cmd",
+                " ".join(STUB_CMD),
+                "decisions-append",
+                "ACR-1",
+                "--entry-file",
+                entry_path,
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
 
     def test_cli_decisions_append_duplicate_exits_seven(self):
         entry_path = self._entry_file(self.ENTRY)
-        script_responses([
-            {"stdout": {"data": {"issue": {"id": "map-uuid", "identifier": "ACR-1", "title": "Test Map",
-                                            "state": {"name": "Todo", "type": "unstarted"}, "project": None,
-                                            "labels": {"nodes": []}, "parent": None, "delegate": None,
-                                            "assignee": None, "team": {"key": "LEX"},
-                                            "inverseRelations": {"nodes": []}}}}, "returncode": 0},
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "doc-1", "title": "Decisions — Test Map", "archivedAt": None, "content": self.ENTRY + "\n"},
-            ]}}}}, "returncode": 0},
-        ])
-        code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "decisions-append", "ACR-1", "--entry-file", entry_path])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "id": "map-uuid",
+                                "identifier": "ACR-1",
+                                "title": "Test Map",
+                                "state": {"name": "Todo", "type": "unstarted"},
+                                "project": None,
+                                "labels": {"nodes": []},
+                                "parent": None,
+                                "delegate": None,
+                                "assignee": None,
+                                "team": {"key": "LEX"},
+                                "inverseRelations": {"nodes": []},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "documents": {
+                                    "nodes": [
+                                        {
+                                            "id": "doc-1",
+                                            "title": "Decisions — Test Map",
+                                            "archivedAt": None,
+                                            "content": self.ENTRY + "\n",
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
+        code = lb.main(
+            [
+                "--bridge-cmd",
+                " ".join(STUB_CMD),
+                "decisions-append",
+                "ACR-1",
+                "--entry-file",
+                entry_path,
+            ]
+        )
         self.assertEqual(code, lb.EXIT_DUPLICATE_ENTRY)
 
     def test_cli_decisions_append_missing_entry_file_is_config_gap(self):
-        code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "decisions-append", "ACR-1",
-                         "--entry-file", "/nonexistent/path/entry.md"])
+        code = lb.main(
+            [
+                "--bridge-cmd",
+                " ".join(STUB_CMD),
+                "decisions-append",
+                "ACR-1",
+                "--entry-file",
+                "/nonexistent/path/entry.md",
+            ]
+        )
         self.assertEqual(code, lb.EXIT_CONFIG_GAP)
 
 
@@ -781,25 +1726,61 @@ class ChildrenFullTests(unittest.TestCase):
     def _node(self, node_id, blocked=False):
         rels = []
         if blocked:
-            rels = [{"type": "blocks", "issue": {"id": "blocker-1", "identifier": "ACR-9",
-                                                   "state": {"type": "started"}}}]
+            rels = [
+                {
+                    "type": "blocks",
+                    "issue": {
+                        "id": "blocker-1",
+                        "identifier": "ACR-9",
+                        "state": {"type": "started"},
+                    },
+                }
+            ]
         return {
-            "id": node_id, "identifier": f"ACR-{node_id}", "title": "T",
+            "id": node_id,
+            "identifier": f"ACR-{node_id}",
+            "title": "T",
             "state": {"name": "Todo", "type": "unstarted"},
             "labels": {"nodes": [{"name": "research"}]},
-            "delegate": None, "assignee": None,
-            "priority": 2, "createdAt": "2026-01-01T00:00:00Z",
-            "completedAt": None, "updatedAt": "2026-01-01T00:00:00Z",
+            "delegate": None,
+            "assignee": None,
+            "priority": 2,
+            "createdAt": "2026-01-01T00:00:00Z",
+            "completedAt": None,
+            "updatedAt": "2026-01-01T00:00:00Z",
             "inverseRelations": {"nodes": rels},
         }
 
     def test_children_full_pages_and_attaches_blocked_by_open(self):
-        counter = script_responses([
-            {"stdout": {"data": {"issues": {"nodes": [self._node("c1", blocked=True)],
-                                             "pageInfo": {"hasNextPage": True, "endCursor": "cursor-1"}}}}, "returncode": 0},
-            {"stdout": {"data": {"issues": {"nodes": [self._node("c2")],
-                                             "pageInfo": {"hasNextPage": False, "endCursor": None}}}}, "returncode": 0},
-        ])
+        counter = script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issues": {
+                                "nodes": [self._node("c1", blocked=True)],
+                                "pageInfo": {
+                                    "hasNextPage": True,
+                                    "endCursor": "cursor-1",
+                                },
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issues": {
+                                "nodes": [self._node("c2")],
+                                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         nodes = lb.fetch_children_full(STUB_CMD, "map-uuid-1")
         self.assertEqual([n["id"] for n in nodes], ["c1", "c2"])
         self.assertEqual(len(nodes[0]["blocked_by_open"]), 1)
@@ -808,22 +1789,52 @@ class ChildrenFullTests(unittest.TestCase):
         self.assertEqual(call_count(counter), 2)
 
     def test_children_full_pagination_guard_raises_on_malformed_page(self):
-        script_responses([
-            {"stdout": {"data": {"issues": {"nodes": [{"id": "c1"}]}}}, "returncode": 0},  # no pageInfo
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {"data": {"issues": {"nodes": [{"id": "c1"}]}}},
+                    "returncode": 0,
+                },  # no pageInfo
+            ]
+        )
         with self.assertRaises(RuntimeError):
             lb.fetch_children_full(STUB_CMD, "map-uuid-1")
 
     def test_children_full_cli_subcommand(self):
-        script_responses([
-            {"stdout": {"data": {"issue": {"id": "map-uuid-1", "identifier": "ACR-1", "title": "Map",
-                                            "state": {"name": "In Progress", "type": "started"},
-                                            "labels": {"nodes": [{"name": "map"}]}, "parent": None,
-                                            "delegate": None, "assignee": None, "team": {"key": "ACR"},
-                                            "inverseRelations": {"nodes": []}}}}, "returncode": 0},
-            {"stdout": {"data": {"issues": {"nodes": [self._node("c1")],
-                                             "pageInfo": {"hasNextPage": False, "endCursor": None}}}}, "returncode": 0},
-        ])
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "id": "map-uuid-1",
+                                "identifier": "ACR-1",
+                                "title": "Map",
+                                "state": {"name": "In Progress", "type": "started"},
+                                "labels": {"nodes": [{"name": "map"}]},
+                                "parent": None,
+                                "delegate": None,
+                                "assignee": None,
+                                "team": {"key": "ACR"},
+                                "inverseRelations": {"nodes": []},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issues": {
+                                "nodes": [self._node("c1")],
+                                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
         code = lb.main(["--bridge-cmd", " ".join(STUB_CMD), "children-full", "ACR-1"])
         self.assertEqual(code, lb.EXIT_OK)
 

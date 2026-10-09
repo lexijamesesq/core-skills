@@ -5,8 +5,14 @@ default_stages: [pre-commit]
 
 repos:
   - repo: https://github.com/lexijamesesq/dotty
-    rev: v2026.10.08
+    rev: v2026.10.08-2
     hooks:
+      - id: release-version
+        alias: core-version
+        args: [plugin, plugins/core, core]
+      - id: release-version
+        alias: estate-hooks-version
+        args: [plugin, plugins/estate-hooks, estate-hooks]
       - id: gitleaks-staged
       - id: gitleaks-pre-push
       - id: gitleaks-commit-msg
@@ -68,3 +74,42 @@ repos:
         types_or: [html]
         additional_dependencies: ["prettier@3.9.9"]
         stages: [pre-commit]
+
+  - repo: local
+    hooks:
+      # The entrypoint includes deleted paths and each component's shared inputs.
+      - id: core-linear-tests
+        name: Linear Python behavior
+        entry: bash .github/scripts/check-push.sh linear
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+      - id: core-estate-hook-tests
+        name: estate hook behavior
+        entry: bash .github/scripts/check-push.sh estate-hooks
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+      - id: core-plugin-validation
+        name: plugin product validation
+        entry: bash .github/scripts/check-push.sh plugin
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+      - id: core-shared-copy-check
+        name: shared scanner and parser copies
+        entry: bash .github/scripts/check-push.sh shared-copy
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+      - id: core-standalone-check
+        name: packaged isolation behavior
+        entry: bash .github/scripts/check-push.sh standalone
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
