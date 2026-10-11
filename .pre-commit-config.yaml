@@ -1,6 +1,6 @@
-# Consumes dotty's fail-closed gitleaks hooks remotely (see dotty's
-# .pre-commit-hooks.yaml for the recipe and why default_stages is required).
-default_install_hook_types: [pre-commit, pre-push, commit-msg]
+# Native consumer baseline. See new-repo/README.md before applying.
+# Preserve newer compatible consumer pins and legitimate native extensions.
+default_install_hook_types: [pre-commit, commit-msg, pre-push]
 default_stages: [pre-commit]
 
 repos:
@@ -14,32 +14,52 @@ repos:
         alias: estate-hooks-version
         args: [plugin, plugins/estate-hooks, estate-hooks]
       - id: gitleaks-staged
-      - id: gitleaks-pre-push
+        stages: [pre-commit]
       - id: gitleaks-commit-msg
+        stages: [commit-msg]
+      - id: gitleaks-pre-push
+        stages: [pre-push]
       - id: house-code
-      - id: house-scaffold-no-tracked-scratch
-      - id: house-scaffold-sample-shape
-      - id: house-scaffold-sample-placeholder
+        stages: [pre-commit]
       - id: vale-self-narration
-
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
-    hooks:
-      - id: check-json
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
-      - id: check-yaml
-
-  - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
-    hooks:
-      - id: shellcheck
+        stages: [pre-commit]
+      - id: actionlint
+        stages: [pre-commit]
+      - id: zizmor
+        stages: [pre-commit]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.0
     hooks:
       - id: ruff
+        args: [--fix]
+        stages: [pre-commit]
       - id: ruff-format
+        stages: [pre-commit]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+        stages: [pre-commit]
+      - id: check-json
+        stages: [pre-commit]
+      - id: end-of-file-fixer
+        # Native type owners: Ruff, shfmt and HTML-only Prettier; regex: Biome.
+        exclude_types: [python, shell, html]
+        exclude: '\.(jsx?|tsx?|c(js|ts)|m(js|ts)|css|graphql|gql)$'
+        stages: [pre-commit]
+      - id: trailing-whitespace
+        args: ['--markdown-linebreak-ext=md,markdown']
+        exclude_types: [python, shell, html]
+        exclude: '\.(jsx?|tsx?|c(js|ts)|m(js|ts)|css|graphql|gql)$'
+        stages: [pre-commit]
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        stages: [pre-commit]
 
   - repo: https://github.com/scop/pre-commit-shfmt
     rev: v3.14.1-1
@@ -59,6 +79,7 @@ repos:
       - id: markdownlint
         stages: [pre-commit]
 
+  # Biome owns web formatting; JSON uses the native syntax check above.
   - repo: https://github.com/biomejs/pre-commit
     rev: v2.5.15
     hooks:
@@ -67,6 +88,9 @@ repos:
         exclude: '\.(jsonc?|vue|svelte|astro)$'
         stages: [pre-commit]
 
+  # mirrors-prettier is ARCHIVED upstream: this rev (the last stable tag) never
+  # moves; only the prettier pin below does, capped below 4 in default.json so
+  # a stable v4 cannot auto-merge past the frozen wrapper.
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v3.1.0
     hooks:

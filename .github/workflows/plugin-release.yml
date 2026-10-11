@@ -1,0 +1,19 @@
+name: Plugin release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+# Every merged revision keeps its actual publication opportunity.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  release-tag:
+    name: ci
+    permissions:
+      contents: write
+    uses: lexijamesesq/dotty/.github/workflows/estate-plugin-release.yml@v1
+    with:
+      dotty_ref: v1
+      plugins: '[{"path":"plugins/core","name":"core"},{"path":"plugins/estate-hooks","name":"estate-hooks"}]'

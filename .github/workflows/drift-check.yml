@@ -1,0 +1,24 @@
+name: Shared copy drift
+on:
+  schedule:
+    - cron: '17 13 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  drift-check:
+    name: ci / drift-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: core-skills
+      - name: Checkout dotty main (current HEAD, re-resolved every run)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: lexijamesesq/dotty
+          ref: main
+          path: dotty
+      - name: Run drift check
+        run: bash core-skills/.github/scripts/drift-check.sh dotty core-skills
