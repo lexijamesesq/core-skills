@@ -7,7 +7,7 @@
 # WHY ONE FILE: the rule used to be copied into each hook and kept in step
 # by a comment — the exact drift class the PR-hooks fix exists to remove
 # (non-author review, this repo's PR #111). This helper is this repo's own
-# (only gitleaks-common.sh and house-code-common.sh are drift-checked
+# (only gitleaks-common.sh and pr-body-check.py are drift-checked
 # against dotty), so it can carry the rule. tests/gh-scope-common.test.sh
 # proves every consumer sources it and none defines the rule locally.
 #

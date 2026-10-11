@@ -31,7 +31,7 @@ while IFS= read -r -d '' path; do
 	linear:plugins/core/skills/linear/scripts/* | linear:plugins/core/skills/traffic-cone/scripts/* | linear:pyproject.toml | linear:uv.lock | linear:requirements*.txt) relevant=true ;;
 	estate-hooks:plugins/estate-hooks/*) relevant=true ;;
 	plugin:.claude-plugin/* | plugin:plugins/*) relevant=true ;;
-	shared-copy:.github/scripts/drift-check.sh | shared-copy:plugins/estate-hooks/hooks/gitleaks-common.sh | shared-copy:plugins/estate-hooks/hooks/house-code-common.sh | shared-copy:plugins/estate-hooks/hooks/pr-body-check.py) relevant=true ;;
+	shared-copy:.github/scripts/drift-check.sh | shared-copy:plugins/estate-hooks/hooks/gitleaks-common.sh | shared-copy:plugins/estate-hooks/hooks/pr-body-check.py) relevant=true ;;
 	standalone:.github/scripts/standalone-check.sh | standalone:plugins/estate-hooks/hooks/* | standalone:plugins/core/skills/linear/scripts/* | standalone:plugins/core/skills/traffic-cone/scripts/*) relevant=true ;;
 	esac
 done <"$paths"
