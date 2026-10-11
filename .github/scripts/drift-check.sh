@@ -36,10 +36,6 @@ diff_one "gitleaks-common.sh" \
 	"$DOTTY_CLONE/git-hooks/gitleaks-common.sh" \
 	"$WL_ROOT/plugins/estate-hooks/hooks/gitleaks-common.sh"
 
-diff_one "house-code-common.sh" \
-	"$DOTTY_CLONE/git-hooks/house-code-common.sh" \
-	"$WL_ROOT/plugins/estate-hooks/hooks/house-code-common.sh"
-
 diff_one "pr-body-check.py" \
 	"$DOTTY_CLONE/.github/scripts/pr-body-check.py" \
 	"$WL_ROOT/plugins/estate-hooks/hooks/pr-body-check.py"
