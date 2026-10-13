@@ -65,14 +65,14 @@ allows 'git status'
 allows 'gh pr create'
 blocks 'git push origin main'
 blocks 'git -C /fixture push origin main'
-allows 'bash scripts/prepare-checkout.sh'
+allows 'pre-commit install --hook-type pre-push'
 allows 'git clone https://github.com/lexijamesesq/core-skills.git'
 blocks 'git push origin main' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
 blocks 'git push origin main' CLAUDE_CONFIG_DIR="$SCRATCH/.claude"
 blocks 'git push origin main' CLAUDE_CONFIG_DIR=""
 allows 'git status' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
 allows 'gh pr create' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
-allows 'bash scripts/prepare-checkout.sh' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
+allows 'pre-commit install --hook-type pre-push' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
 allows 'git push origin main' CLAUDECODE=""
 mv "$SCRATCH/estate-mode.gitconfig.bak" "$CE/estate-mode.gitconfig"
 

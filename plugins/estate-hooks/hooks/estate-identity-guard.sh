@@ -130,7 +130,7 @@ if [[ "$uses_git" == 1 && "$LOWER" =~ (^|$BND)push($|$BND) ]]; then
 	if [[ -n "$toplevel" ]]; then
 		hook=$(git -C "$toplevel" rev-parse --path-format=absolute --git-path hooks/pre-push)
 		[[ -x "$hook" ]] ||
-			fail "the pre-push scanner hook is not installed in $toplevel ($hook absent or not executable) — run dotty's scripts/prepare-checkout.sh for this checkout. A push must be scanned before it uploads."
+			fail "the pre-push scanner hook is not installed in $toplevel ($hook absent or not executable) — install it with pre-commit install --hook-type pre-push. A push must be scanned before it uploads."
 		grep -q "pre-commit" "$hook" 2>/dev/null ||
 			fail "the pre-push hook in $toplevel is not the pre-commit scanner shim (no pre-commit marker)"
 	fi
