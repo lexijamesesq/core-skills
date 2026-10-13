@@ -85,7 +85,7 @@
           },
           {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
-            "timeout": 300,
+            "timeout": 5,
             "type": "command"
           },
           {
@@ -105,7 +105,7 @@
         "hooks": [
           {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
-            "timeout": 300,
+            "timeout": 5,
             "type": "command"
           },
           {

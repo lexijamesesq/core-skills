@@ -68,7 +68,7 @@ Claude Code lifecycle hooks.
 
 | Hook | Event | What it does |
 | --- | --- | --- |
-| `session-init.sh` | SessionStart | Prepares native checks for the current estate checkout through dotty, preserving HA's existing setup; also initializes the session cache |
+| `session-init.sh` | SessionStart | Bootstraps the Claude cache and warns when vault configuration is missing |
 | `fix-obsidian-claude-sync.sh` | SessionStart | Works around Obsidian Sync skipping dot-prefixed directories |
 | `vault-mcp-redirect.sh` | PreToolUse | Sends vault file edits through the Obsidian MCP tools |
 | `gh-pr-body-guard.sh` | PreToolUse | Scans a PR title and body for secrets, and fails closed |

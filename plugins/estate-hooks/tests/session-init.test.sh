@@ -22,8 +22,7 @@ HOOK="${HOOK:-${SCRIPT_DIR}/../hooks/session-init.sh}"
 
 TMPDIR=$(mktemp -d -t session-init-test.XXXXXX)
 
-cleanup() { rm -rf "$TMPDIR"; }
-trap cleanup EXIT INT TERM
+trap 'rm -rf "$TMPDIR"' EXIT INT TERM
 
 # fire <stdin-json> [env-overrides...]
 # Captures exit code in $RC, stderr in $STDERR_FILE.
@@ -48,7 +47,11 @@ section "Cache directory bootstrap"
 reset
 fire '{"cwd":"/tmp"}'
 assert_eq "hook exits 0" "0" "$RC"
-[[ -d "$TMPDIR/cache-host/.cache/claude" ]] && pass "cache dir created" || fail "cache dir created" "missing"
+if [[ -d "$TMPDIR/cache-host/.cache/claude" ]]; then
+	pass "cache dir created"
+else
+	fail "cache dir created" "missing"
+fi
 PERMS=$(stat -f '%Lp' "$TMPDIR/cache-host/.cache/claude" 2>/dev/null || stat -c '%a' "$TMPDIR/cache-host/.cache/claude" 2>/dev/null)
 if [ "$PERMS" = "700" ]; then
 	pass "cache dir is mode 0700"
@@ -117,32 +120,5 @@ fire '{"cwd":"/tmp"}'
 EXIT_CODE=$RC
 chmod 755 "$TMPDIR/cache-host"
 assert_eq "unwritable cache parent: hook exits 0" "0" "$EXIT_CODE"
-
-section "Current checkout readiness and explicit HA exclusion"
-reset
-repo="$TMPDIR/repo"
-mkdir -p "$repo" "$TMPDIR/dotty/scripts"
-# Clear any inherited Git routing before creating the fixture repository.
-while IFS= read -r key; do unset "$key"; done < <(git rev-parse --local-env-vars)
-GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git -C "$repo" init -q
-GIT_CONFIG_GLOBAL=/dev/null git -C "$repo" remote add origin https://github.com/lexijamesesq/studio.git
-cat >"$TMPDIR/dotty/scripts/prepare-checkout.sh" <<'HELPER'
-#!/usr/bin/env bash
-printf '%s' "$1" >"$HOME/prepared-checkout"
-exit "${FIXTURE_READY_FAIL:-0}"
-HELPER
-chmod +x "$TMPDIR/dotty/scripts/prepare-checkout.sh"
-fire "{\"cwd\":\"$repo\"}" env DOTTY_CHECKOUT="$TMPDIR/dotty"
-assert_eq "helper receives current checkout" "$(cd "$repo" && pwd -P)" "$(cat "$TMPDIR/cache-host/prepared-checkout")"
-fire "{\"cwd\":\"$repo\"}" env DOTTY_CHECKOUT="$TMPDIR/dotty" FIXTURE_READY_FAIL=1
-assert_eq "setup failure leaves session available for repair" "0" "$RC"
-grep -q 'readiness is incomplete' "$STDOUT_FILE" && pass "failure reaches model context" || fail "failure reaches model context" "missing"
-rm "$TMPDIR/cache-host/prepared-checkout"
-GIT_CONFIG_GLOBAL=/dev/null git -C "$repo" remote set-url origin https://github.com/lexijamesesq/home-assistant.git
-fire "{\"cwd\":\"$repo\"}" env DOTTY_CHECKOUT="$TMPDIR/dotty"
-[[ ! -e "$TMPDIR/cache-host/prepared-checkout" ]] && pass "HA setup remains unchanged" || fail "HA setup remains unchanged" "helper invoked"
-GIT_CONFIG_GLOBAL=/dev/null git -C "$repo" remote set-url origin https://github.com/another-owner/repo.git
-fire "{\"cwd\":\"$repo\"}" env DOTTY_CHECKOUT="$TMPDIR/dotty"
-[[ ! -e "$TMPDIR/cache-host/prepared-checkout" ]] && pass "unrelated checkout not enrolled" || fail "unrelated checkout not enrolled" "helper invoked"
 
 finish
