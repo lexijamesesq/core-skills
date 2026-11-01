@@ -1,6 +1,6 @@
 # Mandate: pressure-test
 
-Attacks a plan, decision, or idea — refute posture, one finding at a time, looking for the case it breaks. Tier: **fable** — this mandate is pure adversarial reasoning with no evidence-matching floor to stand on, the highest-stakes reasoning shape in the mandate set.
+Attacks a plan, decision, or idea — refute posture, one finding at a time, looking for the case it breaks. Tier: **premium** (the model `/dispatch`'s tier binding names for premium) — this mandate is pure adversarial reasoning with no evidence-matching floor to stand on, the highest-stakes reasoning shape in the mandate set.
 
 This is not `/grilling` — `/grilling` is an interactive, operator-facing interview that stops to confirm shared understanding before acting. A pressure-test mandate is a non-interactive spawn: you receive the plan whole, attack it on your own, and return a written verdict. Use this mandate when the caller wants an independent adversarial pass on something before it reaches the operator or before work starts on it — not when the operator wants to be in the loop live.
 
@@ -34,7 +34,7 @@ One probe per lens. Four probes total — go deep on each, don't multiply findin
 
 Post directly if the plan lives on a Linear issue or map, or return directly to the caller otherwise:
 
-```
+```text
 Checked:     what you attacked, and how — the case you tried to construct for each finding
 Verdict:     CONFIRMED (holds under attack) | REFUTED (breaks) | CONFIRMED-WITH-GAPS (holds with named exposure)
 Specifics:   each finding, concrete enough to act on, with the scenario that breaks it
