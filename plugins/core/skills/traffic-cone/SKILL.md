@@ -46,7 +46,7 @@ Each item: the question, who rules it, how a ruled re-run resumes.
 - **M-d — deterministic exemption.** `--deterministic-exempt` asserted: is the captured output actually applicable? Caller judgment; when in doubt, not exempt. Resumes: `--exempt-ruled`.
 - **M-o — Objective drift.** Feedback that would change the Objective is not receipt input — refuse, route to the operator, never fold it into the transition. No resume flag — this always refuses.
 - **M3c — type match on regex miss.** No literal `Validation mandate: <type>` found: does the Done When text name a mandate in other words? Caller rules; if the Done When is genuinely silent, refuse — no mandate named. Resumes: `--mandate-type <t>`.
-- **M3g — receipt coherence (full variant only).** No map, so no downstream audit ever reaches this ticket (map children get CM6 at close-map instead) — dispatch `@attack-kitty`'s `ticket-close` mandate (existing, unmodified; judgment, zero execution) and get a CONFIRMED `[VALIDATION]` receipt. Resumes: `--receipt-audited <comment-id>`, verified mechanically — must postdate the ticket's current In Progress claim.
+- **M3g — receipt coherence (full variant only).** No map, so no downstream audit ever reaches this ticket (map children get CM6 at close-map instead) — dispatch `@attack-kitty`'s `ticket-close` mandate with `validation_type: ticket-close` (its card's receipt-coherence run; judgment, zero execution) and get a CONFIRMED receipt whose first line is exactly `[VALIDATION] — ticket-close`. Resumes: `--receipt-audited <comment-id>`, verified mechanically — must postdate the ticket's current In Progress claim.
 
 ## X-park posture
 

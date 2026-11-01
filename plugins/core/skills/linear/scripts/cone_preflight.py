@@ -511,6 +511,16 @@ def parse_validation_comment(body):
     }
 
 
+TICKET_CLOSE_HEADER = "[VALIDATION] — ticket-close"
+
+
+def _is_ticket_close_receipt(comment):
+    parsed = parse_validation_comment(comment.get("body") or "")
+    return (
+        bool(parsed) and (parsed.get("validation_type") or "").strip() == "ticket-close"
+    )
+
+
 def newest_matching_comment(comments, predicate):
     matches = [c for c in comments if predicate(c)]
     if not matches:
@@ -812,13 +822,14 @@ def run_mark_done_checks(ctx, flags):
     # [VALIDATION] comment judging receipt coherence itself (same exclusion
     # shape as CM6 isolating "map-conformance" from a child's own
     # receipt at close-map).
+    # The exclusion keys on the parsed type, the same parse M3g uses, so a
+    # ticket-close receipt written with any accepted header delimiter is
+    # excluded here exactly when M3g would accept it.
     receipt_comment = newest_matching_comment(
         comments,
         lambda c: (
             (c.get("body") or "").strip().startswith("[VALIDATION]")
-            and not (c.get("body") or "")
-            .strip()
-            .startswith("[VALIDATION] — ticket-close")
+            and not _is_ticket_close_receipt(c)
         ),
     )
     receipt = (
@@ -1110,8 +1121,17 @@ def run_mark_done_checks(ctx, flags):
                 or (audited_parsed.get("validation_type") or "").strip()
                 != "ticket-close"
             ):
+                first_line = next(
+                    (
+                        line.strip()
+                        for line in audited_comment["body"].splitlines()
+                        if line.strip()
+                    ),
+                    "",
+                )
                 m3g_failures.append(
-                    f"--receipt-audited {audited_id!r} is not a ticket-close [VALIDATION] comment"
+                    f"--receipt-audited {audited_id!r} is not a ticket-close [VALIDATION] comment: "
+                    f"its first line reads {first_line!r}, expected {TICKET_CLOSE_HEADER!r}"
                 )
             if not audited_parsed or audited_parsed.get("verdict") != "CONFIRMED":
                 m3g_failures.append(

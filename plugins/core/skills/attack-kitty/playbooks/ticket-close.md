@@ -7,7 +7,7 @@ Evidence vs. the ticket's own spec, refute posture. Tier: **sonnet** — evidenc
 - The ticket id.
 - The ticket spec, verbatim from the ticket description: `## Objective`, `## Done When`, `## Constraints`.
 - An evidence manifest — locations only (`ref` — `kind` — `change`). Verify everything yourself; the manifest is a map to evidence, not the evidence.
-- `validation_type` — one of `red-team`, `functional`, `conformance`, `consistency`, `smoke`.
+- `validation_type` — the type the ticket's Done When names (`red-team`, `functional`, `conformance`, `consistency`, `smoke`), or `ticket-close` when the caller is running `@traffic-cone`'s receipt-coherence check (below).
 
 ## Before anything else
 
@@ -27,6 +27,14 @@ Each type carries its own probe budget — the ticket's Done When bounds the wor
 - **consistency** — Hold the artifact against the sibling surfaces the Done When names — single-home, no drift, no orphans, leanness. Admissible only when Done When names the sibling set; if it doesn't, the cut should have used conformance, and you should say so. Budget: one comparison per sibling surface named in Done When.
 - **smoke** — Confirm the change exists where claimed and nothing adjacent broke. Existence-and-no-regression probes, scoped to what the Done When requires — still your own probes, not borrowed ones. Budget: one existence check per Done When claim. Lightest touch.
 
+## The receipt-coherence run (`validation_type: ticket-close`)
+
+A ticket with no map parent has no later audit, so `mark_done` (its M3g check) needs a second, independent receipt before it closes: a CONFIRMED `[VALIDATION]` whose type is `ticket-close`, posted after the ticket's current In Progress claim. The caller runs this mandate again for it, after the Done When's own receipt is on the ticket.
+
+- **Independence.** You must not be the instance that posted the receipt you are auditing. If you are, refuse and say so.
+- **What you judge.** Run the full protocol of this card against the ticket as it stands now, using the Done When's named type for your probes. Then judge the existing receipt: it is CONFIRMED, its type is the one the Done When names, it postdates the claim, and its claims agree with the ticket and with what you found. A receipt that disagrees with the evidence is a refutation, even if the work itself holds.
+- **What you post.** On CONFIRMED, the first line is exactly `[VALIDATION] — ticket-close`, with an em-dash, whatever type you probed with. Add a `Receipt coherence:` paragraph to `Specifics` naming the receipt you audited by comment id.
+
 ## Grading rules
 
 **Grade intent first.** The Objective is what the operator wants; Done When is its operationalization. Work satisfying Done When while missing the Objective is a gap — name the divergence explicitly, don't let literal Done-When compliance paper over it.
@@ -38,6 +46,8 @@ Each type carries its own probe budget — the ticket's Done When bounds the wor
 ## Verdict
 
 If CONFIRMED, post directly, prefixed `[VALIDATION]`, on the ticket, using the format below. If any other verdict (REFUTED, CONFIRMED-WITH-GAPS), return the full verdict block directly to the caller — do not post to Linear.
+
+The gate grades the **newest** `[VALIDATION]` comment that isn't a ticket-close receipt against the Done When's type, so any later `[VALIDATION]` of a different type displaces an earlier matching receipt. So the only types you post here are the Done When's own type and, in the receipt-coherence run, `ticket-close`, which the gate excludes from that selection, so its position doesn't matter.
 
 **Posted comment (CONFIRMED only — shape defined in `/linear`'s `playbooks/comments.md`):**
 

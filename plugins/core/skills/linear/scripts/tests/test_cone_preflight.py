@@ -541,6 +541,56 @@ class MarkDoneAdmitTests(unittest.TestCase):
         self.assertIn("ticket-close", find_check(report, "M3g")["detail"])
         self.assertEqual(report["verdict"], "REFUSE")
 
+    def test_full_variant_receipt_audited_wrong_type_names_expected_header(self):
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["comments"]["nodes"].append(
+            fx.ticket_close_receipt(comment_id="tc-2")
+        )
+        ctx["issue"]["comments"]["nodes"][-1]["body"] = (
+            "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: x\nSpecifics: y"
+        )
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-2")
+        )
+        detail = find_check(report, "M3g")["detail"]
+        self.assertIn("'[VALIDATION] — conformance'", detail)
+        self.assertIn("expected '[VALIDATION] — ticket-close'", detail)
+
+    def test_ticket_close_receipt_with_hyphen_header_is_excluded_from_m3c(self):
+        # A ticket-close receipt is excluded from the Done-When receipt
+        # selection by its parsed type, so a hyphen-delimited header (which
+        # M3g accepts) never displaces the mandate receipt at M3c.
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
+        ctx["issue"]["comments"]["nodes"][-1]["body"] = (
+            "[VALIDATION] - ticket-close\nVerdict: CONFIRMED\nIntent: x\nSpecifics: y"
+        )
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
+        self.assertEqual(find_check(report, "M3c")["result"], "PASS", report)
+        self.assertEqual(find_check(report, "M3g")["result"], "PASS", report)
+        self.assertEqual(report["verdict"], "ADMIT", report)
+
+    def test_later_receipt_of_another_type_displaces_the_mandate_receipt(self):
+        # M3c grades the newest non-ticket-close [VALIDATION]: a later
+        # receipt of another type displaces an earlier matching one.
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["comments"]["nodes"].append(
+            {
+                "id": "c-late",
+                "body": "[VALIDATION] — deliverable-check\nVerdict: CONFIRMED\nIntent: x\nSpecifics: y",
+                "createdAt": "2026-02-01T12:30:00Z",
+                "user": {"id": "viewer-1"},
+            }
+        )
+        ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
+        self.assertEqual(find_check(report, "M3c")["result"], "FAIL", report)
+        self.assertEqual(report["verdict"], "REFUSE")
+
     def test_full_variant_receipt_audited_stale_refuses(self):
         ctx = fx.mark_done_full_ctx()
         ctx["issue"]["comments"]["nodes"].append(

@@ -17,6 +17,12 @@ Specifics: {what was verified — concise}
 
 This is the comment the map lane's guard (`playbooks/transitions.md`) and `` `@traffic-cone` ``'s `mark_done` gate check for. A verdict of anything other than CONFIRMED never lands here.
 
+How the `mark_done` gate reads these receipts:
+
+- **`{validation_type}` is matched as a string.** It must equal the type the ticket's Done When names (`Validation mandate: <type>`), whichever card produced the receipt. A `deliverable-check` mandate needs a `[VALIDATION] — deliverable-check` receipt.
+- **Newest wins.** The gate grades the newest `[VALIDATION]` comment that is not a ticket-close receipt. A later receipt of another type displaces an earlier matching one, so the Done When's receipt must be the newest of its kind. If something else lands after it, re-post the matching receipt.
+- **A ticket with no map parent needs a second receipt.** Its first line is exactly `[VALIDATION] — ticket-close` (em-dash), posted by an instance that didn't author the Done When's receipt. It comes from `` `@attack-kitty` ``'s `ticket-close` card, in its receipt-coherence run. Ticket-close receipts are excluded from the newest-wins selection, so they can land in any order.
+
 ## `[HANDOFF]`
 
 Posted on the worked ticket at each slice close — one per close, never batched to session end — never on the map. No re-summary of what was done; the resolution comment and closed state carry that:
