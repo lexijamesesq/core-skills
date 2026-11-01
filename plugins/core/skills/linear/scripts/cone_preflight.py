@@ -511,13 +511,17 @@ def parse_validation_comment(body):
     }
 
 
-TICKET_CLOSE_HEADER = "[VALIDATION] — ticket-close"
+TICKET_CLOSE_TYPE = "ticket-close"
+TICKET_CLOSE_HEADER = f"[VALIDATION] — {TICKET_CLOSE_TYPE}"
 
 
 def _is_ticket_close_receipt(comment):
+    """The one test for "is this M3g's ticket-close receipt": M3a-f's
+    receipt selection and M3g's --receipt-audited check both call it."""
     parsed = parse_validation_comment(comment.get("body") or "")
     return (
-        bool(parsed) and (parsed.get("validation_type") or "").strip() == "ticket-close"
+        bool(parsed)
+        and (parsed.get("validation_type") or "").strip() == TICKET_CLOSE_TYPE
     )
 
 
@@ -822,9 +826,8 @@ def run_mark_done_checks(ctx, flags):
     # [VALIDATION] comment judging receipt coherence itself (same exclusion
     # shape as CM6 isolating "map-conformance" from a child's own
     # receipt at close-map).
-    # The exclusion keys on the parsed type, the same parse M3g uses, so a
-    # ticket-close receipt written with any accepted header delimiter is
-    # excluded here exactly when M3g would accept it.
+    # The exclusion and M3g share _is_ticket_close_receipt, so a ticket-close
+    # receipt is excluded here exactly when M3g would accept it.
     receipt_comment = newest_matching_comment(
         comments,
         lambda c: (
@@ -1116,11 +1119,7 @@ def run_mark_done_checks(ctx, flags):
                 f"--receipt-audited {audited_id!r} does not resolve to a comment on this ticket"
             )
         else:
-            if (
-                not audited_parsed
-                or (audited_parsed.get("validation_type") or "").strip()
-                != "ticket-close"
-            ):
+            if not _is_ticket_close_receipt(audited_comment):
                 first_line = next(
                     (
                         line.strip()
