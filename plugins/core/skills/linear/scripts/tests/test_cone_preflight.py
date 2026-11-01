@@ -33,6 +33,7 @@ structurally unreachable for some verbs:
 These are consequences of the frozen inventory semantics, not a choice made
 here — the tests below assert the full set of what IS reachable per verb.
 """
+
 import contextlib
 import io
 import json
@@ -54,19 +55,24 @@ def find_check(report, check_id):
     for c in report["checks"]:
         if c["id"] == check_id:
             return c
-    raise AssertionError(f"check {check_id!r} not present in report: {[c['id'] for c in report['checks']]}")
+    raise AssertionError(
+        f"check {check_id!r} not present in report: {[c['id'] for c in report['checks']]}"
+    )
 
 
 def find_judgment_item(report, item_id):
     for j in report["judgment_items"]:
         if j["id"] == item_id:
             return j
-    raise AssertionError(f"judgment item {item_id!r} not present: {[j['id'] for j in report['judgment_items']]}")
+    raise AssertionError(
+        f"judgment item {item_id!r} not present: {[j['id'] for j in report['judgment_items']]}"
+    )
 
 
 # ======================================================================
 # gather_context() live wiring (regression: C5 blocked-by-open dead code)
 # ======================================================================
+
 
 class GatherContextLiveWiringTests(unittest.TestCase):
     """Exercises gather_context() itself through the stub bridge — the real
@@ -84,28 +90,79 @@ class GatherContextLiveWiringTests(unittest.TestCase):
 
     def test_claim_context_carries_open_blocker_through_to_c5_refusal(self):
         issue_node = {
-            "id": "uuid-live-1", "identifier": "ACR-99", "title": "Live-wired ticket",
+            "id": "uuid-live-1",
+            "identifier": "ACR-99",
+            "title": "Live-wired ticket",
             "description": "## Objective\nShip it.\n\n## Done When\n- Tests pass\n\n## Constraints and Context\nNone.",
             "state": {"name": "Todo", "type": "unstarted"},
             "labels": {"nodes": [{"name": "task"}]},
-            "parent": None, "delegate": None, "assignee": None,
+            "parent": None,
+            "delegate": None,
+            "assignee": None,
             "team": {"key": "ACR"},
-            "inverseRelations": {"nodes": [
-                {"type": "blocks", "issue": {"id": "blocker-uuid", "identifier": "ACR-1", "state": {"type": "started"}}},
-            ]},
+            "inverseRelations": {
+                "nodes": [
+                    {
+                        "type": "blocks",
+                        "issue": {
+                            "id": "blocker-uuid",
+                            "identifier": "ACR-1",
+                            "state": {"type": "started"},
+                        },
+                    },
+                ]
+            },
             "comments": {"nodes": []},
             "history": {"nodes": []},
         }
         responses = [
-            {"stdout": {"data": {"issue": issue_node}}, "returncode": 0},  # resolve_issue_ref
-            {"stdout": {"data": {"viewer": {"id": "viewer-1"}}}, "returncode": 0},  # resolve_viewer
-            {"stdout": {"data": {"users": {"nodes": [
-                {"id": "op-1", "name": "Op", "email": "op@x", "admin": True, "app": False},
-            ]}}}, "returncode": 0},  # resolve_operator
-            {"stdout": {"data": {"workflowStates": {"nodes": [
-                {"id": "state-ip", "name": "In Progress", "type": "started"},
-                {"id": "state-ni", "name": "Needs Input", "type": "triage"},
-            ]}}}, "returncode": 0},  # resolve_state — one call resolves both names (cached per team)
+            {
+                "stdout": {"data": {"issue": issue_node}},
+                "returncode": 0,
+            },  # resolve_issue_ref
+            {
+                "stdout": {"data": {"viewer": {"id": "viewer-1"}}},
+                "returncode": 0,
+            },  # resolve_viewer
+            {
+                "stdout": {
+                    "data": {
+                        "users": {
+                            "nodes": [
+                                {
+                                    "id": "op-1",
+                                    "name": "Op",
+                                    "email": "op@x",
+                                    "admin": True,
+                                    "app": False,
+                                },
+                            ]
+                        }
+                    }
+                },
+                "returncode": 0,
+            },  # resolve_operator
+            {
+                "stdout": {
+                    "data": {
+                        "workflowStates": {
+                            "nodes": [
+                                {
+                                    "id": "state-ip",
+                                    "name": "In Progress",
+                                    "type": "started",
+                                },
+                                {
+                                    "id": "state-ni",
+                                    "name": "Needs Input",
+                                    "type": "triage",
+                                },
+                            ]
+                        }
+                    }
+                },
+                "returncode": 0,
+            },  # resolve_state — one call resolves both names (cached per team)
         ]
         tlb.script_responses(responses)
 
@@ -113,11 +170,18 @@ class GatherContextLiveWiringTests(unittest.TestCase):
 
         self.assertEqual(
             ctx["issue"]["blocked_by_open"],
-            [{"id": "blocker-uuid", "identifier": "ACR-1", "state": {"type": "started"}}],
+            [
+                {
+                    "id": "blocker-uuid",
+                    "identifier": "ACR-1",
+                    "state": {"type": "started"},
+                }
+            ],
             "gather_context() must populate blocked_by_open from the live fetch itself",
         )
         self.assertEqual(
-            ctx["state_ids"], {"in_progress": "state-ip", "needs_input": "state-ni"},
+            ctx["state_ids"],
+            {"in_progress": "state-ip", "needs_input": "state-ni"},
             "Needs Input must resolve alongside In Progress through the real path",
         )
 
@@ -132,11 +196,15 @@ class GatherContextLiveWiringTests(unittest.TestCase):
         blocked_by_open when there's genuinely nothing open, not just when
         there's something to catch."""
         issue_node = {
-            "id": "uuid-live-2", "identifier": "ACR-98", "title": "Live-wired, unblocked",
+            "id": "uuid-live-2",
+            "identifier": "ACR-98",
+            "title": "Live-wired, unblocked",
             "description": "## Objective\nShip it.\n\n## Done When\n- Tests pass\n\n## Constraints and Context\nNone.",
             "state": {"name": "Todo", "type": "unstarted"},
             "labels": {"nodes": [{"name": "task"}]},
-            "parent": None, "delegate": None, "assignee": None,
+            "parent": None,
+            "delegate": None,
+            "assignee": None,
             "team": {"key": "ACR"},
             "inverseRelations": {"nodes": []},
             "comments": {"nodes": []},
@@ -145,19 +213,53 @@ class GatherContextLiveWiringTests(unittest.TestCase):
         responses = [
             {"stdout": {"data": {"issue": issue_node}}, "returncode": 0},
             {"stdout": {"data": {"viewer": {"id": "viewer-1"}}}, "returncode": 0},
-            {"stdout": {"data": {"users": {"nodes": [
-                {"id": "op-1", "name": "Op", "email": "op@x", "admin": True, "app": False},
-            ]}}}, "returncode": 0},
-            {"stdout": {"data": {"workflowStates": {"nodes": [
-                {"id": "state-ip", "name": "In Progress", "type": "started"},
-                {"id": "state-ni", "name": "Needs Input", "type": "triage"},
-            ]}}}, "returncode": 0},
+            {
+                "stdout": {
+                    "data": {
+                        "users": {
+                            "nodes": [
+                                {
+                                    "id": "op-1",
+                                    "name": "Op",
+                                    "email": "op@x",
+                                    "admin": True,
+                                    "app": False,
+                                },
+                            ]
+                        }
+                    }
+                },
+                "returncode": 0,
+            },
+            {
+                "stdout": {
+                    "data": {
+                        "workflowStates": {
+                            "nodes": [
+                                {
+                                    "id": "state-ip",
+                                    "name": "In Progress",
+                                    "type": "started",
+                                },
+                                {
+                                    "id": "state-ni",
+                                    "name": "Needs Input",
+                                    "type": "triage",
+                                },
+                            ]
+                        }
+                    }
+                },
+                "returncode": 0,
+            },
         ]
         tlb.script_responses(responses)
 
         ctx = cp.gather_context(tlb.STUB_CMD, "claim", "ACR-98", fx.claim_flags())
         self.assertEqual(ctx["issue"]["blocked_by_open"], [])
-        self.assertEqual(ctx["state_ids"], {"in_progress": "state-ip", "needs_input": "state-ni"})
+        self.assertEqual(
+            ctx["state_ids"], {"in_progress": "state-ip", "needs_input": "state-ni"}
+        )
 
         report = cp.run_checks("claim", ctx, fx.claim_flags())
         self.assertEqual(find_check(report, "C5")["result"], "PASS")
@@ -168,12 +270,16 @@ class GatherContextLiveWiringTests(unittest.TestCase):
 # claim
 # ======================================================================
 
+
 class ClaimAdmitTests(unittest.TestCase):
     def test_full_variant_admits_with_facts_asserted_field_by_field(self):
         ctx = fx.claim_full_ctx()
         report = cp.run_checks("claim", ctx, fx.claim_flags())
         self.assertEqual(report["verdict"], "ADMIT")
-        self.assertTrue(all(c["result"] in ("PASS", "SKIP") for c in report["checks"]), report["checks"])
+        self.assertTrue(
+            all(c["result"] in ("PASS", "SKIP") for c in report["checks"]),
+            report["checks"],
+        )
         facts = report["facts"]
         self.assertEqual(facts["variant"], "full")
         self.assertEqual(facts["team_key"], "ACR")
@@ -184,7 +290,9 @@ class ClaimAdmitTests(unittest.TestCase):
         self.assertEqual(facts["refusal_reasons"], [])
         # Needs Input is resolved alongside In Progress — it funds the card's
         # C2/C3 NEEDS_INPUT execution path (set-state to Needs Input).
-        self.assertEqual(facts["state_ids"], {"in_progress": "state-ip", "needs_input": "state-ni"})
+        self.assertEqual(
+            facts["state_ids"], {"in_progress": "state-ip", "needs_input": "state-ni"}
+        )
 
     def test_build_child_admits_as_map_child_to_planning(self):
         # Build variant removed: a build child is an ordinary map child now —
@@ -198,14 +306,24 @@ class ClaimAdmitTests(unittest.TestCase):
         self.assertEqual(report["facts"]["claim_target_state_key"], "planning")
 
     def test_map_child_hitl_sets_assignee_gate(self):
-        ctx = fx.claim_map_child_ctx(issue=dict(fx.claim_map_child_ctx()["issue"], labels={"nodes": [{"name": "research"}, {"name": "hitl"}]}))
+        ctx = fx.claim_map_child_ctx(
+            issue=dict(
+                fx.claim_map_child_ctx()["issue"],
+                labels={"nodes": [{"name": "research"}, {"name": "hitl"}]},
+            )
+        )
         report = cp.run_checks("claim", ctx, fx.claim_flags())
         self.assertEqual(report["verdict"], "ADMIT")
         self.assertEqual(report["facts"]["variant"], "map-child")
         self.assertEqual(report["facts"]["assignee_gate"], "set")
 
     def test_map_child_afk_skips_assignee_gate(self):
-        ctx = fx.claim_map_child_ctx(issue=dict(fx.claim_map_child_ctx()["issue"], labels={"nodes": [{"name": "research"}, {"name": "afk"}]}))
+        ctx = fx.claim_map_child_ctx(
+            issue=dict(
+                fx.claim_map_child_ctx()["issue"],
+                labels={"nodes": [{"name": "research"}, {"name": "afk"}]},
+            )
+        )
         report = cp.run_checks("claim", ctx, fx.claim_flags())
         self.assertEqual(report["facts"]["assignee_gate"], "skip")
 
@@ -251,7 +369,9 @@ class ClaimRefuseAndNeedsInputTests(unittest.TestCase):
 
     def test_c2_deferred_done_when_routes_needs_input(self):
         ctx = fx.claim_full_ctx()
-        ctx["issue"]["description"] = fx.BASE_OBJECTIVE + "## Done When\n_to be set at claim_\n"
+        ctx["issue"]["description"] = (
+            fx.BASE_OBJECTIVE + "## Done When\n_to be set at claim_\n"
+        )
         report = cp.run_checks("claim", ctx, fx.claim_flags())
         self.assertEqual(report["verdict"], "NEEDS_INPUT")
         self.assertEqual(find_check(report, "C2")["result"], "FAIL")
@@ -313,7 +433,9 @@ class ClaimRefuseAndNeedsInputTests(unittest.TestCase):
 
     def test_c5b_closed_parent_map_refuses_distinctly(self):
         ctx = fx.claim_map_child_ctx()
-        ctx["issue"]["parent"] = fx.map_parent(state={"name": "Done", "type": "completed"})
+        ctx["issue"]["parent"] = fx.map_parent(
+            state={"name": "Done", "type": "completed"}
+        )
         report = cp.run_checks("claim", ctx, fx.claim_flags())
         c5b = find_check(report, "C5b")
         self.assertEqual(c5b["result"], "FAIL")
@@ -356,6 +478,7 @@ class ClaimRefuseAndNeedsInputTests(unittest.TestCase):
 # mark_done
 # ======================================================================
 
+
 class MarkDoneAdmitTests(unittest.TestCase):
     def test_full_variant_still_defers_on_m3g_without_receipt_audited(self):
         # R-B: full-variant (no map parent) mark_done always emits M3g's
@@ -375,7 +498,10 @@ class MarkDoneAdmitTests(unittest.TestCase):
         self.assertEqual(report["facts"]["refusal_reasons"], [])
         # Needs Input is resolved alongside Done — it funds the NEEDS_INPUT
         # execution path (set-state to Needs Input).
-        self.assertEqual(report["facts"]["state_ids"], {"done": "state-done", "needs_input": "state-ni"})
+        self.assertEqual(
+            report["facts"]["state_ids"],
+            {"done": "state-done", "needs_input": "state-ni"},
+        )
 
     def test_full_variant_admits_with_receipt_audited(self):
         # Post-ruling resume: --receipt-audited <comment-id> verifies a
@@ -383,7 +509,9 @@ class MarkDoneAdmitTests(unittest.TestCase):
         # claim and clears M3g mechanically — the full-variant ADMIT path.
         ctx = fx.mark_done_full_ctx()
         ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1"))
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
         self.assertEqual(report["verdict"], "ADMIT", report)
         self.assertEqual(find_check(report, "M3g")["result"], "PASS")
         self.assertEqual(report["judgment_items"], [])
@@ -392,7 +520,9 @@ class MarkDoneAdmitTests(unittest.TestCase):
     def test_full_variant_receipt_audited_bogus_id_refuses(self):
         ctx = fx.mark_done_full_ctx()
         ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="no-such-comment-id"))
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="no-such-comment-id")
+        )
         self.assertEqual(find_check(report, "M3g")["result"], "FAIL")
         self.assertEqual(report["verdict"], "REFUSE")
 
@@ -401,18 +531,76 @@ class MarkDoneAdmitTests(unittest.TestCase):
         ctx["issue"]["comments"]["nodes"].append(
             fx.ticket_close_receipt(comment_id="tc-2")
         )
-        ctx["issue"]["comments"]["nodes"][-1]["body"] = "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: x\nSpecifics: y"
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-2"))
+        ctx["issue"]["comments"]["nodes"][-1]["body"] = (
+            "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: x\nSpecifics: y"
+        )
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-2")
+        )
         self.assertEqual(find_check(report, "M3g")["result"], "FAIL")
         self.assertIn("ticket-close", find_check(report, "M3g")["detail"])
+        self.assertEqual(report["verdict"], "REFUSE")
+
+    def test_full_variant_receipt_audited_wrong_type_names_expected_header(self):
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["comments"]["nodes"].append(
+            fx.ticket_close_receipt(comment_id="tc-2")
+        )
+        ctx["issue"]["comments"]["nodes"][-1]["body"] = (
+            "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: x\nSpecifics: y"
+        )
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-2")
+        )
+        detail = find_check(report, "M3g")["detail"]
+        self.assertIn("'[VALIDATION] — conformance'", detail)
+        self.assertIn("expected '[VALIDATION] — ticket-close'", detail)
+
+    def test_ticket_close_receipt_with_hyphen_header_is_excluded_from_m3c(self):
+        # A ticket-close receipt is excluded from the Done-When receipt
+        # selection by its parsed type, so a hyphen-delimited header (which
+        # M3g accepts) never displaces the mandate receipt at M3c.
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
+        ctx["issue"]["comments"]["nodes"][-1]["body"] = (
+            "[VALIDATION] - ticket-close\nVerdict: CONFIRMED\nIntent: x\nSpecifics: y"
+        )
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
+        self.assertEqual(find_check(report, "M3c")["result"], "PASS", report)
+        self.assertEqual(find_check(report, "M3g")["result"], "PASS", report)
+        self.assertEqual(report["verdict"], "ADMIT", report)
+
+    def test_later_receipt_of_another_type_displaces_the_mandate_receipt(self):
+        # M3c grades the newest non-ticket-close [VALIDATION]: a later
+        # receipt of another type displaces an earlier matching one.
+        ctx = fx.mark_done_full_ctx()
+        ctx["issue"]["comments"]["nodes"].append(
+            {
+                "id": "c-late",
+                "body": "[VALIDATION] — deliverable-check\nVerdict: CONFIRMED\nIntent: x\nSpecifics: y",
+                "createdAt": "2026-02-01T12:30:00Z",
+                "user": {"id": "viewer-1"},
+            }
+        )
+        ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
+        self.assertEqual(find_check(report, "M3c")["result"], "FAIL", report)
         self.assertEqual(report["verdict"], "REFUSE")
 
     def test_full_variant_receipt_audited_stale_refuses(self):
         ctx = fx.mark_done_full_ctx()
         ctx["issue"]["comments"]["nodes"].append(
-            fx.ticket_close_receipt(created_at="2026-01-29T00:00:00Z")  # before the 2026-01-30 claim
+            fx.ticket_close_receipt(
+                created_at="2026-01-29T00:00:00Z"
+            )  # before the 2026-01-30 claim
         )
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1"))
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
         self.assertEqual(find_check(report, "M3g")["result"], "FAIL")
         self.assertIn("predates", find_check(report, "M3g")["detail"])
         self.assertEqual(report["verdict"], "REFUSE")
@@ -424,34 +612,50 @@ class MarkDoneAdmitTests(unittest.TestCase):
         ctx["issue"]["history"] = {"nodes": []}
         ctx["issue"]["startedAt"] = "2026-01-30T09:00:00Z"
         ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1"))
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
         check = find_check(report, "M3g")
         self.assertEqual(check["result"], "PASS")
         self.assertIn("startedAt", check["detail"])
         self.assertEqual(report["verdict"], "ADMIT")
         self.assertIn("M3g", report["ruled"])
 
-    def test_full_variant_receipt_audited_empty_history_and_null_started_at_refuses(self):
+    def test_full_variant_receipt_audited_empty_history_and_null_started_at_refuses(
+        self,
+    ):
         ctx = fx.mark_done_full_ctx()
         ctx["issue"]["history"] = {"nodes": []}
         ctx["issue"]["startedAt"] = None
         ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1"))
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
         check = find_check(report, "M3g")
         self.assertEqual(check["result"], "FAIL")
         self.assertIn("startedAt is null", check["detail"])
         self.assertEqual(report["verdict"], "REFUSE")
 
-    def test_full_variant_receipt_audited_non_state_history_falls_back_to_started_at(self):
+    def test_full_variant_receipt_audited_non_state_history_falls_back_to_started_at(
+        self,
+    ):
         # The receipted shape: history is non-empty but every node has
         # toState null — same fallback as an empty list.
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["history"] = {"nodes": [
-            {"createdAt": "2026-09-13T23:38:51Z", "fromState": None, "toState": None},
-        ]}
+        ctx["issue"]["history"] = {
+            "nodes": [
+                {
+                    "createdAt": "2026-09-13T23:38:51Z",
+                    "fromState": None,
+                    "toState": None,
+                },
+            ]
+        }
         ctx["issue"]["startedAt"] = "2026-01-30T09:00:00Z"
         ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1"))
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
         check = find_check(report, "M3g")
         self.assertEqual(check["result"], "PASS")
         self.assertIn("startedAt", check["detail"])
@@ -474,7 +678,9 @@ class MarkDoneAdmitTests(unittest.TestCase):
         ctx = fx.mark_done_full_ctx()
         ctx["issue"]["state"] = {"name": "Done", "type": "completed"}
         ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1"))
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
         self.assertEqual(report["verdict"], "ADMIT")
         self.assertTrue(report["facts"]["idempotent"])
         self.assertEqual(find_check(report, "M2")["result"], "SKIP")
@@ -491,7 +697,14 @@ class MarkDoneAdmitTests(unittest.TestCase):
 
     def test_deterministic_exempt_defers(self):
         ctx = fx.mark_done_full_ctx()
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(deterministic_exempt=True, deterministic_exempt_context="fixture suite green, 40/40"))
+        report = cp.run_checks(
+            "mark_done",
+            ctx,
+            fx.mark_done_flags(
+                deterministic_exempt=True,
+                deterministic_exempt_context="fixture suite green, 40/40",
+            ),
+        )
         self.assertEqual(find_check(report, "M-d")["result"], "DEFER")
         item = find_judgment_item(report, "J-M-d")
         self.assertEqual(item["evidence"], "fixture suite green, 40/40")
@@ -501,7 +714,11 @@ class MarkDoneAdmitTests(unittest.TestCase):
 class MarkDoneJudgmentRequiredTests(unittest.TestCase):
     def test_m3c_regex_miss_defers_with_full_done_when_text(self):
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["description"] = fx.BASE_OBJECTIVE + "## Done When\nThe suite must be green and reviewed.\n\n" + fx.BASE_CTX
+        ctx["issue"]["description"] = (
+            fx.BASE_OBJECTIVE
+            + "## Done When\nThe suite must be green and reviewed.\n\n"
+            + fx.BASE_CTX
+        )
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         self.assertEqual(find_check(report, "M3c")["result"], "DEFER")
         item = find_judgment_item(report, "J-M3c")
@@ -513,17 +730,31 @@ class MarkDoneJudgmentRequiredTests(unittest.TestCase):
         # the caller already ruled the Done When text names in other words;
         # this re-run matches mechanically instead of deferring again.
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["description"] = fx.BASE_OBJECTIVE + "## Done When\nThe suite must be green and reviewed.\n\n" + fx.BASE_CTX
+        ctx["issue"]["description"] = (
+            fx.BASE_OBJECTIVE
+            + "## Done When\nThe suite must be green and reviewed.\n\n"
+            + fx.BASE_CTX
+        )
         ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(mandate_type="conformance", receipt_audited="tc-1"))
+        report = cp.run_checks(
+            "mark_done",
+            ctx,
+            fx.mark_done_flags(mandate_type="conformance", receipt_audited="tc-1"),
+        )
         self.assertEqual(find_check(report, "M3c")["result"], "PASS")
         self.assertIn("M3c", report["ruled"])
         self.assertEqual(report["verdict"], "ADMIT", report)
 
     def test_m3c_mandate_type_ruled_mismatch_refuses(self):
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["description"] = fx.BASE_OBJECTIVE + "## Done When\nThe suite must be green and reviewed.\n\n" + fx.BASE_CTX
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(mandate_type="pedagogical-fit"))
+        ctx["issue"]["description"] = (
+            fx.BASE_OBJECTIVE
+            + "## Done When\nThe suite must be green and reviewed.\n\n"
+            + fx.BASE_CTX
+        )
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(mandate_type="pedagogical-fit")
+        )
         self.assertEqual(find_check(report, "M3c")["result"], "FAIL")
         self.assertEqual(report["verdict"], "REFUSE")
 
@@ -531,9 +762,14 @@ class MarkDoneJudgmentRequiredTests(unittest.TestCase):
         ctx = fx.mark_done_full_ctx()
         ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
         report = cp.run_checks(
-            "mark_done", ctx,
-            fx.mark_done_flags(deterministic_exempt=True, deterministic_exempt_context="fixture suite green, 40/40",
-                                exempt_ruled=True, receipt_audited="tc-1"),
+            "mark_done",
+            ctx,
+            fx.mark_done_flags(
+                deterministic_exempt=True,
+                deterministic_exempt_context="fixture suite green, 40/40",
+                exempt_ruled=True,
+                receipt_audited="tc-1",
+            ),
         )
         self.assertEqual(find_check(report, "M-d")["result"], "PASS")
         self.assertIn("M-d", report["ruled"])
@@ -550,7 +786,9 @@ class MarkDoneRefuseAndNeedsInputTests(unittest.TestCase):
 
     def test_m2_deferred_done_when_refuses(self):
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["description"] = fx.BASE_OBJECTIVE + "## Done When\n_to be set at claim_\n"
+        ctx["issue"]["description"] = (
+            fx.BASE_OBJECTIVE + "## Done When\n_to be set at claim_\n"
+        )
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         self.assertEqual(find_check(report, "M2")["result"], "FAIL")
         self.assertEqual(report["verdict"], "REFUSE")
@@ -582,7 +820,9 @@ class MarkDoneRefuseAndNeedsInputTests(unittest.TestCase):
 
     def test_m3b_stale_receipt_refuses(self):
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["comments"]["nodes"][0]["createdAt"] = "2026-01-29T00:00:00Z"  # before the claim ts
+        ctx["issue"]["comments"]["nodes"][0]["createdAt"] = (
+            "2026-01-29T00:00:00Z"  # before the claim ts
+        )
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         self.assertEqual(find_check(report, "M3b")["result"], "FAIL")
         self.assertEqual(report["verdict"], "REFUSE")
@@ -597,7 +837,9 @@ class MarkDoneRefuseAndNeedsInputTests(unittest.TestCase):
         # --receipt-audited resolves M3g mechanically so the overall verdict
         # isolates M3b's own contribution rather than M3g's default defer.
         ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1"))
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
         check = find_check(report, "M3b")
         self.assertEqual(check["result"], "PASS")
         self.assertIn("startedAt", check["detail"])
@@ -607,7 +849,9 @@ class MarkDoneRefuseAndNeedsInputTests(unittest.TestCase):
         ctx = fx.mark_done_full_ctx()
         ctx["issue"]["history"] = {"nodes": []}
         ctx["issue"]["startedAt"] = "2026-01-30T09:00:00Z"
-        ctx["issue"]["comments"]["nodes"][0]["createdAt"] = "2026-01-29T00:00:00Z"  # before startedAt
+        ctx["issue"]["comments"]["nodes"][0]["createdAt"] = (
+            "2026-01-29T00:00:00Z"  # before startedAt
+        )
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         check = find_check(report, "M3b")
         self.assertEqual(check["result"], "FAIL")
@@ -630,15 +874,23 @@ class MarkDoneRefuseAndNeedsInputTests(unittest.TestCase):
         # the original refusal detail is unchanged even when startedAt
         # happens to be present.
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["history"] = {"nodes": [
-            {"createdAt": "2026-01-30T09:00:00Z", "fromState": {"name": "Todo", "type": "unstarted"},
-             "toState": {"name": "Planning", "type": "started"}},
-        ]}
+        ctx["issue"]["history"] = {
+            "nodes": [
+                {
+                    "createdAt": "2026-01-30T09:00:00Z",
+                    "fromState": {"name": "Todo", "type": "unstarted"},
+                    "toState": {"name": "Planning", "type": "started"},
+                },
+            ]
+        }
         ctx["issue"]["startedAt"] = "2026-01-30T09:00:00Z"
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         check = find_check(report, "M3b")
         self.assertEqual(check["result"], "FAIL")
-        self.assertEqual(check["detail"], "no In Progress transition found in history — cannot establish freshness")
+        self.assertEqual(
+            check["detail"],
+            "no In Progress transition found in history — cannot establish freshness",
+        )
         self.assertEqual(report["verdict"], "REFUSE")
 
     def test_m3b_history_with_only_non_state_nodes_falls_back_to_started_at(self):
@@ -646,12 +898,20 @@ class MarkDoneRefuseAndNeedsInputTests(unittest.TestCase):
         # toState null (no state transition recorded at all) — same
         # fallback as an empty list, since there is still nothing to scan.
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["history"] = {"nodes": [
-            {"createdAt": "2026-09-13T23:38:51Z", "fromState": None, "toState": None},
-        ]}
+        ctx["issue"]["history"] = {
+            "nodes": [
+                {
+                    "createdAt": "2026-09-13T23:38:51Z",
+                    "fromState": None,
+                    "toState": None,
+                },
+            ]
+        }
         ctx["issue"]["startedAt"] = "2026-01-30T09:00:00Z"
         ctx["issue"]["comments"]["nodes"].append(fx.ticket_close_receipt())
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1"))
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(receipt_audited="tc-1")
+        )
         check = find_check(report, "M3b")
         self.assertEqual(check["result"], "PASS")
         self.assertIn("startedAt", check["detail"])
@@ -660,11 +920,19 @@ class MarkDoneRefuseAndNeedsInputTests(unittest.TestCase):
 
     def test_m3b_non_state_history_started_at_fallback_refuses_when_stale(self):
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["history"] = {"nodes": [
-            {"createdAt": "2026-09-13T23:38:51Z", "fromState": None, "toState": None},
-        ]}
+        ctx["issue"]["history"] = {
+            "nodes": [
+                {
+                    "createdAt": "2026-09-13T23:38:51Z",
+                    "fromState": None,
+                    "toState": None,
+                },
+            ]
+        }
         ctx["issue"]["startedAt"] = "2026-01-30T09:00:00Z"
-        ctx["issue"]["comments"]["nodes"][0]["createdAt"] = "2026-01-29T00:00:00Z"  # before startedAt
+        ctx["issue"]["comments"]["nodes"][0]["createdAt"] = (
+            "2026-01-29T00:00:00Z"  # before startedAt
+        )
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         check = find_check(report, "M3b")
         self.assertEqual(check["result"], "FAIL")
@@ -673,9 +941,15 @@ class MarkDoneRefuseAndNeedsInputTests(unittest.TestCase):
 
     def test_m3b_non_state_history_and_null_started_at_refuses(self):
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["history"] = {"nodes": [
-            {"createdAt": "2026-09-13T23:38:51Z", "fromState": None, "toState": None},
-        ]}
+        ctx["issue"]["history"] = {
+            "nodes": [
+                {
+                    "createdAt": "2026-09-13T23:38:51Z",
+                    "fromState": None,
+                    "toState": None,
+                },
+            ]
+        }
         ctx["issue"]["startedAt"] = None
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         check = find_check(report, "M3b")
@@ -685,28 +959,36 @@ class MarkDoneRefuseAndNeedsInputTests(unittest.TestCase):
 
     def test_m3c_mismatched_type_refuses(self):
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["comments"]["nodes"][0]["body"] = "[VALIDATION] — pedagogical-fit\nVerdict: CONFIRMED\nIntent: x\nSpecifics: y"
+        ctx["issue"]["comments"]["nodes"][0]["body"] = (
+            "[VALIDATION] — pedagogical-fit\nVerdict: CONFIRMED\nIntent: x\nSpecifics: y"
+        )
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         self.assertEqual(find_check(report, "M3c")["result"], "FAIL")
         self.assertEqual(report["verdict"], "REFUSE")
 
     def test_m3d_wrong_verdict_refuses(self):
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["comments"]["nodes"][0]["body"] = "[VALIDATION] — conformance\nVerdict: REFUTED\nIntent: x\nSpecifics: y"
+        ctx["issue"]["comments"]["nodes"][0]["body"] = (
+            "[VALIDATION] — conformance\nVerdict: REFUTED\nIntent: x\nSpecifics: y"
+        )
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         self.assertEqual(find_check(report, "M3d")["result"], "FAIL")
         self.assertEqual(report["verdict"], "REFUSE")
 
     def test_m3e_malformed_schema_refuses(self):
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["comments"]["nodes"][0]["body"] = "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: x"
+        ctx["issue"]["comments"]["nodes"][0]["body"] = (
+            "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: x"
+        )
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         self.assertEqual(find_check(report, "M3e")["result"], "FAIL")
         self.assertEqual(report["verdict"], "REFUSE")
 
     def test_m3f_wrong_author_refuses(self):
         ctx = fx.mark_done_full_ctx()
-        ctx["issue"]["comments"]["nodes"][0]["user"] = {"id": "a-human-not-the-app-actor"}
+        ctx["issue"]["comments"]["nodes"][0]["user"] = {
+            "id": "a-human-not-the-app-actor"
+        }
         report = cp.run_checks("mark_done", ctx, fx.mark_done_flags())
         self.assertEqual(find_check(report, "M3f")["result"], "FAIL")
         self.assertEqual(report["verdict"], "REFUSE")
@@ -750,7 +1032,9 @@ class MarkDoneHandoffTests(unittest.TestCase):
         ctx["issue"]["comments"]["nodes"] = [
             c for c in ctx["issue"]["comments"]["nodes"] if "[HANDOFF]" not in c["body"]
         ]
-        report = cp.run_checks("mark_done", ctx, fx.mark_done_flags(handoff_file="/tmp/handoff.txt"))
+        report = cp.run_checks(
+            "mark_done", ctx, fx.mark_done_flags(handoff_file="/tmp/handoff.txt")
+        )
         self.assertEqual(find_check(report, "M-h")["result"], "PASS")
         self.assertEqual(report["verdict"], "ADMIT", report)
 
@@ -772,6 +1056,7 @@ class MarkDoneHandoffTests(unittest.TestCase):
 # ======================================================================
 # begin
 # ======================================================================
+
 
 class BeginTests(unittest.TestCase):
     """begin is Planning -> In Progress: the second leg of the vertical-
@@ -827,6 +1112,7 @@ class BeginTests(unittest.TestCase):
 # build-shape case proving the kept build branch is untouched.
 # ======================================================================
 
+
 class VerticalSliceEdgeWalkTests(unittest.TestCase):
     """Todo -> [claim] -> Planning -> [begin] -> In Progress -> [mark_done]
     -> Done, plus park/block/cancel/un-park and the two forbidden edges
@@ -859,24 +1145,42 @@ class VerticalSliceEdgeWalkTests(unittest.TestCase):
         for labels in (["task"], []):
             ctx = fx.map_child_slice_ctx(labels=labels)
             report = cp.run_checks("claim", ctx, fx.claim_flags())
-            self.assertNotEqual(report["facts"]["claim_target_state_key"], "in_progress", f"labels={labels}")
+            self.assertNotEqual(
+                report["facts"]["claim_target_state_key"],
+                "in_progress",
+                f"labels={labels}",
+            )
 
     # ---- §8 finding 4c: an --operator-directed re-claim of a non-Todo map
     # child preserves its current state, never demotes Planning-ward ----
 
     def test_operator_directed_reclaim_of_in_progress_map_child_preserves_state(self):
         for labels in (["task"], []):
-            ctx = fx.map_child_slice_ctx(labels=labels, state_name="In Progress", state_type="started")
+            ctx = fx.map_child_slice_ctx(
+                labels=labels, state_name="In Progress", state_type="started"
+            )
             report = cp.run_checks("claim", ctx, fx.claim_flags(operator_directed=True))
-            self.assertEqual(report["facts"]["claim_target_state_key"], "in_progress", f"labels={labels}")
+            self.assertEqual(
+                report["facts"]["claim_target_state_key"],
+                "in_progress",
+                f"labels={labels}",
+            )
 
     def test_operator_directed_reclaim_of_planning_map_child_preserves_planning(self):
         for labels in (["task"], []):
-            ctx = fx.map_child_slice_ctx(labels=labels, state_name="Planning", state_type="started")
+            ctx = fx.map_child_slice_ctx(
+                labels=labels, state_name="Planning", state_type="started"
+            )
             report = cp.run_checks("claim", ctx, fx.claim_flags(operator_directed=True))
-            self.assertEqual(report["facts"]["claim_target_state_key"], "planning", f"labels={labels}")
+            self.assertEqual(
+                report["facts"]["claim_target_state_key"],
+                "planning",
+                f"labels={labels}",
+            )
 
-    def test_operator_directed_reclaim_of_blocked_or_parked_targets_planning_not_in_progress(self):
+    def test_operator_directed_reclaim_of_blocked_or_parked_targets_planning_not_in_progress(
+        self,
+    ):
         # GAP 1 (deliverable-check): a Blocked / Needs-Input map child
         # re-claimed under --operator-directed must NOT route straight to In
         # Progress — that would reach In Progress without begin/BG2, bypassing
@@ -884,12 +1188,20 @@ class VerticalSliceEdgeWalkTests(unittest.TestCase):
         # map-child state to Planning (re-plan), so no claim path silently
         # bypasses `begin`. (Replaces the old state_ids-dependent fallback that
         # sent Blocked -> in_progress.)
-        for state_name, state_type in (("Blocked", "backlog"), ("Needs Input", "started")):
+        for state_name, state_type in (
+            ("Blocked", "backlog"),
+            ("Needs Input", "started"),
+        ):
             for labels in (["task"], []):
-                ctx = fx.map_child_slice_ctx(labels=labels, state_name=state_name, state_type=state_type)
-                report = cp.run_checks("claim", ctx, fx.claim_flags(operator_directed=True))
+                ctx = fx.map_child_slice_ctx(
+                    labels=labels, state_name=state_name, state_type=state_type
+                )
+                report = cp.run_checks(
+                    "claim", ctx, fx.claim_flags(operator_directed=True)
+                )
                 self.assertEqual(
-                    report["facts"]["claim_target_state_key"], "planning",
+                    report["facts"]["claim_target_state_key"],
+                    "planning",
                     f"{state_name}/{labels} must target Planning, never bypass begin",
                 )
 
@@ -949,7 +1261,9 @@ class VerticalSliceEdgeWalkTests(unittest.TestCase):
         for labels in ({"nodes": [{"name": "task"}]}, {"nodes": []}):
             ctx = fx.unpark_ctx()
             ctx["issue"]["labels"] = labels
-            report = cp.run_checks("un-park", ctx, fx.unpark_flags(operator_directed=True))
+            report = cp.run_checks(
+                "un-park", ctx, fx.unpark_flags(operator_directed=True)
+            )
             self.assertEqual(report["verdict"], "ADMIT", f"labels={labels}")
 
     # ---- Build variant removed: a build child is a map-child variant now —
@@ -965,6 +1279,7 @@ class VerticalSliceEdgeWalkTests(unittest.TestCase):
 # ======================================================================
 # park
 # ======================================================================
+
 
 class ParkTests(unittest.TestCase):
     """R-A (operator, 2026-08-10): J-P1 retires as a defer — the composing
@@ -1004,6 +1319,7 @@ class ParkTests(unittest.TestCase):
 # block
 # ======================================================================
 
+
 class BlockTests(unittest.TestCase):
     """R-A: J-B1 retires as a defer, same as park's J-P1. Ruled (team-lead):
     B1 is symmetric with P1/X1 — the item-4 enumeration naming only X1/P1
@@ -1042,6 +1358,7 @@ class BlockTests(unittest.TestCase):
 # ======================================================================
 # un-park
 # ======================================================================
+
 
 class UnparkTests(unittest.TestCase):
     def test_operator_directed_admits(self):
@@ -1130,7 +1447,9 @@ class UnparkTests(unittest.TestCase):
         ctx["issue"]["delegate"] = {"id": "leftover-delegate"}
         report = cp.run_checks("un-park", ctx, fx.unpark_flags(operator_directed=True))
         u2 = find_check(report, "U2")
-        self.assertEqual(u2["result"], "PASS", "never silently clear, but never block on it either")
+        self.assertEqual(
+            u2["result"], "PASS", "never silently clear, but never block on it either"
+        )
         self.assertIn("NOT cleared", u2["detail"])
         self.assertEqual(report["verdict"], "ADMIT")
 
@@ -1138,6 +1457,7 @@ class UnparkTests(unittest.TestCase):
 # ======================================================================
 # cancel
 # ======================================================================
+
 
 class CancelTests(unittest.TestCase):
     def test_reason_present_admits(self):
@@ -1158,6 +1478,7 @@ class CancelTests(unittest.TestCase):
 # close-map
 # ======================================================================
 
+
 class CloseMapAdmitTests(unittest.TestCase):
     def test_admits_with_facts_asserted_field_by_field(self):
         ctx = fx.close_map_ctx()
@@ -1172,9 +1493,13 @@ class CloseMapAdmitTests(unittest.TestCase):
         # research child carries its own resolution comment.
         done_ids = {d["identifier"] for d in report["facts"]["done_children"]}
         self.assertEqual(done_ids, {"ACR-2", "ACR-3"})
-        build_entry = next(d for d in report["facts"]["done_children"] if d["identifier"] == "ACR-2")
+        build_entry = next(
+            d for d in report["facts"]["done_children"] if d["identifier"] == "ACR-2"
+        )
         self.assertIn("CONFIRMED", build_entry["validation_comment"])
-        research_entry = next(d for d in report["facts"]["done_children"] if d["identifier"] == "ACR-3")
+        research_entry = next(
+            d for d in report["facts"]["done_children"] if d["identifier"] == "ACR-3"
+        )
         self.assertIn("angle explored", research_entry["comments"][0])
         self.assertEqual(report["facts"]["refusal_reasons"], [])
 
@@ -1189,8 +1514,16 @@ class CloseMapRefuseTests(unittest.TestCase):
 
     def test_cm3_open_children_named_and_refused(self):
         ctx = fx.close_map_ctx()
-        ctx["children"].append({"id": "child-3", "identifier": "ACR-4", "title": "Still open",
-                                 "state": {"name": "In Progress", "type": "started"}, "labels": {"nodes": []}, "delegate": None})
+        ctx["children"].append(
+            {
+                "id": "child-3",
+                "identifier": "ACR-4",
+                "title": "Still open",
+                "state": {"name": "In Progress", "type": "started"},
+                "labels": {"nodes": []},
+                "delegate": None,
+            }
+        )
         report = cp.run_checks("close-map", ctx, {})
         cm3 = find_check(report, "CM3")
         self.assertEqual(cm3["result"], "FAIL")
@@ -1201,26 +1534,44 @@ class CloseMapRefuseTests(unittest.TestCase):
     def test_cm_a_aggregates_multiple_step1_failures_no_partial_refusal(self):
         ctx = fx.close_map_ctx()
         ctx["issue"]["state"] = {"name": "Todo", "type": "unstarted"}  # CM1 fails
-        ctx["children"].append({"id": "child-3", "identifier": "ACR-4", "title": "Still open",
-                                 "state": {"name": "In Progress", "type": "started"}, "labels": {"nodes": []}, "delegate": None})  # CM3 fails
+        ctx["children"].append(
+            {
+                "id": "child-3",
+                "identifier": "ACR-4",
+                "title": "Still open",
+                "state": {"name": "In Progress", "type": "started"},
+                "labels": {"nodes": []},
+                "delegate": None,
+            }
+        )  # CM3 fails
         report = cp.run_checks("close-map", ctx, {})
         self.assertEqual(find_check(report, "CM1")["result"], "FAIL")
         self.assertEqual(find_check(report, "CM3")["result"], "FAIL")
         self.assertEqual(find_check(report, "CM-a")["result"], "FAIL")
         # CM6 never evaluated once Step 1 has failures
         self.assertEqual(find_check(report, "CM6")["result"], "SKIP")
-        self.assertEqual(len(report["facts"]["refusal_reasons"]), 2, "both Step-1 failures aggregated, not just the first")
+        self.assertEqual(
+            len(report["facts"]["refusal_reasons"]),
+            2,
+            "both Step-1 failures aggregated, not just the first",
+        )
 
     def test_cm6_missing_receipt_refuses(self):
         ctx = fx.close_map_ctx()
-        ctx["issue"]["comments"]["nodes"] = [c for c in ctx["issue"]["comments"]["nodes"] if "map-conformance" not in c["body"]]
+        ctx["issue"]["comments"]["nodes"] = [
+            c
+            for c in ctx["issue"]["comments"]["nodes"]
+            if "map-conformance" not in c["body"]
+        ]
         report = cp.run_checks("close-map", ctx, {})
         self.assertEqual(find_check(report, "CM6")["result"], "FAIL")
         self.assertEqual(report["verdict"], "REFUSE")
 
     def test_cm6_stale_receipt_refuses(self):
         ctx = fx.close_map_ctx()
-        ctx["issue"]["comments"]["nodes"][0]["createdAt"] = "2026-01-15T00:00:00Z"  # before the build child's own receipt
+        ctx["issue"]["comments"]["nodes"][0]["createdAt"] = (
+            "2026-01-15T00:00:00Z"  # before the build child's own receipt
+        )
         report = cp.run_checks("close-map", ctx, {})
         self.assertEqual(find_check(report, "CM6")["result"], "FAIL")
         self.assertEqual(report["verdict"], "REFUSE")
@@ -1230,13 +1581,20 @@ class CloseMapRefuseTests(unittest.TestCase):
         # "canceled" — without the fold-in a Duplicate child would block
         # CM3 forever.
         ctx = fx.close_map_ctx()
-        ctx["children"].append({
-            "id": "child-dup", "identifier": "ACR-7", "title": "Duplicate of another slice",
-            "state": {"name": "Duplicate", "type": "duplicate"}, "delegate": None,
-            "labels": {"nodes": []},
-        })
+        ctx["children"].append(
+            {
+                "id": "child-dup",
+                "identifier": "ACR-7",
+                "title": "Duplicate of another slice",
+                "state": {"name": "Duplicate", "type": "duplicate"},
+                "delegate": None,
+                "labels": {"nodes": []},
+            }
+        )
         report = cp.run_checks("close-map", ctx, {})
-        self.assertEqual(find_check(report, "CM3")["result"], "PASS", find_check(report, "CM3"))
+        self.assertEqual(
+            find_check(report, "CM3")["result"], "PASS", find_check(report, "CM3")
+        )
         self.assertEqual(report["facts"]["open_children"], [])
 
 
@@ -1250,10 +1608,14 @@ class CloseMapReverifyTests(unittest.TestCase):
     def _post_execute_ctx(self, **overrides):
         ctx = fx.close_map_ctx()
         # The accounting document the execute step's step 3 just created.
-        ctx["documents"].append({
-            "id": "accounting-doc-1", "title": "Accounting — The Map",
-            "archivedAt": None, "content": "Accounting body.",
-        })
+        ctx["documents"].append(
+            {
+                "id": "accounting-doc-1",
+                "title": "Accounting — The Map",
+                "archivedAt": None,
+                "content": "Accounting body.",
+            }
+        )
         ctx.update(overrides)
         return ctx
 
@@ -1272,7 +1634,9 @@ class CloseMapReverifyTests(unittest.TestCase):
 
     def test_refuses_when_accounting_document_missing(self):
         ctx = self._post_execute_ctx()
-        ctx["documents"] = [d for d in ctx["documents"] if d["id"] != "accounting-doc-1"]
+        ctx["documents"] = [
+            d for d in ctx["documents"] if d["id"] != "accounting-doc-1"
+        ]
         report = cp.run_close_map_reverify(ctx, "accounting-doc-1")
         self.assertEqual(report["verdict"], "REFUSE")
         cm9 = find_check(report, "CM9")
@@ -1285,10 +1649,16 @@ class CloseMapReverifyTests(unittest.TestCase):
         ADMIT and the execute step — the close-gate re-verify must catch it,
         not just the accounting artifact."""
         ctx = self._post_execute_ctx()
-        ctx["children"].append({
-            "id": "child-3", "identifier": "ACR-4", "title": "Reopened mid-flight",
-            "state": {"name": "In Progress", "type": "started"}, "labels": {"nodes": []}, "delegate": None,
-        })
+        ctx["children"].append(
+            {
+                "id": "child-3",
+                "identifier": "ACR-4",
+                "title": "Reopened mid-flight",
+                "state": {"name": "In Progress", "type": "started"},
+                "labels": {"nodes": []},
+                "delegate": None,
+            }
+        )
         report = cp.run_close_map_reverify(ctx, "accounting-doc-1")
         self.assertEqual(report["verdict"], "REFUSE")
         self.assertEqual(find_check(report, "CM3")["result"], "FAIL")
@@ -1313,42 +1683,104 @@ class CloseMapReverifyTests(unittest.TestCase):
         rewritten close-map.md card's Step 5 invokes."""
         lb._STATE_CACHE.clear()
         map_node = {
-            "id": "map-uuid-cli", "identifier": "ACR-1", "title": "The Map",
+            "id": "map-uuid-cli",
+            "identifier": "ACR-1",
+            "title": "The Map",
             "state": {"name": "In Progress", "type": "started"},
             "labels": {"nodes": [{"name": "map"}]},
-            "parent": None, "delegate": None, "assignee": None,
+            "parent": None,
+            "delegate": None,
+            "assignee": None,
             "team": {"key": "ACR"},
             "inverseRelations": {"nodes": []},
-            "comments": {"nodes": [
-                {"id": "mc1", "body": "[VALIDATION] — map-conformance\nVerdict: CONFIRMED\nIntent: map holds\nSpecifics: e2e ran clean",
-                 "createdAt": "2026-02-01T11:00:00Z", "user": {"id": "viewer-1"}},
-            ]},
+            "comments": {
+                "nodes": [
+                    {
+                        "id": "mc1",
+                        "body": "[VALIDATION] — map-conformance\nVerdict: CONFIRMED\nIntent: map holds\nSpecifics: e2e ran clean",
+                        "createdAt": "2026-02-01T11:00:00Z",
+                        "user": {"id": "viewer-1"},
+                    },
+                ]
+            },
             "history": {"nodes": []},
         }
         responses = [
-            {"stdout": {"data": {"issue": map_node}}, "returncode": 0},  # resolve_issue_ref (the map)
-            {"stdout": {"data": {"viewer": {"id": "viewer-1"}}}, "returncode": 0},  # resolve_viewer
-            {"stdout": {"data": {"workflowStates": {"nodes": [
-                {"id": "state-done", "name": "Done", "type": "completed"},
-            ]}}}, "returncode": 0},  # resolve_state
-            {"stdout": {"data": {"issues": {"nodes": [], "pageInfo": {"hasNextPage": False, "endCursor": None}}}}, "returncode": 0},  # fetch_children (empty)
-            {"stdout": {"data": {"issue": {"documents": {"nodes": [
-                {"id": "accounting-doc-1", "title": "Accounting", "archivedAt": None, "content": "Accounting body."},
-            ]}}}}, "returncode": 0},  # fetch_documents on the map
+            {
+                "stdout": {"data": {"issue": map_node}},
+                "returncode": 0,
+            },  # resolve_issue_ref (the map)
+            {
+                "stdout": {"data": {"viewer": {"id": "viewer-1"}}},
+                "returncode": 0,
+            },  # resolve_viewer
+            {
+                "stdout": {
+                    "data": {
+                        "workflowStates": {
+                            "nodes": [
+                                {
+                                    "id": "state-done",
+                                    "name": "Done",
+                                    "type": "completed",
+                                },
+                            ]
+                        }
+                    }
+                },
+                "returncode": 0,
+            },  # resolve_state
+            {
+                "stdout": {
+                    "data": {
+                        "issues": {
+                            "nodes": [],
+                            "pageInfo": {"hasNextPage": False, "endCursor": None},
+                        }
+                    }
+                },
+                "returncode": 0,
+            },  # fetch_children (empty)
+            {
+                "stdout": {
+                    "data": {
+                        "issue": {
+                            "documents": {
+                                "nodes": [
+                                    {
+                                        "id": "accounting-doc-1",
+                                        "title": "Accounting",
+                                        "archivedAt": None,
+                                        "content": "Accounting body.",
+                                    },
+                                ]
+                            }
+                        }
+                    }
+                },
+                "returncode": 0,
+            },  # fetch_documents on the map
         ]
         tlb.script_responses(responses)
 
-        exit_code = cp.main([
-            "close-map", "ACR-1", "--reverify",
-            "--accounting-document-id", "accounting-doc-1",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        exit_code = cp.main(
+            [
+                "close-map",
+                "ACR-1",
+                "--reverify",
+                "--accounting-document-id",
+                "accounting-doc-1",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(exit_code, lb.EXIT_OK)
 
 
 # ======================================================================
 # --list-checks conformance
 # ======================================================================
+
 
 class ListChecksConformanceTests(unittest.TestCase):
     """Every verb's --list-checks output must cover its full Check Inventory
@@ -1357,7 +1789,22 @@ class ListChecksConformanceTests(unittest.TestCase):
 
     EXPECTED_IDS: typing.ClassVar[dict] = {
         "claim": {"C1", "C2", "C5", "C5b", "C6", "C7", "C8", "C9", "C10", "C11", "C12"},
-        "mark_done": {"M1", "M2", "M3a", "M3b", "M3c", "M3d", "M3e", "M3f", "M4", "M-i", "M-d", "M-o", "M3g", "M-h"},
+        "mark_done": {
+            "M1",
+            "M2",
+            "M3a",
+            "M3b",
+            "M3c",
+            "M3d",
+            "M3e",
+            "M3f",
+            "M4",
+            "M-i",
+            "M-d",
+            "M-o",
+            "M3g",
+            "M-h",
+        },
         "begin": {"BG1", "BG2"},
         "park": {"P1", "P2"},
         "block": {"B1", "B2"},
@@ -1374,14 +1821,20 @@ class ListChecksConformanceTests(unittest.TestCase):
     def test_no_duplicate_ids_within_a_verb(self):
         for verb, rows in cp.CHECK_INVENTORY.items():
             ids = [r["id"] for r in rows]
-            self.assertEqual(len(ids), len(set(ids)), f"duplicate id in verb={verb}: {ids}")
+            self.assertEqual(
+                len(ids), len(set(ids)), f"duplicate id in verb={verb}: {ids}"
+            )
 
     def test_cross_cutting_ids_present_and_distinct_from_verb_ids(self):
         cross_ids = {row["id"] for row in cp.CROSS_CUTTING}
         self.assertEqual(cross_ids, {"X-esc", "X-team", "X-rb", "X-retry", "X-park"})
         for verb, rows in cp.CHECK_INVENTORY.items():
             verb_ids = {r["id"] for r in rows}
-            self.assertEqual(verb_ids & cross_ids, set(), f"cross-cutting id collides with verb={verb}")
+            self.assertEqual(
+                verb_ids & cross_ids,
+                set(),
+                f"cross-cutting id collides with verb={verb}",
+            )
 
     def test_pure_judgment_ids_never_appear_in_runtime_checks(self):
         """C12, M-o, CM7 are pure Judgment (no script component) — they must
@@ -1396,8 +1849,14 @@ class ListChecksConformanceTests(unittest.TestCase):
         for verb, pure_id in pure_judgment.items():
             ctx, flags = fixtures[verb]
             report = cp.run_checks(verb, ctx, flags)
-            runtime_ids = {c["id"] for c in report["checks"]} | {j["id"].replace("J-", "") for j in report["judgment_items"]}
-            self.assertNotIn(pure_id, runtime_ids, f"{pure_id} is pure Judgment; must not appear in {verb}'s runtime output")
+            runtime_ids = {c["id"] for c in report["checks"]} | {
+                j["id"].replace("J-", "") for j in report["judgment_items"]
+            }
+            self.assertNotIn(
+                pure_id,
+                runtime_ids,
+                f"{pure_id} is pure Judgment; must not appear in {verb}'s runtime output",
+            )
 
     def test_execution_only_ids_never_appear_in_runtime_checks(self):
         """C10/C11/M4/R4/P2/B2/CM9 live in linear_bridge.py's mutation
@@ -1421,7 +1880,11 @@ class ListChecksConformanceTests(unittest.TestCase):
             ctx, flags = fixtures[verb]
             report = cp.run_checks(verb, ctx, flags)
             runtime_ids = {c["id"] for c in report["checks"]}
-            self.assertEqual(runtime_ids & ids, set(), f"execution-only ids leaked into {verb}'s runtime checks: {runtime_ids & ids}")
+            self.assertEqual(
+                runtime_ids & ids,
+                set(),
+                f"execution-only ids leaked into {verb}'s runtime checks: {runtime_ids & ids}",
+            )
 
 
 # ======================================================================
@@ -1433,6 +1896,7 @@ class ListChecksConformanceTests(unittest.TestCase):
 # top of this file) don't get a defer-stop fixture — REFUSE and ADMIT cover
 # what IS reachable.
 # ======================================================================
+
 
 def _resp(data):
     return {"stdout": {"data": data}, "returncode": 0}
@@ -1447,13 +1911,36 @@ def _viewer_resp(vid="viewer-1"):
 
 
 def _operator_resp(oid="operator-1"):
-    return _resp({"users": {"nodes": [{"id": oid, "name": "Op", "email": "op@x", "admin": True, "app": False}]}})
+    return _resp(
+        {
+            "users": {
+                "nodes": [
+                    {
+                        "id": oid,
+                        "name": "Op",
+                        "email": "op@x",
+                        "admin": True,
+                        "app": False,
+                    }
+                ]
+            }
+        }
+    )
 
 
 def _states_resp(pairs):
     """pairs: [(name, id, type), ...] — one resolve_state call answers every
     name needed for a team (cached per process after the first lookup)."""
-    return _resp({"workflowStates": {"nodes": [{"id": sid, "name": name, "type": stype} for (name, sid, stype) in pairs]}})
+    return _resp(
+        {
+            "workflowStates": {
+                "nodes": [
+                    {"id": sid, "name": name, "type": stype}
+                    for (name, sid, stype) in pairs
+                ]
+            }
+        }
+    )
 
 
 def _wip_resp(conflicts=None):
@@ -1472,7 +1959,14 @@ def _mutation_ok_resp():
 
 
 def _set_state_readback_resp(uuid, state_id, name, state_type):
-    return _resp({"issue": {"id": uuid, "state": {"id": state_id, "name": name, "type": state_type}}})
+    return _resp(
+        {
+            "issue": {
+                "id": uuid,
+                "state": {"id": state_id, "name": name, "type": state_type},
+            }
+        }
+    )
 
 
 def _release_delegate_readback_resp(uuid):
@@ -1488,9 +1982,18 @@ def _comments_readback_resp(nodes):
 
 
 def _relation_create_resp():
-    return _resp({"issueRelationCreate": {"success": True, "issueRelation": {
-        "id": "rel-1", "type": "duplicate_of", "relatedIssue": {"id": "uuid-related"},
-    }}})
+    return _resp(
+        {
+            "issueRelationCreate": {
+                "success": True,
+                "issueRelation": {
+                    "id": "rel-1",
+                    "type": "duplicate_of",
+                    "relatedIssue": {"id": "uuid-related"},
+                },
+            }
+        }
+    )
 
 
 def _relations_readback_resp(nodes):
@@ -1499,11 +2002,17 @@ def _relations_readback_resp(nodes):
 
 def _e2e_issue_node(**overrides):
     node = {
-        "id": "uuid-e2e", "identifier": "ACR-60", "title": "E2E ticket",
-        "description": fx.BASE_OBJECTIVE + "## Done When\n- Tests pass\n\n" + fx.BASE_CTX,
+        "id": "uuid-e2e",
+        "identifier": "ACR-60",
+        "title": "E2E ticket",
+        "description": fx.BASE_OBJECTIVE
+        + "## Done When\n- Tests pass\n\n"
+        + fx.BASE_CTX,
         "state": {"name": "Todo", "type": "unstarted"},
         "labels": {"nodes": [{"name": "task"}]},
-        "parent": None, "delegate": None, "assignee": None,
+        "parent": None,
+        "delegate": None,
+        "assignee": None,
         "team": {"key": "ACR"},
         "inverseRelations": {"nodes": []},
         "comments": {"nodes": []},
@@ -1538,72 +2047,147 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
 
     def test_claim_admit_executed(self):
         issue_node = _e2e_issue_node(identifier="ACR-60", id="uuid-claim-e2e")
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _operator_resp("operator-1"),
-            _states_resp([("In Progress", "state-ip", "started"), ("Needs Input", "state-ni", "triage")]),
-            _wip_resp([]),
-            _mutation_ok_resp(),
-            _resp({"issue": {"id": "uuid-claim-e2e", "delegate": {"id": "viewer-1"},
-                              "state": {"id": "state-ip", "name": "In Progress", "type": "started"},
-                              "assignee": {"id": "operator-1"}}}),
-        ])
-        code, out = _run_main_capture([
-            "claim", "ACR-60", "--project-id", "proj-1", "--execute-if-clean",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _operator_resp("operator-1"),
+                _states_resp(
+                    [
+                        ("In Progress", "state-ip", "started"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+                _wip_resp([]),
+                _mutation_ok_resp(),
+                _resp(
+                    {
+                        "issue": {
+                            "id": "uuid-claim-e2e",
+                            "delegate": {"id": "viewer-1"},
+                            "state": {
+                                "id": "state-ip",
+                                "name": "In Progress",
+                                "type": "started",
+                            },
+                            "assignee": {"id": "operator-1"},
+                        }
+                    }
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "claim",
+                "ACR-60",
+                "--project-id",
+                "proj-1",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "ADMIT")
         self.assertTrue(out["executed"])
         self.assertTrue(out["result"]["claim_write"]["verified"])
         self.assertIn("elapsed_ms", out)
-        self.assertNotIn("checks", out, "ADMIT is window-priced — no full checks[] dump")
+        self.assertNotIn(
+            "checks", out, "ADMIT is window-priced — no full checks[] dump"
+        )
 
     def test_claim_lost_race_not_executed(self):
         issue_node = _e2e_issue_node(identifier="ACR-60", id="uuid-claim-race")
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _operator_resp("operator-1"),
-            _states_resp([("In Progress", "state-ip", "started"), ("Needs Input", "state-ni", "triage")]),
-            _wip_resp([]),
-            _mutation_ok_resp(),
-            _resp({"issue": {"id": "uuid-claim-race", "delegate": {"id": "someone-else"},
-                              "state": {"id": "state-ip", "name": "In Progress", "type": "started"},
-                              "assignee": None}}),
-        ])
-        code, out = _run_main_capture([
-            "claim", "ACR-60", "--project-id", "proj-1", "--execute-if-clean",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _operator_resp("operator-1"),
+                _states_resp(
+                    [
+                        ("In Progress", "state-ip", "started"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+                _wip_resp([]),
+                _mutation_ok_resp(),
+                _resp(
+                    {
+                        "issue": {
+                            "id": "uuid-claim-race",
+                            "delegate": {"id": "someone-else"},
+                            "state": {
+                                "id": "state-ip",
+                                "name": "In Progress",
+                                "type": "started",
+                            },
+                            "assignee": None,
+                        }
+                    }
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "claim",
+                "ACR-60",
+                "--project-id",
+                "proj-1",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "ADMIT")
-        self.assertFalse(out["executed"], "a lost race means back off and report, never proceed")
+        self.assertFalse(
+            out["executed"], "a lost race means back off and report, never proceed"
+        )
         self.assertTrue(out["result"]["claim_write"]["race_lost"])
 
     def test_claim_needs_input_executes_routing_comment_then_state(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-61", id="uuid-claim-ni",
+            identifier="ACR-61",
+            id="uuid-claim-ni",
             description=fx.BASE_OBJECTIVE,  # Done When missing -> C2 NEEDS_INPUT
         )
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _operator_resp("operator-1"),
-            _states_resp([("In Progress", "state-ip", "started"), ("Needs Input", "state-ni", "triage")]),
-            _wip_resp([]),
-            _comment_create_resp("c-routing-1"),
-            _comments_readback_resp([{"id": "c-routing-1", "body": "Proposed Done When: ..."}]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-claim-ni", "state-ni", "Needs Input", "triage"),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _operator_resp("operator-1"),
+                _states_resp(
+                    [
+                        ("In Progress", "state-ip", "started"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+                _wip_resp([]),
+                _comment_create_resp("c-routing-1"),
+                _comments_readback_resp(
+                    [{"id": "c-routing-1", "body": "Proposed Done When: ..."}]
+                ),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-claim-ni", "state-ni", "Needs Input", "triage"
+                ),
+            ]
+        )
 
         def run(path):
-            return _run_main_capture([
-                "claim", "ACR-61", "--project-id", "proj-1", "--execute-if-clean",
-                "--comment-file", path, "--bridge-cmd", " ".join(tlb.STUB_CMD),
-            ])
+            return _run_main_capture(
+                [
+                    "claim",
+                    "ACR-61",
+                    "--project-id",
+                    "proj-1",
+                    "--execute-if-clean",
+                    "--comment-file",
+                    path,
+                    "--bridge-cmd",
+                    " ".join(tlb.STUB_CMD),
+                ]
+            )
 
         code, out = _with_comment_file("Proposed Done When: ...", run)
         self.assertEqual(code, lb.EXIT_OK)
@@ -1616,49 +2200,95 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
         self.assertNotIn("release_delegate", out["result"])
 
     def test_claim_needs_input_without_comment_file_not_executed(self):
-        issue_node = _e2e_issue_node(identifier="ACR-61", id="uuid-claim-ni2", description=fx.BASE_OBJECTIVE)
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _operator_resp("operator-1"),
-            _states_resp([("In Progress", "state-ip", "started"), ("Needs Input", "state-ni", "triage")]),
-            _wip_resp([]),
-        ])
-        code, out = _run_main_capture([
-            "claim", "ACR-61", "--project-id", "proj-1", "--execute-if-clean",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        issue_node = _e2e_issue_node(
+            identifier="ACR-61", id="uuid-claim-ni2", description=fx.BASE_OBJECTIVE
+        )
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _operator_resp("operator-1"),
+                _states_resp(
+                    [
+                        ("In Progress", "state-ip", "started"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+                _wip_resp([]),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "claim",
+                "ACR-61",
+                "--project-id",
+                "proj-1",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "NEEDS_INPUT")
         self.assertFalse(out["executed"])
 
     def test_mark_done_admit_executed_full_variant_with_receipt_audited(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-62", id="uuid-md-e2e",
+            identifier="ACR-62",
+            id="uuid-md-e2e",
             state={"name": "In Progress", "type": "started"},
-            description=fx.BASE_OBJECTIVE + "## Done When\nValidation mandate: conformance\n\n" + fx.BASE_CTX,
+            description=fx.BASE_OBJECTIVE
+            + "## Done When\nValidation mandate: conformance\n\n"
+            + fx.BASE_CTX,
             labels={"nodes": []},
-            comments={"nodes": [
-                {"id": "c1", "body": "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: it works\nSpecifics: ran the suite",
-                 "createdAt": "2026-02-01T12:00:00Z", "user": {"id": "viewer-1"}},
-                fx.ticket_close_receipt(),
-            ]},
-            history={"nodes": [
-                {"createdAt": "2026-01-30T09:00:00Z", "fromState": {"name": "Todo", "type": "unstarted"},
-                 "toState": {"name": "In Progress", "type": "started"}},
-            ]},
+            comments={
+                "nodes": [
+                    {
+                        "id": "c1",
+                        "body": "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: it works\nSpecifics: ran the suite",
+                        "createdAt": "2026-02-01T12:00:00Z",
+                        "user": {"id": "viewer-1"},
+                    },
+                    fx.ticket_close_receipt(),
+                ]
+            },
+            history={
+                "nodes": [
+                    {
+                        "createdAt": "2026-01-30T09:00:00Z",
+                        "fromState": {"name": "Todo", "type": "unstarted"},
+                        "toState": {"name": "In Progress", "type": "started"},
+                    },
+                ]
+            },
         )
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Done", "state-done", "completed"), ("Needs Input", "state-ni", "triage")]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-md-e2e", "state-done", "Done", "completed"),
-        ])
-        code, out = _run_main_capture([
-            "mark_done", "ACR-62", "--execute-if-clean", "--receipt-audited", "tc-1",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp(
+                    [
+                        ("Done", "state-done", "completed"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-md-e2e", "state-done", "Done", "completed"
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "mark_done",
+                "ACR-62",
+                "--execute-if-clean",
+                "--receipt-audited",
+                "tc-1",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "ADMIT", out)
         self.assertTrue(out["executed"])
@@ -1667,34 +2297,66 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
 
     def test_mark_done_idempotent_admit_executed_no_mutation(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-64", id="uuid-md-idem",
+            identifier="ACR-64",
+            id="uuid-md-idem",
             state={"name": "Done", "type": "completed"},
-            description=fx.BASE_OBJECTIVE + "## Done When\nValidation mandate: conformance\n\n" + fx.BASE_CTX,
+            description=fx.BASE_OBJECTIVE
+            + "## Done When\nValidation mandate: conformance\n\n"
+            + fx.BASE_CTX,
             labels={"nodes": []},
-            comments={"nodes": [
-                {"id": "c1", "body": "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: it works\nSpecifics: ran the suite",
-                 "createdAt": "2026-02-01T12:00:00Z", "user": {"id": "viewer-1"}},
-                fx.ticket_close_receipt(),
-            ]},
-            history={"nodes": [
-                {"createdAt": "2026-01-30T09:00:00Z", "fromState": {"name": "Todo", "type": "unstarted"},
-                 "toState": {"name": "In Progress", "type": "started"}},
-            ]},
+            comments={
+                "nodes": [
+                    {
+                        "id": "c1",
+                        "body": "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: it works\nSpecifics: ran the suite",
+                        "createdAt": "2026-02-01T12:00:00Z",
+                        "user": {"id": "viewer-1"},
+                    },
+                    fx.ticket_close_receipt(),
+                ]
+            },
+            history={
+                "nodes": [
+                    {
+                        "createdAt": "2026-01-30T09:00:00Z",
+                        "fromState": {"name": "Todo", "type": "unstarted"},
+                        "toState": {"name": "In Progress", "type": "started"},
+                    },
+                ]
+            },
         )
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Done", "state-done", "completed"), ("Needs Input", "state-ni", "triage")]),
-        ])
-        code, out = _run_main_capture([
-            "mark_done", "ACR-64", "--execute-if-clean", "--receipt-audited", "tc-1",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp(
+                    [
+                        ("Done", "state-done", "completed"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "mark_done",
+                "ACR-64",
+                "--execute-if-clean",
+                "--receipt-audited",
+                "tc-1",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "ADMIT")
         self.assertTrue(out["executed"])
         self.assertIn("no re-transition", out["result"]["note"])
-        self.assertEqual(tlb.call_count(counter), 3, "idempotent execute makes zero additional bridge calls")
+        self.assertEqual(
+            tlb.call_count(counter),
+            3,
+            "idempotent execute makes zero additional bridge calls",
+        )
 
     def test_mark_done_map_child_handoff_posts_before_state(self):
         # GAP 2 (deliverable-check): M-h's [HANDOFF]-before-Done sequencing
@@ -1703,37 +2365,71 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
         # Mirrors the park sequencing E2E. Label-less map child also exercises
         # the compatibility window through the full execute path.
         issue_node = _e2e_issue_node(
-            identifier="ACR-70", id="uuid-md-handoff",
+            identifier="ACR-70",
+            id="uuid-md-handoff",
             state={"name": "In Progress", "type": "started"},
             parent=fx.map_parent(),
             labels={"nodes": []},
-            description=fx.BASE_OBJECTIVE + "## Done When\nValidation mandate: conformance\n\n" + fx.BASE_CTX,
-            comments={"nodes": [
-                {"id": "c1", "body": "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: it works\nSpecifics: ran the suite",
-                 "createdAt": "2026-02-01T12:00:00Z", "user": {"id": "viewer-1"}},
-            ]},
-            history={"nodes": [
-                {"createdAt": "2026-01-30T09:00:00Z", "fromState": {"name": "Todo", "type": "unstarted"},
-                 "toState": {"name": "In Progress", "type": "started"}},
-            ]},
+            description=fx.BASE_OBJECTIVE
+            + "## Done When\nValidation mandate: conformance\n\n"
+            + fx.BASE_CTX,
+            comments={
+                "nodes": [
+                    {
+                        "id": "c1",
+                        "body": "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: it works\nSpecifics: ran the suite",
+                        "createdAt": "2026-02-01T12:00:00Z",
+                        "user": {"id": "viewer-1"},
+                    },
+                ]
+            },
+            history={
+                "nodes": [
+                    {
+                        "createdAt": "2026-01-30T09:00:00Z",
+                        "fromState": {"name": "Todo", "type": "unstarted"},
+                        "toState": {"name": "In Progress", "type": "started"},
+                    },
+                ]
+            },
         )
         log_path = tlb.script_log()
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Done", "state-done", "completed"), ("Needs Input", "state-ni", "triage")]),
-            _issue_resp({**fx.map_parent(), "comments": {"nodes": []}}),  # map-child parent-comments fetch
-            _comment_create_resp("c-handoff-1"),                          # execute: post [HANDOFF] ...
-            _comments_readback_resp([{"id": "c-handoff-1", "body": "[HANDOFF] next: slice B."}]),  # ... read-back
-            _mutation_ok_resp(),                                          # execute: set-state Done ...
-            _set_state_readback_resp("uuid-md-handoff", "state-done", "Done", "completed"),  # ... read-back
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp(
+                    [
+                        ("Done", "state-done", "completed"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+                _issue_resp(
+                    {**fx.map_parent(), "comments": {"nodes": []}}
+                ),  # map-child parent-comments fetch
+                _comment_create_resp("c-handoff-1"),  # execute: post [HANDOFF] ...
+                _comments_readback_resp(
+                    [{"id": "c-handoff-1", "body": "[HANDOFF] next: slice B."}]
+                ),  # ... read-back
+                _mutation_ok_resp(),  # execute: set-state Done ...
+                _set_state_readback_resp(
+                    "uuid-md-handoff", "state-done", "Done", "completed"
+                ),  # ... read-back
+            ]
+        )
 
         def run(path):
-            return _run_main_capture([
-                "mark_done", "ACR-70", "--execute-if-clean", "--handoff-file", path,
-                "--bridge-cmd", " ".join(tlb.STUB_CMD),
-            ])
+            return _run_main_capture(
+                [
+                    "mark_done",
+                    "ACR-70",
+                    "--execute-if-clean",
+                    "--handoff-file",
+                    path,
+                    "--bridge-cmd",
+                    " ".join(tlb.STUB_CMD),
+                ]
+            )
 
         code, out = _with_comment_file("[HANDOFF] next: slice B.", run)
         self.assertEqual(code, lb.EXIT_OK)
@@ -1745,25 +2441,41 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
         # change — commentCreate must precede the stateId-bearing issueUpdate.
         queries = tlb.read_log(log_path)
         comment_idx = next(i for i, q in enumerate(queries) if "commentCreate" in q)
-        state_idx = next(i for i, q in enumerate(queries) if "stateId" in q and "issueUpdate" in q)
-        self.assertLess(comment_idx, state_idx, "[HANDOFF]-before-Done sequencing law violated")
+        state_idx = next(
+            i for i, q in enumerate(queries) if "stateId" in q and "issueUpdate" in q
+        )
+        self.assertLess(
+            comment_idx, state_idx, "[HANDOFF]-before-Done sequencing law violated"
+        )
 
     def test_begin_admit_executed(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-65", id="uuid-begin-e2e",
+            identifier="ACR-65",
+            id="uuid-begin-e2e",
             state={"name": "Planning", "type": "started"},
             parent=fx.map_parent(),
         )
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("In Progress", "state-ip", "started")]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-begin-e2e", "state-ip", "In Progress", "started"),
-        ])
-        code, out = _run_main_capture([
-            "begin", "ACR-65", "--plan-attested", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("In Progress", "state-ip", "started")]),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-begin-e2e", "state-ip", "In Progress", "started"
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "begin",
+                "ACR-65",
+                "--plan-attested",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "ADMIT")
         self.assertTrue(out["executed"])
@@ -1772,51 +2484,90 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
 
     def test_park_admit_executed_comment_already_present(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-66", id="uuid-park-e2e",
+            identifier="ACR-66",
+            id="uuid-park-e2e",
             state={"name": "In Progress", "type": "started"},
-            comments={"nodes": [
-                {"id": "c1", "body": "Need a decision on the routing convention.", "createdAt": "2026-02-01T12:00:00Z", "user": {"id": "viewer-1"}},
-            ]},
+            comments={
+                "nodes": [
+                    {
+                        "id": "c1",
+                        "body": "Need a decision on the routing convention.",
+                        "createdAt": "2026-02-01T12:00:00Z",
+                        "user": {"id": "viewer-1"},
+                    },
+                ]
+            },
         )
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Needs Input", "state-ni", "triage")]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-park-e2e", "state-ni", "Needs Input", "triage"),
-            _mutation_ok_resp(),
-            _release_delegate_readback_resp("uuid-park-e2e"),
-        ])
-        code, out = _run_main_capture([
-            "park", "ACR-66", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Needs Input", "state-ni", "triage")]),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-park-e2e", "state-ni", "Needs Input", "triage"
+                ),
+                _mutation_ok_resp(),
+                _release_delegate_readback_resp("uuid-park-e2e"),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "park",
+                "ACR-66",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "ADMIT")
         self.assertTrue(out["executed"])
-        self.assertNotIn("comment", out["result"], "ask already present by live fetch — nothing fresh to post")
+        self.assertNotIn(
+            "comment",
+            out["result"],
+            "ask already present by live fetch — nothing fresh to post",
+        )
         self.assertTrue(out["result"]["set_state"]["verified"])
         self.assertTrue(out["result"]["release_delegate"]["verified"])
 
     def test_park_admit_executed_comment_file_posts_before_state(self):
-        issue_node = _e2e_issue_node(identifier="ACR-67", id="uuid-park-cf", state={"name": "In Progress", "type": "started"})
+        issue_node = _e2e_issue_node(
+            identifier="ACR-67",
+            id="uuid-park-cf",
+            state={"name": "In Progress", "type": "started"},
+        )
         log_path = tlb.script_log()
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Needs Input", "state-ni", "triage")]),
-            _comment_create_resp("c-ask-1"),
-            _comments_readback_resp([{"id": "c-ask-1", "body": "Please decide X."}]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-park-cf", "state-ni", "Needs Input", "triage"),
-            _mutation_ok_resp(),
-            _release_delegate_readback_resp("uuid-park-cf"),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Needs Input", "state-ni", "triage")]),
+                _comment_create_resp("c-ask-1"),
+                _comments_readback_resp(
+                    [{"id": "c-ask-1", "body": "Please decide X."}]
+                ),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-park-cf", "state-ni", "Needs Input", "triage"
+                ),
+                _mutation_ok_resp(),
+                _release_delegate_readback_resp("uuid-park-cf"),
+            ]
+        )
 
         def run(path):
-            return _run_main_capture([
-                "park", "ACR-67", "--execute-if-clean", "--comment-file", path,
-                "--bridge-cmd", " ".join(tlb.STUB_CMD),
-            ])
+            return _run_main_capture(
+                [
+                    "park",
+                    "ACR-67",
+                    "--execute-if-clean",
+                    "--comment-file",
+                    path,
+                    "--bridge-cmd",
+                    " ".join(tlb.STUB_CMD),
+                ]
+            )
 
         code, out = _with_comment_file("Please decide X.", run)
         self.assertEqual(code, lb.EXIT_OK)
@@ -1829,29 +2580,51 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
         # actual call order sent to the bridge.
         queries = tlb.read_log(log_path)
         comment_idx = next(i for i, q in enumerate(queries) if "commentCreate" in q)
-        state_idx = next(i for i, q in enumerate(queries) if "stateId" in q and "issueUpdate" in q)
-        self.assertLess(comment_idx, state_idx, "comment-before-state-change law violated")
+        state_idx = next(
+            i for i, q in enumerate(queries) if "stateId" in q and "issueUpdate" in q
+        )
+        self.assertLess(
+            comment_idx, state_idx, "comment-before-state-change law violated"
+        )
 
     def test_block_admit_executed(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-68", id="uuid-block-e2e",
+            identifier="ACR-68",
+            id="uuid-block-e2e",
             state={"name": "In Progress", "type": "started"},
-            comments={"nodes": [
-                {"id": "c1", "body": "Blocked on PR #482 merging upstream.", "createdAt": "2026-02-01T12:00:00Z", "user": {"id": "viewer-1"}},
-            ]},
+            comments={
+                "nodes": [
+                    {
+                        "id": "c1",
+                        "body": "Blocked on PR #482 merging upstream.",
+                        "createdAt": "2026-02-01T12:00:00Z",
+                        "user": {"id": "viewer-1"},
+                    },
+                ]
+            },
         )
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Blocked", "state-blocked", "backlog")]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-block-e2e", "state-blocked", "Blocked", "backlog"),
-            _mutation_ok_resp(),
-            _release_delegate_readback_resp("uuid-block-e2e"),
-        ])
-        code, out = _run_main_capture([
-            "block", "ACR-68", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Blocked", "state-blocked", "backlog")]),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-block-e2e", "state-blocked", "Blocked", "backlog"
+                ),
+                _mutation_ok_resp(),
+                _release_delegate_readback_resp("uuid-block-e2e"),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "block",
+                "ACR-68",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "ADMIT")
         self.assertTrue(out["executed"])
@@ -1861,25 +2634,42 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
         # Ruled symmetric with park/cancel — B1 also passes on a supplied
         # --comment-file when no condition exists yet, posted before the
         # state change per the sequencing law.
-        issue_node = _e2e_issue_node(identifier="ACR-83", id="uuid-block-cf", state={"name": "In Progress", "type": "started"})
+        issue_node = _e2e_issue_node(
+            identifier="ACR-83",
+            id="uuid-block-cf",
+            state={"name": "In Progress", "type": "started"},
+        )
         log_path = tlb.script_log()
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Blocked", "state-blocked", "backlog")]),
-            _comment_create_resp("c-condition-1"),
-            _comments_readback_resp([{"id": "c-condition-1", "body": "Blocked on PR #482."}]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-block-cf", "state-blocked", "Blocked", "backlog"),
-            _mutation_ok_resp(),
-            _release_delegate_readback_resp("uuid-block-cf"),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Blocked", "state-blocked", "backlog")]),
+                _comment_create_resp("c-condition-1"),
+                _comments_readback_resp(
+                    [{"id": "c-condition-1", "body": "Blocked on PR #482."}]
+                ),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-block-cf", "state-blocked", "Blocked", "backlog"
+                ),
+                _mutation_ok_resp(),
+                _release_delegate_readback_resp("uuid-block-cf"),
+            ]
+        )
 
         def run(path):
-            return _run_main_capture([
-                "block", "ACR-83", "--execute-if-clean", "--comment-file", path,
-                "--bridge-cmd", " ".join(tlb.STUB_CMD),
-            ])
+            return _run_main_capture(
+                [
+                    "block",
+                    "ACR-83",
+                    "--execute-if-clean",
+                    "--comment-file",
+                    path,
+                    "--bridge-cmd",
+                    " ".join(tlb.STUB_CMD),
+                ]
+            )
 
         code, out = _with_comment_file("Blocked on PR #482.", run)
         self.assertEqual(code, lb.EXIT_OK)
@@ -1889,25 +2679,40 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
 
         queries = tlb.read_log(log_path)
         comment_idx = next(i for i, q in enumerate(queries) if "commentCreate" in q)
-        state_idx = next(i for i, q in enumerate(queries) if "stateId" in q and "issueUpdate" in q)
-        self.assertLess(comment_idx, state_idx, "comment-before-state-change law violated")
+        state_idx = next(
+            i for i, q in enumerate(queries) if "stateId" in q and "issueUpdate" in q
+        )
+        self.assertLess(
+            comment_idx, state_idx, "comment-before-state-change law violated"
+        )
 
     def test_unpark_admit_executed(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-69", id="uuid-unpark-e2e",
+            identifier="ACR-69",
+            id="uuid-unpark-e2e",
             state={"name": "Blocked", "type": "backlog"},
         )
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Todo", "state-todo", "unstarted")]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-unpark-e2e", "state-todo", "Todo", "unstarted"),
-        ])
-        code, out = _run_main_capture([
-            "un-park", "ACR-69", "--operator-directed", "--execute-if-clean",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Todo", "state-todo", "unstarted")]),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-unpark-e2e", "state-todo", "Todo", "unstarted"
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "un-park",
+                "ACR-69",
+                "--operator-directed",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "ADMIT")
         self.assertTrue(out["executed"])
@@ -1918,23 +2723,41 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
         # un-park must bring it back to Todo. This is the round trip the
         # type-keyed U2 made impossible.
         issue_node = _e2e_issue_node(
-            identifier="ACR-85", id="uuid-unpark-ni",
+            identifier="ACR-85",
+            id="uuid-unpark-ni",
             state={"name": "Needs Input", "type": "started"},
-            comments={"nodes": [
-                {"id": "c1", "body": "Parked: waiting on the sibling decision ticket to close.", "createdAt": "2026-02-01T12:00:00Z", "user": {"id": "viewer-1"}},
-            ]},
+            comments={
+                "nodes": [
+                    {
+                        "id": "c1",
+                        "body": "Parked: waiting on the sibling decision ticket to close.",
+                        "createdAt": "2026-02-01T12:00:00Z",
+                        "user": {"id": "viewer-1"},
+                    },
+                ]
+            },
         )
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Todo", "state-todo", "unstarted")]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-unpark-ni", "state-todo", "Todo", "unstarted"),
-        ])
-        code, out = _run_main_capture([
-            "un-park", "ACR-85", "--blocker-verified", "--execute-if-clean",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Todo", "state-todo", "unstarted")]),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-unpark-ni", "state-todo", "Todo", "unstarted"
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "un-park",
+                "ACR-85",
+                "--blocker-verified",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "ADMIT")
         self.assertTrue(out["executed"])
@@ -1942,23 +2765,41 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
 
     def test_unpark_blocker_verified_admit_executed(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-70", id="uuid-unpark-bv",
+            identifier="ACR-70",
+            id="uuid-unpark-bv",
             state={"name": "Blocked", "type": "backlog"},
-            comments={"nodes": [
-                {"id": "c1", "body": "Blocked on PR #482 merging upstream.", "createdAt": "2026-02-01T12:00:00Z", "user": {"id": "viewer-1"}},
-            ]},
+            comments={
+                "nodes": [
+                    {
+                        "id": "c1",
+                        "body": "Blocked on PR #482 merging upstream.",
+                        "createdAt": "2026-02-01T12:00:00Z",
+                        "user": {"id": "viewer-1"},
+                    },
+                ]
+            },
         )
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Todo", "state-todo", "unstarted")]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-unpark-bv", "state-todo", "Todo", "unstarted"),
-        ])
-        code, out = _run_main_capture([
-            "un-park", "ACR-70", "--blocker-verified", "--execute-if-clean",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Todo", "state-todo", "unstarted")]),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-unpark-bv", "state-todo", "Todo", "unstarted"
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "un-park",
+                "ACR-70",
+                "--blocker-verified",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "ADMIT")
         self.assertTrue(out["executed"])
@@ -1966,21 +2807,39 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
 
     def test_cancel_admit_executed_reason_already_present(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-71", id="uuid-cancel-e2e",
-            comments={"nodes": [
-                {"id": "c1", "body": "Superseded — canceling.", "createdAt": "2026-02-01T12:00:00Z", "user": {"id": "viewer-1"}},
-            ]},
+            identifier="ACR-71",
+            id="uuid-cancel-e2e",
+            comments={
+                "nodes": [
+                    {
+                        "id": "c1",
+                        "body": "Superseded — canceling.",
+                        "createdAt": "2026-02-01T12:00:00Z",
+                        "user": {"id": "viewer-1"},
+                    },
+                ]
+            },
         )
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Canceled", "state-canceled", "canceled")]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-cancel-e2e", "state-canceled", "Canceled", "canceled"),
-        ])
-        code, out = _run_main_capture([
-            "cancel", "ACR-71", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Canceled", "state-canceled", "canceled")]),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-cancel-e2e", "state-canceled", "Canceled", "canceled"
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "cancel",
+                "ACR-71",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "ADMIT")
         self.assertTrue(out["executed"])
@@ -1989,23 +2848,40 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
     def test_cancel_admit_executed_comment_file_posts_before_state_with_relation(self):
         issue_node = _e2e_issue_node(identifier="ACR-72", id="uuid-cancel-cf")
         log_path = tlb.script_log()
-        tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Canceled", "state-canceled", "canceled")]),
-            _comment_create_resp("c-reason-1"),
-            _comments_readback_resp([{"id": "c-reason-1", "body": "Duplicate of ACR-9."}]),
-            _mutation_ok_resp(),
-            _set_state_readback_resp("uuid-cancel-cf", "state-canceled", "Canceled", "canceled"),
-            _mutation_ok_resp(),
-            _relations_readback_resp([{"type": "duplicate_of", "relatedIssue": {"id": "uuid-related-1"}}]),
-        ])
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Canceled", "state-canceled", "canceled")]),
+                _comment_create_resp("c-reason-1"),
+                _comments_readback_resp(
+                    [{"id": "c-reason-1", "body": "Duplicate of ACR-9."}]
+                ),
+                _mutation_ok_resp(),
+                _set_state_readback_resp(
+                    "uuid-cancel-cf", "state-canceled", "Canceled", "canceled"
+                ),
+                _mutation_ok_resp(),
+                _relations_readback_resp(
+                    [{"type": "duplicate_of", "relatedIssue": {"id": "uuid-related-1"}}]
+                ),
+            ]
+        )
 
         def run(path):
-            return _run_main_capture([
-                "cancel", "ACR-72", "--execute-if-clean", "--comment-file", path,
-                "--related-id", "uuid-related-1", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-            ])
+            return _run_main_capture(
+                [
+                    "cancel",
+                    "ACR-72",
+                    "--execute-if-clean",
+                    "--comment-file",
+                    path,
+                    "--related-id",
+                    "uuid-related-1",
+                    "--bridge-cmd",
+                    " ".join(tlb.STUB_CMD),
+                ]
+            )
 
         code, out = _with_comment_file("Duplicate of ACR-9.", run)
         self.assertEqual(code, lb.EXIT_OK)
@@ -2016,8 +2892,12 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
 
         queries = tlb.read_log(log_path)
         comment_idx = next(i for i, q in enumerate(queries) if "commentCreate" in q)
-        state_idx = next(i for i, q in enumerate(queries) if "stateId" in q and "issueUpdate" in q)
-        self.assertLess(comment_idx, state_idx, "comment-before-state-change law violated")
+        state_idx = next(
+            i for i, q in enumerate(queries) if "stateId" in q and "issueUpdate" in q
+        )
+        self.assertLess(
+            comment_idx, state_idx, "comment-before-state-change law violated"
+        )
 
 
 class ExecuteIfCleanDeferStopTests(unittest.TestCase):
@@ -2031,70 +2911,134 @@ class ExecuteIfCleanDeferStopTests(unittest.TestCase):
 
     def test_claim_defers_not_executed(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-73", id="uuid-claim-defer",
+            identifier="ACR-73",
+            id="uuid-claim-defer",
             labels={"nodes": [{"name": "task"}, {"name": "model:opus"}]},
         )
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _operator_resp("operator-1"),
-            _states_resp([("In Progress", "state-ip", "started"), ("Needs Input", "state-ni", "triage")]),
-            _wip_resp([]),
-        ])
-        code, out = _run_main_capture([
-            "claim", "ACR-73", "--project-id", "proj-1", "--execute-if-clean",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _operator_resp("operator-1"),
+                _states_resp(
+                    [
+                        ("In Progress", "state-ip", "started"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+                _wip_resp([]),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "claim",
+                "ACR-73",
+                "--project-id",
+                "proj-1",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "JUDGMENT_REQUIRED")
         self.assertFalse(out["executed"])
         self.assertIn("checks", out, "non-ADMIT always prints full detail")
-        self.assertEqual(tlb.call_count(counter), 5, "defer-stop makes zero mutation calls beyond the check-phase reads")
+        self.assertEqual(
+            tlb.call_count(counter),
+            5,
+            "defer-stop makes zero mutation calls beyond the check-phase reads",
+        )
 
     def test_mark_done_defers_not_executed(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-74", id="uuid-md-defer",
+            identifier="ACR-74",
+            id="uuid-md-defer",
             state={"name": "In Progress", "type": "started"},
-            description=fx.BASE_OBJECTIVE + "## Done When\nValidation mandate: conformance\n\n" + fx.BASE_CTX,
+            description=fx.BASE_OBJECTIVE
+            + "## Done When\nValidation mandate: conformance\n\n"
+            + fx.BASE_CTX,
             labels={"nodes": []},
-            comments={"nodes": [
-                {"id": "c1", "body": "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: it works\nSpecifics: ran the suite",
-                 "createdAt": "2026-02-01T12:00:00Z", "user": {"id": "viewer-1"}},
-            ]},
-            history={"nodes": [
-                {"createdAt": "2026-01-30T09:00:00Z", "fromState": {"name": "Todo", "type": "unstarted"},
-                 "toState": {"name": "In Progress", "type": "started"}},
-            ]},
+            comments={
+                "nodes": [
+                    {
+                        "id": "c1",
+                        "body": "[VALIDATION] — conformance\nVerdict: CONFIRMED\nIntent: it works\nSpecifics: ran the suite",
+                        "createdAt": "2026-02-01T12:00:00Z",
+                        "user": {"id": "viewer-1"},
+                    },
+                ]
+            },
+            history={
+                "nodes": [
+                    {
+                        "createdAt": "2026-01-30T09:00:00Z",
+                        "fromState": {"name": "Todo", "type": "unstarted"},
+                        "toState": {"name": "In Progress", "type": "started"},
+                    },
+                ]
+            },
         )
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Done", "state-done", "completed"), ("Needs Input", "state-ni", "triage")]),
-        ])
-        code, out = _run_main_capture([
-            "mark_done", "ACR-74", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp(
+                    [
+                        ("Done", "state-done", "completed"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "mark_done",
+                "ACR-74",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "JUDGMENT_REQUIRED", out)
         self.assertFalse(out["executed"])
-        self.assertEqual(tlb.call_count(counter), 3, "M3g's default defer makes zero mutation calls")
+        self.assertEqual(
+            tlb.call_count(counter), 3, "M3g's default defer makes zero mutation calls"
+        )
 
     def test_unpark_defers_not_executed(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-75", id="uuid-unpark-defer",
+            identifier="ACR-75",
+            id="uuid-unpark-defer",
             state={"name": "Blocked", "type": "backlog"},
-            comments={"nodes": [
-                {"id": "c1", "body": "Blocked on PR #482 merging upstream.", "createdAt": "2026-02-01T12:00:00Z", "user": {"id": "viewer-1"}},
-            ]},
+            comments={
+                "nodes": [
+                    {
+                        "id": "c1",
+                        "body": "Blocked on PR #482 merging upstream.",
+                        "createdAt": "2026-02-01T12:00:00Z",
+                        "user": {"id": "viewer-1"},
+                    },
+                ]
+            },
         )
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Todo", "state-todo", "unstarted")]),
-        ])
-        code, out = _run_main_capture([
-            "un-park", "ACR-75", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Todo", "state-todo", "unstarted")]),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "un-park",
+                "ACR-75",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "JUDGMENT_REQUIRED")
         self.assertFalse(out["executed"])
@@ -2102,22 +3046,33 @@ class ExecuteIfCleanDeferStopTests(unittest.TestCase):
 
     def test_begin_defers_not_executed(self):
         issue_node = _e2e_issue_node(
-            identifier="ACR-84", id="uuid-begin-defer",
+            identifier="ACR-84",
+            id="uuid-begin-defer",
             state={"name": "Planning", "type": "started"},
             parent=fx.map_parent(),
         )
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("In Progress", "state-ip", "started")]),
-        ])
-        code, out = _run_main_capture([
-            "begin", "ACR-84", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("In Progress", "state-ip", "started")]),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "begin",
+                "ACR-84",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "JUDGMENT_REQUIRED")
         self.assertFalse(out["executed"])
-        self.assertEqual(tlb.call_count(counter), 3, "BG2's default defer makes zero mutation calls")
+        self.assertEqual(
+            tlb.call_count(counter), 3, "BG2's default defer makes zero mutation calls"
+        )
 
 
 class ExecuteIfCleanRefuseStopTests(unittest.TestCase):
@@ -2128,33 +3083,68 @@ class ExecuteIfCleanRefuseStopTests(unittest.TestCase):
         lb._STATE_CACHE.clear()
 
     def test_claim_refuses_not_executed(self):
-        issue_node = _e2e_issue_node(identifier="ACR-76", id="uuid-claim-refuse", description="## Done When\n- Tests pass\n")
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _operator_resp("operator-1"),
-            _states_resp([("In Progress", "state-ip", "started"), ("Needs Input", "state-ni", "triage")]),
-            _wip_resp([]),
-        ])
-        code, out = _run_main_capture([
-            "claim", "ACR-76", "--project-id", "proj-1", "--execute-if-clean",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        issue_node = _e2e_issue_node(
+            identifier="ACR-76",
+            id="uuid-claim-refuse",
+            description="## Done When\n- Tests pass\n",
+        )
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _operator_resp("operator-1"),
+                _states_resp(
+                    [
+                        ("In Progress", "state-ip", "started"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+                _wip_resp([]),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "claim",
+                "ACR-76",
+                "--project-id",
+                "proj-1",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "REFUSE")
         self.assertFalse(out["executed"])
         self.assertEqual(tlb.call_count(counter), 5)
 
     def test_mark_done_refuses_not_executed(self):
-        issue_node = _e2e_issue_node(identifier="ACR-77", id="uuid-md-refuse", state={"name": "Todo", "type": "unstarted"})
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Done", "state-done", "completed"), ("Needs Input", "state-ni", "triage")]),
-        ])
-        code, out = _run_main_capture([
-            "mark_done", "ACR-77", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        issue_node = _e2e_issue_node(
+            identifier="ACR-77",
+            id="uuid-md-refuse",
+            state={"name": "Todo", "type": "unstarted"},
+        )
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp(
+                    [
+                        ("Done", "state-done", "completed"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "mark_done",
+                "ACR-77",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "REFUSE")
         self.assertFalse(out["executed"])
@@ -2164,60 +3154,105 @@ class ExecuteIfCleanRefuseStopTests(unittest.TestCase):
         # state is Todo, not Planning -> BG1 guard fails (the forbidden
         # Todo->In Progress edge).
         issue_node = _e2e_issue_node(identifier="ACR-78", id="uuid-begin-refuse")
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("In Progress", "state-ip", "started")]),
-        ])
-        code, out = _run_main_capture([
-            "begin", "ACR-78", "--plan-attested", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("In Progress", "state-ip", "started")]),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "begin",
+                "ACR-78",
+                "--plan-attested",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "REFUSE")
         self.assertFalse(out["executed"])
         self.assertEqual(tlb.call_count(counter), 3)
 
     def test_park_refuses_not_executed(self):
-        issue_node = _e2e_issue_node(identifier="ACR-79", id="uuid-park-refuse", state={"name": "In Progress", "type": "started"})
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Needs Input", "state-ni", "triage")]),
-        ])
-        code, out = _run_main_capture([
-            "park", "ACR-79", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        issue_node = _e2e_issue_node(
+            identifier="ACR-79",
+            id="uuid-park-refuse",
+            state={"name": "In Progress", "type": "started"},
+        )
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Needs Input", "state-ni", "triage")]),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "park",
+                "ACR-79",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "REFUSE")
         self.assertFalse(out["executed"])
         self.assertEqual(tlb.call_count(counter), 3)
 
     def test_block_refuses_not_executed(self):
-        issue_node = _e2e_issue_node(identifier="ACR-80", id="uuid-block-refuse", state={"name": "In Progress", "type": "started"})
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Blocked", "state-blocked", "backlog")]),
-        ])
-        code, out = _run_main_capture([
-            "block", "ACR-80", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        issue_node = _e2e_issue_node(
+            identifier="ACR-80",
+            id="uuid-block-refuse",
+            state={"name": "In Progress", "type": "started"},
+        )
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Blocked", "state-blocked", "backlog")]),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "block",
+                "ACR-80",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "REFUSE")
         self.assertFalse(out["executed"])
         self.assertEqual(tlb.call_count(counter), 3)
 
     def test_unpark_refuses_not_executed(self):
-        issue_node = _e2e_issue_node(identifier="ACR-81", id="uuid-unpark-refuse", state={"name": "In Progress", "type": "started"})
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Todo", "state-todo", "unstarted")]),
-        ])
-        code, out = _run_main_capture([
-            "un-park", "ACR-81", "--operator-directed", "--execute-if-clean",
-            "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        issue_node = _e2e_issue_node(
+            identifier="ACR-81",
+            id="uuid-unpark-refuse",
+            state={"name": "In Progress", "type": "started"},
+        )
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Todo", "state-todo", "unstarted")]),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "un-park",
+                "ACR-81",
+                "--operator-directed",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "REFUSE")
         self.assertFalse(out["executed"])
@@ -2225,14 +3260,22 @@ class ExecuteIfCleanRefuseStopTests(unittest.TestCase):
 
     def test_cancel_refuses_not_executed(self):
         issue_node = _e2e_issue_node(identifier="ACR-82", id="uuid-cancel-refuse")
-        counter = tlb.script_responses([
-            _issue_resp(issue_node),
-            _viewer_resp("viewer-1"),
-            _states_resp([("Canceled", "state-canceled", "canceled")]),
-        ])
-        code, out = _run_main_capture([
-            "cancel", "ACR-82", "--execute-if-clean", "--bridge-cmd", " ".join(tlb.STUB_CMD),
-        ])
+        counter = tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _viewer_resp("viewer-1"),
+                _states_resp([("Canceled", "state-canceled", "canceled")]),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "cancel",
+                "ACR-82",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
         self.assertEqual(code, lb.EXIT_OK)
         self.assertEqual(out["verdict"], "REFUSE")
         self.assertFalse(out["executed"])
@@ -2241,7 +3284,9 @@ class ExecuteIfCleanRefuseStopTests(unittest.TestCase):
 
 class ExecuteIfCleanUsageTests(unittest.TestCase):
     def test_project_id_required_for_claim_config_gap(self):
-        code, out = _run_main_capture(["claim", "ACR-1", "--bridge-cmd", " ".join(tlb.STUB_CMD)])
+        code, out = _run_main_capture(
+            ["claim", "ACR-1", "--bridge-cmd", " ".join(tlb.STUB_CMD)]
+        )
         self.assertEqual(code, lb.EXIT_CONFIG_GAP)
         self.assertIsNone(out, "refused before any JSON was printed")
 

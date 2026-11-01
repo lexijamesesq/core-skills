@@ -130,69 +130,241 @@ SECTION_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
 # ---------------------------------------------------------------------
 
 CROSS_CUTTING = [
-    {"id": "X-esc", "name": "Mention escaping in every posted body", "home": "Script (lint-body) + Judgment (authors bodies)"},
-    {"id": "X-team", "name": "Team-aware stateId resolution, cached per invocation", "home": "Script"},
-    {"id": "X-rb", "name": "No mutation trusted; read-back everything", "home": "Script"},
-    {"id": "X-retry", "name": "Transient scope failures retry 2x (1s/3s) then surface", "home": "Script"},
-    {"id": "X-park", "name": "Operator decision points degrade to park", "home": "Judgment"},
+    {
+        "id": "X-esc",
+        "name": "Mention escaping in every posted body",
+        "home": "Script (lint-body) + Judgment (authors bodies)",
+    },
+    {
+        "id": "X-team",
+        "name": "Team-aware stateId resolution, cached per invocation",
+        "home": "Script",
+    },
+    {
+        "id": "X-rb",
+        "name": "No mutation trusted; read-back everything",
+        "home": "Script",
+    },
+    {
+        "id": "X-retry",
+        "name": "Transient scope failures retry 2x (1s/3s) then surface",
+        "home": "Script",
+    },
+    {
+        "id": "X-park",
+        "name": "Operator decision points degrade to park",
+        "home": "Judgment",
+    },
 ]
 
 CHECK_INVENTORY = {
     "claim": [
-        {"id": "C1", "name": "Objective present, non-empty — required on every claimable ticket (full and map-child alike)", "home": "Script"},
-        {"id": "C2", "name": "Done When concrete; deferral/missing -> NEEDS_INPUT routing — required on every claimable ticket", "home": "Script (detect); proposal-composition is Judgment"},
-        {"id": "C5", "name": "Claimable: Todo (unless operator-directed), no open blocked-by, delegate null", "home": "Script"},
-        {"id": "C5b", "name": "Closed/canceled parent map -> distinct REFUSE, no routing", "home": "Script"},
-        {"id": "C6", "name": "WIP: no other In Progress delegated to actor on project; override only on caller ack", "home": "Script (detect); override disposition is Judgment"},
-        {"id": "C7", "name": "Variant select (map / map-child / full)", "home": "Script (emits facts.variant)"},
-        {"id": "C8", "name": "model:* label surfaced; session-model mismatch -> operator surface / NEEDS_INPUT headless", "home": "Script+J"},
-        {"id": "C9", "name": "Assignee decision table, all variants", "home": "Script (emits facts.assignee_gate)"},
-        {"id": "C10", "name": "Claim write: viewer+operator resolution, single mutation state+delegate(+assignee)", "home": "Script (linear_bridge.py claim-write)"},
-        {"id": "C11", "name": "Read-back race check; lost race -> back off, report, never proceed", "home": "Script (built into claim-write)"},
-        {"id": "C12", "name": "Full-variant Steps 1-5 (comments/blockers, WIP dialogue, Objective currency, sizing, proof-first breakdown)", "home": "Judgment"},
+        {
+            "id": "C1",
+            "name": "Objective present, non-empty — required on every claimable ticket (full and map-child alike)",
+            "home": "Script",
+        },
+        {
+            "id": "C2",
+            "name": "Done When concrete; deferral/missing -> NEEDS_INPUT routing — required on every claimable ticket",
+            "home": "Script (detect); proposal-composition is Judgment",
+        },
+        {
+            "id": "C5",
+            "name": "Claimable: Todo (unless operator-directed), no open blocked-by, delegate null",
+            "home": "Script",
+        },
+        {
+            "id": "C5b",
+            "name": "Closed/canceled parent map -> distinct REFUSE, no routing",
+            "home": "Script",
+        },
+        {
+            "id": "C6",
+            "name": "WIP: no other In Progress delegated to actor on project; override only on caller ack",
+            "home": "Script (detect); override disposition is Judgment",
+        },
+        {
+            "id": "C7",
+            "name": "Variant select (map / map-child / full)",
+            "home": "Script (emits facts.variant)",
+        },
+        {
+            "id": "C8",
+            "name": "model:* label surfaced; session-model mismatch -> operator surface / NEEDS_INPUT headless",
+            "home": "Script+J",
+        },
+        {
+            "id": "C9",
+            "name": "Assignee decision table, all variants",
+            "home": "Script (emits facts.assignee_gate)",
+        },
+        {
+            "id": "C10",
+            "name": "Claim write: viewer+operator resolution, single mutation state+delegate(+assignee)",
+            "home": "Script (linear_bridge.py claim-write)",
+        },
+        {
+            "id": "C11",
+            "name": "Read-back race check; lost race -> back off, report, never proceed",
+            "home": "Script (built into claim-write)",
+        },
+        {
+            "id": "C12",
+            "name": "Full-variant Steps 1-5 (comments/blockers, WIP dialogue, Objective currency, sizing, proof-first breakdown)",
+            "home": "Judgment",
+        },
     ],
     "mark_done": [
-        {"id": "M1", "name": "Direct read of ticket + comments (never caller's summary)", "home": "Script (fetch is the read)"},
-        {"id": "M2", "name": "Objective present + Done When concrete (required on every map child); In Progress (name-keyed — Planning shares type \"started\")", "home": "Script"},
+        {
+            "id": "M1",
+            "name": "Direct read of ticket + comments (never caller's summary)",
+            "home": "Script (fetch is the read)",
+        },
+        {
+            "id": "M2",
+            "name": 'Objective present + Done When concrete (required on every map child); In Progress (name-keyed — Planning shares type "started")',
+            "home": "Script",
+        },
         {"id": "M3a", "name": "[VALIDATION] exists (newest)", "home": "Script"},
-        {"id": "M3b", "name": "Fresh: postdates latest In Progress transition (name-keyed on toState.name == \"In Progress\" — Planning shares type \"started\")", "home": "Script"},
-        {"id": "M3c", "name": "Type match: mandate regex hit=Script decides; regex miss=DEFER with full Done When text", "home": "Script+J"},
-        {"id": "M3d", "name": "Verdict: CONFIRMED (anything else present = data error, refuse)", "home": "Script"},
-        {"id": "M3e", "name": "Schema: all four lines per /linear comments.md", "home": "Script"},
+        {
+            "id": "M3b",
+            "name": 'Fresh: postdates latest In Progress transition (name-keyed on toState.name == "In Progress" — Planning shares type "started")',
+            "home": "Script",
+        },
+        {
+            "id": "M3c",
+            "name": "Type match: mandate regex hit=Script decides; regex miss=DEFER with full Done When text",
+            "home": "Script+J",
+        },
+        {
+            "id": "M3d",
+            "name": "Verdict: CONFIRMED (anything else present = data error, refuse)",
+            "home": "Script",
+        },
+        {
+            "id": "M3e",
+            "name": "Schema: all four lines per /linear comments.md",
+            "home": "Script",
+        },
         {"id": "M3f", "name": "Author = app actor (viewer id)", "home": "Script"},
-        {"id": "M4", "name": "Execute Done + optional caller closing comment", "home": "Script (set-state)"},
-        {"id": "M-i", "name": "Idempotent recovery: already Done + valid receipt -> success, no re-transition", "home": "Script"},
-        {"id": "M-d", "name": "Deterministic exemption: applicability is Judgment (--exempt-ruled resumes)", "home": "Script+J"},
-        {"id": "M-o", "name": "Feedback that would change the Objective -> refuse, route to operator", "home": "Judgment"},
-        {"id": "M3g", "name": "Full-variant (no map parent) structural defer: receipt coherence has no downstream audit on this lane, routes to @attack-kitty ticket-close; --receipt-audited <comment-id> resumes mechanically (CONFIRMED ticket-close [VALIDATION], postdates the In Progress claim, name-keyed on toState.name == \"In Progress\")", "home": "Script+J"},
-        {"id": "M-h", "name": "Map-child close requires a [HANDOFF] comment — present by live fetch OR supplied via --handoff-file, posted BEFORE the Done state change (park/cancel's --comment-file sequencing law); no-map: not required", "home": "Script"},
+        {
+            "id": "M4",
+            "name": "Execute Done + optional caller closing comment",
+            "home": "Script (set-state)",
+        },
+        {
+            "id": "M-i",
+            "name": "Idempotent recovery: already Done + valid receipt -> success, no re-transition",
+            "home": "Script",
+        },
+        {
+            "id": "M-d",
+            "name": "Deterministic exemption: applicability is Judgment (--exempt-ruled resumes)",
+            "home": "Script+J",
+        },
+        {
+            "id": "M-o",
+            "name": "Feedback that would change the Objective -> refuse, route to operator",
+            "home": "Judgment",
+        },
+        {
+            "id": "M3g",
+            "name": 'Full-variant (no map parent) structural defer: receipt coherence has no downstream audit on this lane, routes to @attack-kitty ticket-close; --receipt-audited <comment-id> resumes mechanically (CONFIRMED ticket-close [VALIDATION], postdates the In Progress claim, name-keyed on toState.name == "In Progress")',
+            "home": "Script+J",
+        },
+        {
+            "id": "M-h",
+            "name": "Map-child close requires a [HANDOFF] comment — present by live fetch OR supplied via --handoff-file, posted BEFORE the Done state change (park/cancel's --comment-file sequencing law); no-map: not required",
+            "home": "Script",
+        },
     ],
     "begin": [
-        {"id": "BG1", "name": "Guard: current state name == \"Planning\", else refuse — enforces the forbidden Todo->In Progress edge (a slice reaches In Progress only via begin-from-Planning)", "home": "Script"},
-        {"id": "BG2", "name": "Judgment kernel, loop-dependent: hitl attests operator-aligned + plan-attack; afk attests plan-attack alone — via --plan-attested; plan-attack receipt is optional evidence, never a scripted requirement", "home": "Script+J"},
+        {
+            "id": "BG1",
+            "name": 'Guard: current state name == "Planning", else refuse — enforces the forbidden Todo->In Progress edge (a slice reaches In Progress only via begin-from-Planning)',
+            "home": "Script",
+        },
+        {
+            "id": "BG2",
+            "name": "Judgment kernel, loop-dependent: hitl attests operator-aligned + plan-attack; afk attests plan-attack alone — via --plan-attested; plan-attack receipt is optional evidence, never a scripted requirement",
+            "home": "Script+J",
+        },
     ],
     "park": [
-        {"id": "P1", "name": "R-A: not map-labeled; ask comment present by live fetch OR a supplied --comment-file (posted at execute, before the state change) — checkability is the composing session's own, no longer a scripted judgment call", "home": "Script"},
-        {"id": "P2", "name": "Needs Input + ask comment + release delegate (read-back) + assignee untouched", "home": "Script (execute)"},
+        {
+            "id": "P1",
+            "name": "R-A: not map-labeled; ask comment present by live fetch OR a supplied --comment-file (posted at execute, before the state change) — checkability is the composing session's own, no longer a scripted judgment call",
+            "home": "Script",
+        },
+        {
+            "id": "P2",
+            "name": "Needs Input + ask comment + release delegate (read-back) + assignee untouched",
+            "home": "Script (execute)",
+        },
     ],
     "block": [
-        {"id": "B1", "name": "R-A: not map; condition comment present by live fetch OR a supplied --comment-file (posted at execute, before the state change) — checkability is the composing session's own, no longer a scripted judgment call", "home": "Script"},
-        {"id": "B2", "name": "Blocked + condition comment + release delegate", "home": "Script (execute)"},
+        {
+            "id": "B1",
+            "name": "R-A: not map; condition comment present by live fetch OR a supplied --comment-file (posted at execute, before the state change) — checkability is the composing session's own, no longer a scripted judgment call",
+            "home": "Script",
+        },
+        {
+            "id": "B2",
+            "name": "Blocked + condition comment + release delegate",
+            "home": "Script (execute)",
+        },
     ],
     "un-park": [
-        {"id": "U1", "name": "Blocker verifiably resolved OR operator-directed OR --blocker-verified (R-C: caller re-checked the condition itself); else refuse", "home": "Script+J"},
-        {"id": "U2", "name": "-> Todo only from Needs Input or Blocked (name-keyed — Needs Input shares type \"started\" with In Progress/Planning); claim already clear else surface (never silently clear); active work routes to claim/begin", "home": "Script"},
+        {
+            "id": "U1",
+            "name": "Blocker verifiably resolved OR operator-directed OR --blocker-verified (R-C: caller re-checked the condition itself); else refuse",
+            "home": "Script+J",
+        },
+        {
+            "id": "U2",
+            "name": '-> Todo only from Needs Input or Blocked (name-keyed — Needs Input shares type "started" with In Progress/Planning); claim already clear else surface (never silently clear); active work routes to claim/begin',
+            "home": "Script",
+        },
     ],
     "cancel": [
-        {"id": "X1", "name": "Reason present by live fetch OR a supplied --comment-file (posted at execute, before the state change) -> Canceled + reason comment; optional duplicate_of relation", "home": "Script"},
+        {
+            "id": "X1",
+            "name": "Reason present by live fetch OR a supplied --comment-file (posted at execute, before the state change) -> Canceled + reason comment; optional duplicate_of relation",
+            "home": "Script",
+        },
     ],
     "close-map": [
-        {"id": "CM1", "name": "map label + In Progress (name-keyed — Planning shares type \"started\")", "home": "Script"},
-        {"id": "CM3", "name": "All children Done/Canceled/Duplicate; name each open child (id, title, state)", "home": "Script"},
-        {"id": "CM-a", "name": "Aggregate ALL failures into one checklist (no partial refusals)", "home": "Script (report shape)"},
-        {"id": "CM6", "name": "map-conformance receipt: exists, fresh (postdates all Done children's [VALIDATION] timestamps), CONFIRMED, schema", "home": "Script"},
-        {"id": "CM7", "name": "Accounting document composed from children's own receipts", "home": "Judgment"},
-        {"id": "CM9", "name": "Done write with immediate re-verify of the close gates + accounting doc exists; any drift -> refuse and surface", "home": "Script (cone_preflight.py close-map --reverify, run immediately before execute's set-state)"},
+        {
+            "id": "CM1",
+            "name": 'map label + In Progress (name-keyed — Planning shares type "started")',
+            "home": "Script",
+        },
+        {
+            "id": "CM3",
+            "name": "All children Done/Canceled/Duplicate; name each open child (id, title, state)",
+            "home": "Script",
+        },
+        {
+            "id": "CM-a",
+            "name": "Aggregate ALL failures into one checklist (no partial refusals)",
+            "home": "Script (report shape)",
+        },
+        {
+            "id": "CM6",
+            "name": "map-conformance receipt: exists, fresh (postdates all Done children's [VALIDATION] timestamps), CONFIRMED, schema",
+            "home": "Script",
+        },
+        {
+            "id": "CM7",
+            "name": "Accounting document composed from children's own receipts",
+            "home": "Judgment",
+        },
+        {
+            "id": "CM9",
+            "name": "Done write with immediate re-verify of the close gates + accounting doc exists; any drift -> refuse and surface",
+            "home": "Script (cone_preflight.py close-map --reverify, run immediately before execute's set-state)",
+        },
     ],
 }
 
@@ -207,12 +379,18 @@ def check_name(verb, check_id):
 
 
 def mk_check(check_id, verb, result, detail=""):
-    return {"id": check_id, "name": check_name(verb, check_id), "result": result, "detail": detail}
+    return {
+        "id": check_id,
+        "name": check_name(verb, check_id),
+        "result": result,
+        "detail": detail,
+    }
 
 
 # ---------------------------------------------------------------------
 # Shared parsing helpers
 # ---------------------------------------------------------------------
+
 
 def parse_sections(description):
     """Split a ticket description into {heading: body} by `## Heading` lines."""
@@ -229,7 +407,7 @@ def parse_sections(description):
 
 
 def labels_of(node):
-    return {l["name"] for l in ((node or {}).get("labels") or {}).get("nodes", [])}
+    return {lbl["name"] for lbl in ((node or {}).get("labels") or {}).get("nodes", [])}
 
 
 def comments_of(node):
@@ -263,12 +441,20 @@ def claim_ts_or_fallback(issue, history, in_progress_entries):
         return claim_ts, None, None
     has_state_transition = any(h.get("toState") for h in history)
     if has_state_transition:
-        return None, None, "no In Progress transition found in history — cannot establish freshness"
+        return (
+            None,
+            None,
+            "no In Progress transition found in history — cannot establish freshness",
+        )
     started_at = issue.get("startedAt")
     if started_at:
         note = f"history carries no state transitions; freshness keyed on startedAt {started_at}"
         return started_at, note, None
-    return None, None, "no In Progress transition found in history — cannot establish freshness and startedAt is null"
+    return (
+        None,
+        None,
+        "no In Progress transition found in history — cannot establish freshness and startedAt is null",
+    )
 
 
 def done_when_state(sections):
@@ -283,7 +469,7 @@ def done_when_state(sections):
 def parse_validation_comment(body):
     """Parse a [VALIDATION] comment per /linear playbooks/comments.md schema:
     [VALIDATION] — {type} / Verdict: / Intent: / Specifics: (4 lines)."""
-    lines = [l for l in (body or "").splitlines() if l.strip()]
+    lines = [line for line in (body or "").splitlines() if line.strip()]
     if not lines or not lines[0].strip().startswith("[VALIDATION]"):
         return None
     # Delimiter after each label is tolerant — ':' (canonical) or an em/en-dash/hyphen.
@@ -299,8 +485,8 @@ def parse_validation_comment(body):
         m = re.match(r"^" + re.escape(label) + _DELIM + r"(.*)$", s)
         return m.group(1).strip() if m else None
 
-    for l in lines[1:]:
-        s = l.strip()
+    for line in lines[1:]:
+        s = line.strip()
         f = _field(s, "Verdict")
         if f is not None:
             verdict = f
@@ -312,12 +498,31 @@ def parse_validation_comment(body):
         f = _field(s, "Specifics")
         if f is not None:
             specifics = f
-    schema_complete = bool(header) and verdict is not None and intent is not None and specifics is not None
+    schema_complete = (
+        bool(header)
+        and verdict is not None
+        and intent is not None
+        and specifics is not None
+    )
     return {
         "validation_type": validation_type,
         "verdict": verdict,
         "schema_complete": schema_complete,
     }
+
+
+TICKET_CLOSE_TYPE = "ticket-close"
+TICKET_CLOSE_HEADER = f"[VALIDATION] — {TICKET_CLOSE_TYPE}"
+
+
+def _is_ticket_close_receipt(comment):
+    """The one test for "is this M3g's ticket-close receipt": M3a-f's
+    receipt selection and M3g's --receipt-audited check both call it."""
+    parsed = parse_validation_comment(comment.get("body") or "")
+    return (
+        bool(parsed)
+        and (parsed.get("validation_type") or "").strip() == TICKET_CLOSE_TYPE
+    )
 
 
 def newest_matching_comment(comments, predicate):
@@ -330,6 +535,7 @@ def newest_matching_comment(comments, predicate):
 # ---------------------------------------------------------------------
 # Verdict aggregation
 # ---------------------------------------------------------------------
+
 
 def aggregate_verdict(refuse_reasons, needs_input_reasons, judgment_items):
     """REFUSE beats NEEDS_INPUT beats JUDGMENT_REQUIRED beats ADMIT. This
@@ -347,6 +553,7 @@ def aggregate_verdict(refuse_reasons, needs_input_reasons, judgment_items):
 # ---------------------------------------------------------------------
 # claim
 # ---------------------------------------------------------------------
+
 
 def run_claim_checks(ctx, flags):
     checks = []
@@ -374,7 +581,10 @@ def run_claim_checks(ctx, flags):
     # C7 — variant select
     variant = None
     if "map" in labels:
-        c7_result, c7_detail = "FAIL", "issue itself carries the map label — maps are never claimed"
+        c7_result, c7_detail = (
+            "FAIL",
+            "issue itself carries the map label — maps are never claimed",
+        )
         refuse_reasons.append(c7_detail)
     elif parent is None:
         variant = "full"
@@ -383,7 +593,10 @@ def run_claim_checks(ctx, flags):
         parent_labels = labels_of(parent)
         if "map" not in parent_labels:
             variant = "full"
-            c7_result, c7_detail = "PASS", "parent present but not map-labeled — ordinary sub-task, full variant"
+            c7_result, c7_detail = (
+                "PASS",
+                "parent present but not map-labeled — ordinary sub-task, full variant",
+            )
         else:
             # Every map child is the map-child variant — a ticket's kind comes
             # from its map parent, not a type label (activity-type labels
@@ -412,18 +625,33 @@ def run_claim_checks(ctx, flags):
     state_type = (issue.get("state") or {}).get("type")
     state_name = (issue.get("state") or {}).get("name")
     if variant == "map-child":
-        claim_target_state_key = "in_progress" if state_name == "In Progress" else "planning"
+        claim_target_state_key = (
+            "in_progress" if state_name == "In Progress" else "planning"
+        )
     else:
         claim_target_state_key = "in_progress"
     facts["claim_target_state_key"] = claim_target_state_key
 
     # C5b — closed/canceled parent map
-    if parent is not None and "map" in labels_of(parent) and (parent.get("state") or {}).get("type") in COMPLETED_STATE_TYPES:
-        detail = f"mapped to a closed map ({parent.get('identifier')}) — needs disposition"
+    if (
+        parent is not None
+        and "map" in labels_of(parent)
+        and (parent.get("state") or {}).get("type") in COMPLETED_STATE_TYPES
+    ):
+        detail = (
+            f"mapped to a closed map ({parent.get('identifier')}) — needs disposition"
+        )
         checks.append(mk_check("C5b", "claim", "FAIL", detail))
         refuse_reasons.append(detail)
     else:
-        checks.append(mk_check("C5b", "claim", "SKIP" if parent is None else "PASS", "parent map not closed/canceled" if parent else "no parent"))
+        checks.append(
+            mk_check(
+                "C5b",
+                "claim",
+                "SKIP" if parent is None else "PASS",
+                "parent map not closed/canceled" if parent else "no parent",
+            )
+        )
 
     # C1/C2 — shape checks, enforced unconditionally on every variant
     # (full and map-child alike): the standardized child skeleton is
@@ -432,7 +660,9 @@ def run_claim_checks(ctx, flags):
     # un-migrated Question tickets.
     objective = sections.get("Objective", "")
     if objective:
-        checks.append(mk_check("C1", "claim", "PASS", "Objective present and non-empty"))
+        checks.append(
+            mk_check("C1", "claim", "PASS", "Objective present and non-empty")
+        )
     else:
         detail = "## Objective missing or empty"
         checks.append(mk_check("C1", "claim", "FAIL", detail))
@@ -440,7 +670,9 @@ def run_claim_checks(ctx, flags):
 
     dw_state, _ = done_when_state(sections)
     if dw_state == "concrete":
-        checks.append(mk_check("C2", "claim", "PASS", "Done When carries concrete conditions"))
+        checks.append(
+            mk_check("C2", "claim", "PASS", "Done When carries concrete conditions")
+        )
     else:
         detail = f"Done When {dw_state} — propose conditions, route to Needs Input"
         checks.append(mk_check("C2", "claim", "FAIL", detail))
@@ -451,9 +683,13 @@ def run_claim_checks(ctx, flags):
     blocked_by_open = issue.get("blocked_by_open") or []
     c5_failures = []
     if state_type != "unstarted" and not flags.get("operator_directed"):
-        c5_failures.append(f"state is {issue.get('state', {}).get('name')!r}, not Todo (no --operator-directed)")
+        c5_failures.append(
+            f"state is {issue.get('state', {}).get('name')!r}, not Todo (no --operator-directed)"
+        )
     if blocked_by_open:
-        c5_failures.append(f"open blocked-by relation(s): {[b.get('identifier') for b in blocked_by_open]}")
+        c5_failures.append(
+            f"open blocked-by relation(s): {[b.get('identifier') for b in blocked_by_open]}"
+        )
     if delegate:
         c5_failures.append(f"already delegated to {delegate.get('id')}")
     if c5_failures:
@@ -461,7 +697,14 @@ def run_claim_checks(ctx, flags):
         checks.append(mk_check("C5", "claim", "FAIL", detail))
         refuse_reasons.append(detail)
     else:
-        checks.append(mk_check("C5", "claim", "PASS", "Todo (or operator-directed), unblocked, unclaimed"))
+        checks.append(
+            mk_check(
+                "C5",
+                "claim",
+                "PASS",
+                "Todo (or operator-directed), unblocked, unclaimed",
+            )
+        )
 
     # C6 — WIP check
     wip_conflict = ctx.get("wip_conflict")
@@ -470,25 +713,57 @@ def run_claim_checks(ctx, flags):
         checks.append(mk_check("C6", "claim", "FAIL", detail))
         refuse_reasons.append(detail)
     elif wip_conflict:
-        checks.append(mk_check("C6", "claim", "PASS", f"WIP collision with {wip_conflict.get('identifier')} — override acknowledged"))
+        checks.append(
+            mk_check(
+                "C6",
+                "claim",
+                "PASS",
+                f"WIP collision with {wip_conflict.get('identifier')} — override acknowledged",
+            )
+        )
         ruled.append("C6")
     else:
-        checks.append(mk_check("C6", "claim", "PASS", "no other In Progress ticket delegated to actor on project"))
+        checks.append(
+            mk_check(
+                "C6",
+                "claim",
+                "PASS",
+                "no other In Progress ticket delegated to actor on project",
+            )
+        )
 
     # C8 — model label. --model-ruled is the caller's post-ruling resume
     # attestation (pressure-test v2 Gap 1): the model already compared
     # itself to the label in a prior invocation of this same check; this
     # re-run terminates instead of deferring again.
-    model_labels = [l for l in labels if l.startswith("model:")]
+    model_labels = [lbl for lbl in labels if lbl.startswith("model:")]
     if model_labels:
         facts["model_label"] = model_labels[0]
         if flags.get("model_ruled"):
-            checks.append(mk_check("C8", "claim", "PASS", f"model label {model_labels[0]!r} present — ruled via --model-ruled"))
+            checks.append(
+                mk_check(
+                    "C8",
+                    "claim",
+                    "PASS",
+                    f"model label {model_labels[0]!r} present — ruled via --model-ruled",
+                )
+            )
             ruled.append("C8")
         else:
-            item = {"id": "J-C8", "question": "Does the session's own model match this label (class, or exact version if pinned)?", "evidence": model_labels[0]}
+            item = {
+                "id": "J-C8",
+                "question": "Does the session's own model match this label (class, or exact version if pinned)?",
+                "evidence": model_labels[0],
+            }
             judgment_items.append(item)
-            checks.append(mk_check("C8", "claim", "DEFER", f"model label {model_labels[0]!r} present — model compares to itself"))
+            checks.append(
+                mk_check(
+                    "C8",
+                    "claim",
+                    "DEFER",
+                    f"model label {model_labels[0]!r} present — model compares to itself",
+                )
+            )
     else:
         checks.append(mk_check("C8", "claim", "PASS", "no model:* label"))
 
@@ -512,6 +787,7 @@ def run_claim_checks(ctx, flags):
 # ---------------------------------------------------------------------
 # mark_done
 # ---------------------------------------------------------------------
+
 
 def run_mark_done_checks(ctx, flags):
     checks = []
@@ -537,7 +813,9 @@ def run_mark_done_checks(ctx, flags):
         "is_map_child": not is_full_variant,
     }
 
-    checks.append(mk_check("M1", "mark_done", "PASS", "ticket and comments read directly"))
+    checks.append(
+        mk_check("M1", "mark_done", "PASS", "ticket and comments read directly")
+    )
 
     state_type = (issue.get("state") or {}).get("type")
     state_name = (issue.get("state") or {}).get("name")
@@ -548,12 +826,18 @@ def run_mark_done_checks(ctx, flags):
     # [VALIDATION] comment judging receipt coherence itself (same exclusion
     # shape as CM6 isolating "map-conformance" from a child's own
     # receipt at close-map).
+    # The exclusion and M3g share _is_ticket_close_receipt, so a ticket-close
+    # receipt is excluded here exactly when M3g would accept it.
     receipt_comment = newest_matching_comment(
         comments,
-        lambda c: (c.get("body") or "").strip().startswith("[VALIDATION]")
-        and not (c.get("body") or "").strip().startswith("[VALIDATION] — ticket-close"),
+        lambda c: (
+            (c.get("body") or "").strip().startswith("[VALIDATION]")
+            and not _is_ticket_close_receipt(c)
+        ),
     )
-    receipt = parse_validation_comment(receipt_comment["body"]) if receipt_comment else None
+    receipt = (
+        parse_validation_comment(receipt_comment["body"]) if receipt_comment else None
+    )
 
     # M2 — pre-check bundle. Objective + concrete Done When are enforced
     # unconditionally, on every variant (name-keyed to In Progress, not
@@ -567,16 +851,32 @@ def run_mark_done_checks(ctx, flags):
     if dw_state != "concrete":
         m2_failures.append(f"Done When {dw_state} — run claim first")
     if not already_done and state_name != "In Progress":
-        m2_failures.append(f"state is {state_name!r}, not In Progress — nothing to close")
+        m2_failures.append(
+            f"state is {state_name!r}, not In Progress — nothing to close"
+        )
 
     if already_done:
-        checks.append(mk_check("M2", "mark_done", "SKIP", "idempotent path: already Done, M2 in-progress requirement bypassed"))
+        checks.append(
+            mk_check(
+                "M2",
+                "mark_done",
+                "SKIP",
+                "idempotent path: already Done, M2 in-progress requirement bypassed",
+            )
+        )
     elif m2_failures:
         detail = "; ".join(m2_failures)
         checks.append(mk_check("M2", "mark_done", "FAIL", detail))
         refuse_reasons.append(detail)
     else:
-        checks.append(mk_check("M2", "mark_done", "PASS", "Objective present, Done When concrete, In Progress"))
+        checks.append(
+            mk_check(
+                "M2",
+                "mark_done",
+                "PASS",
+                "Objective present, Done When concrete, In Progress",
+            )
+        )
 
     # M3a — receipt exists
     if not receipt_comment:
@@ -584,15 +884,26 @@ def run_mark_done_checks(ctx, flags):
         checks.append(mk_check("M3a", "mark_done", "FAIL", detail))
         refuse_reasons.append(detail)
     else:
-        checks.append(mk_check("M3a", "mark_done", "PASS", f"newest [VALIDATION] comment at {receipt_comment['createdAt']}"))
+        checks.append(
+            mk_check(
+                "M3a",
+                "mark_done",
+                "PASS",
+                f"newest [VALIDATION] comment at {receipt_comment['createdAt']}",
+            )
+        )
 
     # M3b — fresh (postdates latest In Progress transition). Name-keyed
     # (Brick 1) — Planning shares type "started" now, so a type-keyed scan
     # would miscount a Todo->Planning transition as the claim timestamp.
     if receipt_comment:
         history = history_of(issue)
-        in_progress_entries = [h for h in history if (h.get("toState") or {}).get("name") == "In Progress"]
-        claim_ts, fallback_note, fail_detail = claim_ts_or_fallback(issue, history, in_progress_entries)
+        in_progress_entries = [
+            h for h in history if (h.get("toState") or {}).get("name") == "In Progress"
+        ]
+        claim_ts, fallback_note, fail_detail = claim_ts_or_fallback(
+            issue, history, in_progress_entries
+        )
         if fail_detail:
             checks.append(mk_check("M3b", "mark_done", "FAIL", fail_detail))
             refuse_reasons.append(fail_detail)
@@ -608,7 +919,9 @@ def run_mark_done_checks(ctx, flags):
                 detail += f"; {fallback_note}"
             checks.append(mk_check("M3b", "mark_done", "PASS", detail))
     else:
-        checks.append(mk_check("M3b", "mark_done", "SKIP", "no receipt to check freshness of"))
+        checks.append(
+            mk_check("M3b", "mark_done", "SKIP", "no receipt to check freshness of")
+        )
 
     # M3c — type match
     if receipt_comment:
@@ -617,7 +930,14 @@ def run_mark_done_checks(ctx, flags):
             required_type = mandate.group(1).strip()
             actual_type = (receipt.get("validation_type") or "").strip()
             if actual_type == required_type:
-                checks.append(mk_check("M3c", "mark_done", "PASS", f"receipt type {actual_type!r} matches Done When mandate"))
+                checks.append(
+                    mk_check(
+                        "M3c",
+                        "mark_done",
+                        "PASS",
+                        f"receipt type {actual_type!r} matches Done When mandate",
+                    )
+                )
             else:
                 detail = f"receipt type {actual_type!r} != Done When mandate {required_type!r} — mismatch is never waved through"
                 checks.append(mk_check("M3c", "mark_done", "FAIL", detail))
@@ -630,7 +950,14 @@ def run_mark_done_checks(ctx, flags):
             required_type = flags["mandate_type"]
             actual_type = (receipt.get("validation_type") or "").strip()
             if actual_type == required_type:
-                checks.append(mk_check("M3c", "mark_done", "PASS", f"receipt type {actual_type!r} matches ruled mandate {required_type!r} (--mandate-type)"))
+                checks.append(
+                    mk_check(
+                        "M3c",
+                        "mark_done",
+                        "PASS",
+                        f"receipt type {actual_type!r} matches ruled mandate {required_type!r} (--mandate-type)",
+                    )
+                )
                 ruled.append("M3c")
             else:
                 detail = f"receipt type {actual_type!r} != ruled mandate {required_type!r} (--mandate-type) — mismatch is never waved through"
@@ -643,7 +970,14 @@ def run_mark_done_checks(ctx, flags):
                 "evidence": done_when_text or "",
             }
             judgment_items.append(item)
-            checks.append(mk_check("M3c", "mark_done", "DEFER", "no literal 'Validation mandate: <type>' regex hit — judgment rules before any fallback applies"))
+            checks.append(
+                mk_check(
+                    "M3c",
+                    "mark_done",
+                    "DEFER",
+                    "no literal 'Validation mandate: <type>' regex hit — judgment rules before any fallback applies",
+                )
+            )
     else:
         checks.append(mk_check("M3c", "mark_done", "SKIP", "no receipt to type-match"))
 
@@ -656,37 +990,54 @@ def run_mark_done_checks(ctx, flags):
             checks.append(mk_check("M3d", "mark_done", "FAIL", detail))
             refuse_reasons.append(detail)
     else:
-        checks.append(mk_check("M3d", "mark_done", "SKIP", "no receipt to check verdict of"))
+        checks.append(
+            mk_check("M3d", "mark_done", "SKIP", "no receipt to check verdict of")
+        )
 
     # M3e — schema
     if receipt_comment:
         if receipt and receipt.get("schema_complete"):
-            checks.append(mk_check("M3e", "mark_done", "PASS", "all four schema lines present"))
+            checks.append(
+                mk_check("M3e", "mark_done", "PASS", "all four schema lines present")
+            )
         else:
             detail = "malformed receipt — missing one or more of the four schema lines"
             checks.append(mk_check("M3e", "mark_done", "FAIL", detail))
             refuse_reasons.append(detail)
     else:
-        checks.append(mk_check("M3e", "mark_done", "SKIP", "no receipt to check schema of"))
+        checks.append(
+            mk_check("M3e", "mark_done", "SKIP", "no receipt to check schema of")
+        )
 
     # M3f — author is app actor
     if receipt_comment:
         author_id = (receipt_comment.get("user") or {}).get("id")
         if author_id == ctx.get("viewer_id"):
-            checks.append(mk_check("M3f", "mark_done", "PASS", "receipt authored by app actor"))
+            checks.append(
+                mk_check("M3f", "mark_done", "PASS", "receipt authored by app actor")
+            )
         else:
             detail = f"receipt authored by {author_id!r}, not the app actor ({ctx.get('viewer_id')!r})"
             checks.append(mk_check("M3f", "mark_done", "FAIL", detail))
             refuse_reasons.append(detail)
     else:
-        checks.append(mk_check("M3f", "mark_done", "SKIP", "no receipt to check authorship of"))
+        checks.append(
+            mk_check("M3f", "mark_done", "SKIP", "no receipt to check authorship of")
+        )
 
     # M-i — idempotent recovery
     if already_done:
         receipt_valid = bool(receipt_comment) and not refuse_reasons
         if receipt_valid:
             facts["idempotent"] = True
-            checks.append(mk_check("M-i", "mark_done", "PASS", "already Done with a valid receipt — success, no re-transition"))
+            checks.append(
+                mk_check(
+                    "M-i",
+                    "mark_done",
+                    "PASS",
+                    "already Done with a valid receipt — success, no re-transition",
+                )
+            )
         else:
             detail = "already Done but existing receipt is invalid — data error"
             checks.append(mk_check("M-i", "mark_done", "FAIL", detail))
@@ -699,7 +1050,14 @@ def run_mark_done_checks(ctx, flags):
         if flags.get("exempt_ruled"):
             # Post-ruling resume (pressure-test v2 Gap 1): the caller already
             # ruled applicability — this re-run terminates instead of deferring.
-            checks.append(mk_check("M-d", "mark_done", "PASS", "exemption claimed — ruled applicable via --exempt-ruled"))
+            checks.append(
+                mk_check(
+                    "M-d",
+                    "mark_done",
+                    "PASS",
+                    "exemption claimed — ruled applicable via --exempt-ruled",
+                )
+            )
             ruled.append("M-d")
         else:
             item = {
@@ -708,9 +1066,18 @@ def run_mark_done_checks(ctx, flags):
                 "evidence": flags.get("deterministic_exempt_context", ""),
             }
             judgment_items.append(item)
-            checks.append(mk_check("M-d", "mark_done", "DEFER", "exemption claimed — applicability is Judgment"))
+            checks.append(
+                mk_check(
+                    "M-d",
+                    "mark_done",
+                    "DEFER",
+                    "exemption claimed — applicability is Judgment",
+                )
+            )
     else:
-        checks.append(mk_check("M-d", "mark_done", "SKIP", "no --deterministic-exempt asserted"))
+        checks.append(
+            mk_check("M-d", "mark_done", "SKIP", "no --deterministic-exempt asserted")
+        )
 
     # M3g — R-B's structural defer: every full-variant (no map parent)
     # mark_done run routes receipt coherence to @attack-kitty's ticket-close
@@ -722,25 +1089,57 @@ def run_mark_done_checks(ctx, flags):
     # ticket-close [VALIDATION] comment postdating the current In Progress
     # claim, verified mechanically — an unresolvable id refuses outright.
     if not is_full_variant:
-        checks.append(mk_check("M3g", "mark_done", "SKIP", "map child — CM6 audits this at close-map, not here"))
+        checks.append(
+            mk_check(
+                "M3g",
+                "mark_done",
+                "SKIP",
+                "map child — CM6 audits this at close-map, not here",
+            )
+        )
     elif flags.get("receipt_audited"):
         audited_id = flags["receipt_audited"]
         audited_comment = next((c for c in comments if c.get("id") == audited_id), None)
-        audited_parsed = parse_validation_comment(audited_comment["body"]) if audited_comment else None
+        audited_parsed = (
+            parse_validation_comment(audited_comment["body"])
+            if audited_comment
+            else None
+        )
         history = history_of(issue)
         # Name-keyed (Brick 1), same reason as M3b.
-        in_progress_entries = [h for h in history if (h.get("toState") or {}).get("name") == "In Progress"]
-        claim_ts, fallback_note, fail_detail = claim_ts_or_fallback(issue, history, in_progress_entries)
+        in_progress_entries = [
+            h for h in history if (h.get("toState") or {}).get("name") == "In Progress"
+        ]
+        claim_ts, fallback_note, fail_detail = claim_ts_or_fallback(
+            issue, history, in_progress_entries
+        )
         m3g_failures = []
         if audited_comment is None:
-            m3g_failures.append(f"--receipt-audited {audited_id!r} does not resolve to a comment on this ticket")
+            m3g_failures.append(
+                f"--receipt-audited {audited_id!r} does not resolve to a comment on this ticket"
+            )
         else:
-            if not audited_parsed or (audited_parsed.get("validation_type") or "").strip() != "ticket-close":
-                m3g_failures.append(f"--receipt-audited {audited_id!r} is not a ticket-close [VALIDATION] comment")
+            if not _is_ticket_close_receipt(audited_comment):
+                first_line = next(
+                    (
+                        line.strip()
+                        for line in audited_comment["body"].splitlines()
+                        if line.strip()
+                    ),
+                    "",
+                )
+                m3g_failures.append(
+                    f"--receipt-audited {audited_id!r} is not a ticket-close [VALIDATION] comment: "
+                    f"its first line reads {first_line!r}, expected {TICKET_CLOSE_HEADER!r}"
+                )
             if not audited_parsed or audited_parsed.get("verdict") != "CONFIRMED":
-                m3g_failures.append(f"--receipt-audited {audited_id!r} is not Verdict: CONFIRMED")
+                m3g_failures.append(
+                    f"--receipt-audited {audited_id!r} is not Verdict: CONFIRMED"
+                )
             if not audited_parsed or not audited_parsed.get("schema_complete"):
-                m3g_failures.append(f"--receipt-audited {audited_id!r} is malformed — missing schema lines")
+                m3g_failures.append(
+                    f"--receipt-audited {audited_id!r} is malformed — missing schema lines"
+                )
             if fail_detail:
                 m3g_failures.append(fail_detail)
             elif audited_comment and audited_comment["createdAt"] <= claim_ts:
@@ -765,24 +1164,54 @@ def run_mark_done_checks(ctx, flags):
             "evidence": None,
         }
         judgment_items.append(item)
-        checks.append(mk_check("M3g", "mark_done", "DEFER", "full variant — no map parent, no downstream audit; structural defer per R-B"))
+        checks.append(
+            mk_check(
+                "M3g",
+                "mark_done",
+                "DEFER",
+                "full variant — no map parent, no downstream audit; structural defer per R-B",
+            )
+        )
 
     # M-h — a map-child close requires a [HANDOFF] comment: present by live
     # fetch OR supplied via --handoff-file (posted BEFORE the Done state
     # change at execute — reuses park/cancel's --comment-file sequencing
     # law). No-map (full/no-map variant): not required.
     if is_full_variant:
-        checks.append(mk_check("M-h", "mark_done", "SKIP", "full variant — no map parent, [HANDOFF] not required"))
+        checks.append(
+            mk_check(
+                "M-h",
+                "mark_done",
+                "SKIP",
+                "full variant — no map parent, [HANDOFF] not required",
+            )
+        )
     elif already_done:
-        checks.append(mk_check("M-h", "mark_done", "SKIP", "idempotent path: already Done"))
+        checks.append(
+            mk_check("M-h", "mark_done", "SKIP", "idempotent path: already Done")
+        )
     else:
         handoff_comment = newest_matching_comment(
             comments, lambda c: (c.get("body") or "").strip().startswith("[HANDOFF]")
         )
         if handoff_comment is not None:
-            checks.append(mk_check("M-h", "mark_done", "PASS", "[HANDOFF] comment present by live fetch"))
+            checks.append(
+                mk_check(
+                    "M-h",
+                    "mark_done",
+                    "PASS",
+                    "[HANDOFF] comment present by live fetch",
+                )
+            )
         elif flags.get("handoff_file"):
-            checks.append(mk_check("M-h", "mark_done", "PASS", "no [HANDOFF] comment yet — --handoff-file supplied, posted before the Done state change"))
+            checks.append(
+                mk_check(
+                    "M-h",
+                    "mark_done",
+                    "PASS",
+                    "no [HANDOFF] comment yet — --handoff-file supplied, posted before the Done state change",
+                )
+            )
         else:
             detail = "map-child close requires a [HANDOFF] comment — none on record and no --handoff-file supplied"
             checks.append(mk_check("M-h", "mark_done", "FAIL", detail))
@@ -796,6 +1225,7 @@ def run_mark_done_checks(ctx, flags):
 # ---------------------------------------------------------------------
 # begin (Planning -> In Progress)
 # ---------------------------------------------------------------------
+
 
 def run_begin_checks(ctx, flags):
     """begin is the second leg of the vertical-slice lifecycle (Todo ->
@@ -836,7 +1266,14 @@ def run_begin_checks(ctx, flags):
     # --model-ruled's post-ruling resume shape — the plan-attack receipt
     # itself is optional evidence, never a scripted requirement.
     if flags.get("plan_attested"):
-        checks.append(mk_check("BG2", "begin", "PASS", "plan-attack (+ operator-alignment for hitl) attested via --plan-attested"))
+        checks.append(
+            mk_check(
+                "BG2",
+                "begin",
+                "PASS",
+                "plan-attack (+ operator-alignment for hitl) attested via --plan-attested",
+            )
+        )
         ruled.append("BG2")
     else:
         item = {
@@ -845,7 +1282,14 @@ def run_begin_checks(ctx, flags):
             "evidence": None,
         }
         judgment_items.append(item)
-        checks.append(mk_check("BG2", "begin", "DEFER", "no --plan-attested — judgment rules before Planning->In Progress"))
+        checks.append(
+            mk_check(
+                "BG2",
+                "begin",
+                "DEFER",
+                "no --plan-attested — judgment rules before Planning->In Progress",
+            )
+        )
 
     facts["refusal_reasons"] = refuse_reasons
     verdict = aggregate_verdict(refuse_reasons, [], judgment_items)
@@ -855,6 +1299,7 @@ def run_begin_checks(ctx, flags):
 # ---------------------------------------------------------------------
 # park / block / un-park / cancel
 # ---------------------------------------------------------------------
+
 
 def run_park_checks(ctx, flags):
     # R-A (operator, 2026-08-10): the composing session owns its ask's
@@ -868,7 +1313,11 @@ def run_park_checks(ctx, flags):
     refuse_reasons = []
     issue = ctx["issue"]
     comments = comments_of(issue)
-    facts = {"team_key": (issue.get("team") or {}).get("key"), "state_ids": ctx.get("state_ids", {}), "refusal_reasons": []}
+    facts = {
+        "team_key": (issue.get("team") or {}).get("key"),
+        "state_ids": ctx.get("state_ids", {}),
+        "refusal_reasons": [],
+    }
 
     if "map" in labels_of(issue):
         detail = "maps never park — a wedged map is a sweep finding, not a park target"
@@ -877,11 +1326,22 @@ def run_park_checks(ctx, flags):
         facts["refusal_reasons"] = refuse_reasons
         return checks, facts, [], "REFUSE", []
 
-    ask_comment = newest_matching_comment(comments, lambda c: bool((c.get("body") or "").strip()))
+    ask_comment = newest_matching_comment(
+        comments, lambda c: bool((c.get("body") or "").strip())
+    )
     if ask_comment is not None:
-        checks.append(mk_check("P1", "park", "PASS", "ask comment present by live fetch"))
+        checks.append(
+            mk_check("P1", "park", "PASS", "ask comment present by live fetch")
+        )
     elif flags.get("comment_file"):
-        checks.append(mk_check("P1", "park", "PASS", "no ask comment yet — --comment-file supplied, posted at execute"))
+        checks.append(
+            mk_check(
+                "P1",
+                "park",
+                "PASS",
+                "no ask comment yet — --comment-file supplied, posted at execute",
+            )
+        )
     else:
         detail = "no ask comment on record and no --comment-file supplied — refuse rather than invent one"
         checks.append(mk_check("P1", "park", "FAIL", detail))
@@ -902,7 +1362,11 @@ def run_block_checks(ctx, flags):
     refuse_reasons = []
     issue = ctx["issue"]
     comments = comments_of(issue)
-    facts = {"team_key": (issue.get("team") or {}).get("key"), "state_ids": ctx.get("state_ids", {}), "refusal_reasons": []}
+    facts = {
+        "team_key": (issue.get("team") or {}).get("key"),
+        "state_ids": ctx.get("state_ids", {}),
+        "refusal_reasons": [],
+    }
 
     if "map" in labels_of(issue):
         detail = "maps never park/block — a wedged map is a sweep finding"
@@ -911,11 +1375,22 @@ def run_block_checks(ctx, flags):
         facts["refusal_reasons"] = refuse_reasons
         return checks, facts, [], "REFUSE", []
 
-    condition_comment = newest_matching_comment(comments, lambda c: bool((c.get("body") or "").strip()))
+    condition_comment = newest_matching_comment(
+        comments, lambda c: bool((c.get("body") or "").strip())
+    )
     if condition_comment is not None:
-        checks.append(mk_check("B1", "block", "PASS", "condition comment present by live fetch"))
+        checks.append(
+            mk_check("B1", "block", "PASS", "condition comment present by live fetch")
+        )
     elif flags.get("comment_file"):
-        checks.append(mk_check("B1", "block", "PASS", "no condition comment yet — --comment-file supplied, posted at execute"))
+        checks.append(
+            mk_check(
+                "B1",
+                "block",
+                "PASS",
+                "no condition comment yet — --comment-file supplied, posted at execute",
+            )
+        )
     else:
         detail = "no condition comment on record and no --comment-file supplied — refuse rather than invent one"
         checks.append(mk_check("B1", "block", "FAIL", detail))
@@ -933,7 +1408,11 @@ def run_unpark_checks(ctx, flags):
     ruled = []
     issue = ctx["issue"]
     comments = comments_of(issue)
-    facts = {"team_key": (issue.get("team") or {}).get("key"), "state_ids": ctx.get("state_ids", {}), "refusal_reasons": []}
+    facts = {
+        "team_key": (issue.get("team") or {}).get("key"),
+        "state_ids": ctx.get("state_ids", {}),
+        "refusal_reasons": [],
+    }
 
     state_name = (issue.get("state") or {}).get("name")
 
@@ -949,29 +1428,69 @@ def run_unpark_checks(ctx, flags):
         return checks, facts, [], "REFUSE", []
 
     if flags.get("operator_directed"):
-        checks.append(mk_check("U1", "un-park", "PASS", "operator directed the un-park explicitly"))
+        checks.append(
+            mk_check(
+                "U1", "un-park", "PASS", "operator directed the un-park explicitly"
+            )
+        )
     else:
-        condition_comment = newest_matching_comment(comments, lambda c: bool((c.get("body") or "").strip()))
+        condition_comment = newest_matching_comment(
+            comments, lambda c: bool((c.get("body") or "").strip())
+        )
         if condition_comment is None:
-            detail = "no blocker condition on record and no --operator-directed — refuse"
+            detail = (
+                "no blocker condition on record and no --operator-directed — refuse"
+            )
             checks.append(mk_check("U1", "un-park", "FAIL", detail))
             refuse_reasons.append(detail)
         elif flags.get("blocker_verified"):
             # R-C (operator, 2026-08-10): un-parking session re-checks the
             # condition itself — self-knowledge, ADMIT path alongside
             # --operator-directed, no defer.
-            checks.append(mk_check("U1", "un-park", "PASS", "blocker condition re-checked by the caller — --blocker-verified"))
+            checks.append(
+                mk_check(
+                    "U1",
+                    "un-park",
+                    "PASS",
+                    "blocker condition re-checked by the caller — --blocker-verified",
+                )
+            )
             ruled.append("U1")
         else:
-            item = {"id": "J-U1", "question": "Is the named blocker verifiably resolved? Re-check the condition from the Blocked/Needs Input comment.", "evidence": condition_comment.get("body")}
+            item = {
+                "id": "J-U1",
+                "question": "Is the named blocker verifiably resolved? Re-check the condition from the Blocked/Needs Input comment.",
+                "evidence": condition_comment.get("body"),
+            }
             judgment_items.append(item)
-            checks.append(mk_check("U1", "un-park", "DEFER", "blocker condition on record — resolution verification is judgment"))
+            checks.append(
+                mk_check(
+                    "U1",
+                    "un-park",
+                    "DEFER",
+                    "blocker condition on record — resolution verification is judgment",
+                )
+            )
 
     delegate = issue.get("delegate")
     if delegate:
-        checks.append(mk_check("U2", "un-park", "PASS", f"-> Todo; delegate NOT cleared ({delegate.get('id')}) — surfacing, never silently clearing"))
+        checks.append(
+            mk_check(
+                "U2",
+                "un-park",
+                "PASS",
+                f"-> Todo; delegate NOT cleared ({delegate.get('id')}) — surfacing, never silently clearing",
+            )
+        )
     else:
-        checks.append(mk_check("U2", "un-park", "PASS", f"-> Todo from {state_name}; claim already clear"))
+        checks.append(
+            mk_check(
+                "U2",
+                "un-park",
+                "PASS",
+                f"-> Todo from {state_name}; claim already clear",
+            )
+        )
 
     facts["refusal_reasons"] = refuse_reasons
     verdict = aggregate_verdict(refuse_reasons, [], judgment_items)
@@ -986,13 +1505,26 @@ def run_cancel_checks(ctx, flags):
     refuse_reasons = []
     issue = ctx["issue"]
     comments = comments_of(issue)
-    facts = {"team_key": (issue.get("team") or {}).get("key"), "state_ids": ctx.get("state_ids", {}), "refusal_reasons": []}
+    facts = {
+        "team_key": (issue.get("team") or {}).get("key"),
+        "state_ids": ctx.get("state_ids", {}),
+        "refusal_reasons": [],
+    }
 
-    reason_comment = newest_matching_comment(comments, lambda c: bool((c.get("body") or "").strip()))
+    reason_comment = newest_matching_comment(
+        comments, lambda c: bool((c.get("body") or "").strip())
+    )
     if reason_comment is not None:
         checks.append(mk_check("X1", "cancel", "PASS", "reason present by live fetch"))
     elif flags.get("comment_file"):
-        checks.append(mk_check("X1", "cancel", "PASS", "no reason on record — --comment-file supplied, posted at execute"))
+        checks.append(
+            mk_check(
+                "X1",
+                "cancel",
+                "PASS",
+                "no reason on record — --comment-file supplied, posted at execute",
+            )
+        )
     else:
         detail = "no reason given and no --comment-file supplied — refuse"
         checks.append(mk_check("X1", "cancel", "FAIL", detail))
@@ -1006,6 +1538,7 @@ def run_cancel_checks(ctx, flags):
 # ---------------------------------------------------------------------
 # close-map
 # ---------------------------------------------------------------------
+
 
 def _cm_gates_123(issue, children):
     """CM1 (map label + In Progress), CM3 (zero
@@ -1026,14 +1559,28 @@ def _cm_gates_123(issue, children):
     else:
         checks.append(mk_check("CM1", "close-map", "PASS", "map label + In Progress"))
 
-    open_children = [c for c in children if (c.get("state") or {}).get("type") not in COMPLETED_STATE_TYPES]
+    open_children = [
+        c
+        for c in children
+        if (c.get("state") or {}).get("type") not in COMPLETED_STATE_TYPES
+    ]
     if open_children:
-        detail = "; ".join(f"{c.get('identifier')} ({c.get('title')}) — {(c.get('state') or {}).get('name')}" for c in open_children)
+        detail = "; ".join(
+            f"{c.get('identifier')} ({c.get('title')}) — {(c.get('state') or {}).get('name')}"
+            for c in open_children
+        )
         checks.append(mk_check("CM3", "close-map", "FAIL", detail))
         refuse_reasons.append(detail)
         open_children_identifiers = [c.get("identifier") for c in open_children]
     else:
-        checks.append(mk_check("CM3", "close-map", "PASS", f"all {len(children)} children Done/Canceled"))
+        checks.append(
+            mk_check(
+                "CM3",
+                "close-map",
+                "PASS",
+                f"all {len(children)} children Done/Canceled",
+            )
+        )
 
     return checks, refuse_reasons, open_children_identifiers
 
@@ -1045,17 +1592,24 @@ def _cm_gather_done_children(children, children_comments):
     check needs. Every Done child already passed mark_done's own
     [VALIDATION] gate on its way to Done, so this is gather-only — no
     pass/fail here. Shared between admission and re-verify."""
-    done_children = [c for c in children if (c.get("state") or {}).get("type") == "completed"]
+    done_children = [
+        c for c in children if (c.get("state") or {}).get("type") == "completed"
+    ]
 
     latest_validation_ts = None
     done_children_facts = []
     for child in done_children:
         child_comments = children_comments.get(child.get("id"), [])
-        vc = newest_matching_comment(child_comments, lambda c: (c.get("body") or "").strip().startswith("[VALIDATION]"))
+        vc = newest_matching_comment(
+            child_comments,
+            lambda c: (c.get("body") or "").strip().startswith("[VALIDATION]"),
+        )
 
         entry = {
             "identifier": child.get("identifier"),
-            "comments": [c.get("body") for c in child_comments if (c.get("body") or "").strip()],
+            "comments": [
+                c.get("body") for c in child_comments if (c.get("body") or "").strip()
+            ],
         }
         if vc:
             entry["validation_comment"] = vc.get("body")
@@ -1070,7 +1624,12 @@ def _cm_gate_6(comments, latest_validation_ts):
     """CM6 — the map-conformance receipt: exists, fresh (postdates all Done
     children's [VALIDATION] timestamps), CONFIRMED, schema-complete. Shared
     between admission and re-verify."""
-    receipt_comment = newest_matching_comment(comments, lambda c: (c.get("body") or "").strip().startswith("[VALIDATION] — map-conformance"))
+    receipt_comment = newest_matching_comment(
+        comments,
+        lambda c: (
+            (c.get("body") or "").strip().startswith("[VALIDATION] — map-conformance")
+        ),
+    )
     if not receipt_comment:
         detail = "no map-conformance receipt — run @attack-kitty's map-close-eval mandate first"
         return mk_check("CM6", "close-map", "FAIL", detail), [detail]
@@ -1078,16 +1637,25 @@ def _cm_gate_6(comments, latest_validation_ts):
     parsed = parse_validation_comment(receipt_comment["body"])
     cm6_failures = []
     if latest_validation_ts and receipt_comment["createdAt"] <= latest_validation_ts:
-        cm6_failures.append(f"receipt ({receipt_comment['createdAt']}) does not postdate all Done children's own [VALIDATION] ({latest_validation_ts})")
+        cm6_failures.append(
+            f"receipt ({receipt_comment['createdAt']}) does not postdate all Done children's own [VALIDATION] ({latest_validation_ts})"
+        )
     if not parsed or parsed.get("verdict") != "CONFIRMED":
-        cm6_failures.append(f"Verdict is {parsed.get('verdict') if parsed else None!r}, not CONFIRMED")
+        cm6_failures.append(
+            f"Verdict is {parsed.get('verdict') if parsed else None!r}, not CONFIRMED"
+        )
     if not parsed or not parsed.get("schema_complete"):
         cm6_failures.append("malformed receipt — missing schema lines")
 
     if cm6_failures:
         detail = "; ".join(cm6_failures)
         return mk_check("CM6", "close-map", "FAIL", detail), cm6_failures
-    return mk_check("CM6", "close-map", "PASS", "map-conformance receipt exists, fresh, CONFIRMED, schema-complete"), []
+    return mk_check(
+        "CM6",
+        "close-map",
+        "PASS",
+        "map-conformance receipt exists, fresh, CONFIRMED, schema-complete",
+    ), []
 
 
 def run_close_map_checks(ctx, flags):
@@ -1107,14 +1675,31 @@ def run_close_map_checks(ctx, flags):
     checks, refuse_reasons, open_children = _cm_gates_123(issue, children)
     facts["open_children"] = open_children
 
-    done_children_facts, latest_validation_ts = _cm_gather_done_children(children, children_comments)
+    done_children_facts, latest_validation_ts = _cm_gather_done_children(
+        children, children_comments
+    )
     facts["done_children"] = done_children_facts
 
-    checks.append(mk_check("CM-a", "close-map", "PASS" if not refuse_reasons else "FAIL",
-                            "all Step-1 checks aggregated — no partial refusals" if not refuse_reasons else "one or more Step-1 checks failed; aggregated above, no partial execution"))
+    checks.append(
+        mk_check(
+            "CM-a",
+            "close-map",
+            "PASS" if not refuse_reasons else "FAIL",
+            "all Step-1 checks aggregated — no partial refusals"
+            if not refuse_reasons
+            else "one or more Step-1 checks failed; aggregated above, no partial execution",
+        )
+    )
 
     if refuse_reasons:
-        checks.append(mk_check("CM6", "close-map", "SKIP", "Step 1 preconditions failed — CM6 not evaluated"))
+        checks.append(
+            mk_check(
+                "CM6",
+                "close-map",
+                "SKIP",
+                "Step 1 preconditions failed — CM6 not evaluated",
+            )
+        )
         facts["refusal_reasons"] = refuse_reasons
         return checks, facts, [], "REFUSE", []
 
@@ -1152,7 +1737,9 @@ def run_close_map_reverify_checks(ctx, accounting_document_id):
     checks, refuse_reasons, open_children = _cm_gates_123(issue, children)
     facts["open_children"] = open_children
 
-    done_children_facts, latest_validation_ts = _cm_gather_done_children(children, children_comments)
+    done_children_facts, latest_validation_ts = _cm_gather_done_children(
+        children, children_comments
+    )
     facts["done_children"] = done_children_facts
 
     cm6_check, cm6_failures = _cm_gate_6(comments, latest_validation_ts)
@@ -1163,11 +1750,17 @@ def run_close_map_reverify_checks(ctx, accounting_document_id):
     if not accounting_document_id:
         cm9_failures.append("no accounting_document_id supplied to re-verify")
     else:
-        acct_doc = next((d for d in documents if d.get("id") == accounting_document_id), None)
+        acct_doc = next(
+            (d for d in documents if d.get("id") == accounting_document_id), None
+        )
         if acct_doc is None:
-            cm9_failures.append(f"accounting document {accounting_document_id} not found on re-fetch")
+            cm9_failures.append(
+                f"accounting document {accounting_document_id} not found on re-fetch"
+            )
         elif acct_doc.get("archivedAt"):
-            cm9_failures.append(f"accounting document {accounting_document_id} is archived — drift since the write")
+            cm9_failures.append(
+                f"accounting document {accounting_document_id} is archived — drift since the write"
+            )
 
     all_failures = refuse_reasons + cm9_failures
     if all_failures:
@@ -1176,7 +1769,14 @@ def run_close_map_reverify_checks(ctx, accounting_document_id):
         facts["refusal_reasons"] = all_failures
         return checks, facts, [], "REFUSE"
 
-    checks.append(mk_check("CM9", "close-map", "PASS", "all close gates + accounting doc re-verified clean immediately before the write"))
+    checks.append(
+        mk_check(
+            "CM9",
+            "close-map",
+            "PASS",
+            "all close gates + accounting doc re-verified clean immediately before the write",
+        )
+    )
     facts["refusal_reasons"] = []
     return checks, facts, [], "ADMIT"
 
@@ -1237,8 +1837,11 @@ def run_close_map_reverify(ctx, accounting_document_id):
 # Live context gathering
 # ---------------------------------------------------------------------
 
+
 def gather_context(bridge_cmd_parts, verb, issue_id, flags):
-    issue = lb.resolve_issue_ref(bridge_cmd_parts, issue_id, body=True, comments=True, history=True)
+    issue = lb.resolve_issue_ref(
+        bridge_cmd_parts, issue_id, body=True, comments=True, history=True
+    )
     # resolve_issue_ref (unlike linear_bridge.py's own `issue` CLI handler)
     # does not populate blocked_by_open on its own — C5's open-blocker check
     # depends on it, so it's computed here, once, right after the fetch.
@@ -1277,8 +1880,12 @@ def gather_context(bridge_cmd_parts, verb, issue_id, flags):
 
     if verb in ("claim", "mark_done"):
         parent = issue.get("parent")
-        if parent and "map" in {l["name"] for l in (parent.get("labels") or {}).get("nodes", [])}:
-            parent_node = lb.resolve_issue_ref(bridge_cmd_parts, parent["id"], comments=True)
+        if parent and "map" in {
+            lbl["name"] for lbl in (parent.get("labels") or {}).get("nodes", [])
+        }:
+            parent_node = lb.resolve_issue_ref(
+                bridge_cmd_parts, parent["id"], comments=True
+            )
             ctx["parent_comments"] = comments_of(parent_node)
 
     if verb == "claim":
@@ -1290,14 +1897,18 @@ def gather_context(bridge_cmd_parts, verb, issue_id, flags):
 
     if verb == "close-map":
         ctx["children"] = lb.fetch_children(bridge_cmd_parts, issue["id"])
-        ctx["documents"] = lb.fetch_documents(bridge_cmd_parts, issue["id"], content=True)
+        ctx["documents"] = lb.fetch_documents(
+            bridge_cmd_parts, issue["id"], content=True
+        )
         children_comments = {}
         for child in ctx["children"]:
             # Every Done child's comments are fetched — CM7's accounting
             # authorship needs every Done child's own receipts (original
             # close-map.md Step 3), not a subset alone.
             if (child.get("state") or {}).get("type") == "completed":
-                child_node = lb.resolve_issue_ref(bridge_cmd_parts, child["id"], comments=True)
+                child_node = lb.resolve_issue_ref(
+                    bridge_cmd_parts, child["id"], comments=True
+                )
                 children_comments[child["id"]] = comments_of(child_node)
         ctx["children_comments"] = children_comments
 
@@ -1338,13 +1949,21 @@ def _read_text_file(path):
 
 def _execute_claim(bridge_cmd_parts, verdict, uuid, facts, state_ids, args):
     if verdict == "ADMIT":
-        assignee_id = facts.get("operator_id") if facts.get("assignee_gate") == "set" else None
+        assignee_id = (
+            facts.get("operator_id") if facts.get("assignee_gate") == "set" else None
+        )
         # claim_target_state_key (§2 / §8 finding 4c): Planning for a
         # map-child claimed from Todo; the current state preserved (never
         # demoted) for an --operator-directed re-claim of a non-Todo map
         # child; In Progress for the full variant, unchanged.
         target_key = facts.get("claim_target_state_key", "in_progress")
-        result = lb.claim_write(bridge_cmd_parts, uuid, state_ids.get(target_key), facts.get("viewer_id"), assignee_id)
+        result = lb.claim_write(
+            bridge_cmd_parts,
+            uuid,
+            state_ids.get(target_key),
+            facts.get("viewer_id"),
+            assignee_id,
+        )
         # A lost race means back off and report, never proceed (claim.md) —
         # a write happened, but this session's claim was not achieved.
         return (not result.get("race_lost", False)), {"claim_write": result}
@@ -1353,7 +1972,9 @@ def _execute_claim(bridge_cmd_parts, verdict, uuid, facts, state_ids, args):
     # integral to this execution, not optional — no delegate release (no
     # claim exists yet, the ticket was never claimed).
     if not args.comment_file:
-        return False, {"note": "NEEDS_INPUT routing comment required — no --comment-file supplied"}
+        return False, {
+            "note": "NEEDS_INPUT routing comment required — no --comment-file supplied"
+        }
     body = _read_text_file(args.comment_file)
     comment_result = lb.create_comment(bridge_cmd_parts, uuid, body)
     state_result = lb.set_state(bridge_cmd_parts, uuid, state_ids.get("needs_input"))
@@ -1363,7 +1984,9 @@ def _execute_claim(bridge_cmd_parts, verdict, uuid, facts, state_ids, args):
 def _execute_mark_done(bridge_cmd_parts, verdict, uuid, facts, state_ids, ctx, args):
     if verdict == "ADMIT":
         if facts.get("idempotent"):
-            return True, {"note": "already Done with a valid receipt — no re-transition"}
+            return True, {
+                "note": "already Done with a valid receipt — no re-transition"
+            }
         result = {}
         # M-h: a map-child close's [HANDOFF] comment posts BEFORE the Done
         # state change (park/cancel's --comment-file sequencing law) — only
@@ -1371,19 +1994,26 @@ def _execute_mark_done(bridge_cmd_parts, verdict, uuid, facts, state_ids, ctx, a
         if facts.get("is_map_child"):
             comments = comments_of(ctx["issue"])
             existing_handoff = newest_matching_comment(
-                comments, lambda c: (c.get("body") or "").strip().startswith("[HANDOFF]")
+                comments,
+                lambda c: (c.get("body") or "").strip().startswith("[HANDOFF]"),
             )
             if existing_handoff is None and args.handoff_file:
                 body = _read_text_file(args.handoff_file)
-                result["handoff_comment"] = lb.create_comment(bridge_cmd_parts, uuid, body)
+                result["handoff_comment"] = lb.create_comment(
+                    bridge_cmd_parts, uuid, body
+                )
         if args.closing_comment_file:
             body = _read_text_file(args.closing_comment_file)
             result["comment"] = lb.create_comment(bridge_cmd_parts, uuid, body)
-        result["set_state"] = lb.set_state(bridge_cmd_parts, uuid, state_ids.get("done"))
+        result["set_state"] = lb.set_state(
+            bridge_cmd_parts, uuid, state_ids.get("done")
+        )
         return True, result
 
     # NEEDS_INPUT: set-state only, no delegate ops.
-    result = {"set_state": lb.set_state(bridge_cmd_parts, uuid, state_ids.get("needs_input"))}
+    result = {
+        "set_state": lb.set_state(bridge_cmd_parts, uuid, state_ids.get("needs_input"))
+    }
     return True, result
 
 
@@ -1394,7 +2024,9 @@ def _execute_begin(bridge_cmd_parts, verdict, uuid, state_ids):
     return True, {"set_state": result}
 
 
-def _execute_park_or_block(bridge_cmd_parts, verdict, uuid, ctx, state_id, comment_file):
+def _execute_park_or_block(
+    bridge_cmd_parts, verdict, uuid, ctx, state_id, comment_file
+):
     """Shared park/block execute shape: post the ask/condition comment
     (already present by live fetch, or supplied fresh via --comment-file)
     BEFORE the state change, then release the delegate — read-back
@@ -1402,11 +2034,15 @@ def _execute_park_or_block(bridge_cmd_parts, verdict, uuid, ctx, state_id, comme
     if verdict != "ADMIT":
         return False, {}
     comments = comments_of(ctx["issue"])
-    existing = newest_matching_comment(comments, lambda c: bool((c.get("body") or "").strip()))
+    existing = newest_matching_comment(
+        comments, lambda c: bool((c.get("body") or "").strip())
+    )
     result = {}
     if existing is None:
         if not comment_file:
-            return False, {"note": "no ask/condition on record and no --comment-file supplied"}
+            return False, {
+                "note": "no ask/condition on record and no --comment-file supplied"
+            }
         body = _read_text_file(comment_file)
         result["comment"] = lb.create_comment(bridge_cmd_parts, uuid, body)
     result["set_state"] = lb.set_state(bridge_cmd_parts, uuid, state_id)
@@ -1423,20 +2059,28 @@ def _execute_unpark(bridge_cmd_parts, verdict, uuid, state_ids):
     return True, {"set_state": result}
 
 
-def _execute_cancel(bridge_cmd_parts, verdict, uuid, ctx, state_ids, comment_file, related_id):
+def _execute_cancel(
+    bridge_cmd_parts, verdict, uuid, ctx, state_ids, comment_file, related_id
+):
     if verdict != "ADMIT":
         return False, {}
     comments = comments_of(ctx["issue"])
-    existing = newest_matching_comment(comments, lambda c: bool((c.get("body") or "").strip()))
+    existing = newest_matching_comment(
+        comments, lambda c: bool((c.get("body") or "").strip())
+    )
     result = {}
     if existing is None:
         if not comment_file:
             return False, {"note": "no reason on record and no --comment-file supplied"}
         body = _read_text_file(comment_file)
         result["comment"] = lb.create_comment(bridge_cmd_parts, uuid, body)
-    result["set_state"] = lb.set_state(bridge_cmd_parts, uuid, state_ids.get("canceled"))
+    result["set_state"] = lb.set_state(
+        bridge_cmd_parts, uuid, state_ids.get("canceled")
+    )
     if related_id:
-        result["create_relation"] = lb.create_relation(bridge_cmd_parts, uuid, related_id, "duplicate_of")
+        result["create_relation"] = lb.create_relation(
+            bridge_cmd_parts, uuid, related_id, "duplicate_of"
+        )
     return True, result
 
 
@@ -1455,7 +2099,9 @@ def execute_if_clean(bridge_cmd_parts, verb, report, ctx, args):
     if verb == "claim":
         return _execute_claim(bridge_cmd_parts, verdict, uuid, facts, state_ids, args)
     if verb == "mark_done":
-        return _execute_mark_done(bridge_cmd_parts, verdict, uuid, facts, state_ids, ctx, args)
+        return _execute_mark_done(
+            bridge_cmd_parts, verdict, uuid, facts, state_ids, ctx, args
+        )
     if verdict != "ADMIT":
         # begin/park/block/un-park/cancel never reach NEEDS_INPUT per their
         # Check Inventory — nothing left to execute.
@@ -1463,13 +2109,35 @@ def execute_if_clean(bridge_cmd_parts, verb, report, ctx, args):
     if verb == "begin":
         return _execute_begin(bridge_cmd_parts, verdict, uuid, state_ids)
     if verb == "park":
-        return _execute_park_or_block(bridge_cmd_parts, verdict, uuid, ctx, state_ids.get("needs_input"), args.comment_file)
+        return _execute_park_or_block(
+            bridge_cmd_parts,
+            verdict,
+            uuid,
+            ctx,
+            state_ids.get("needs_input"),
+            args.comment_file,
+        )
     if verb == "block":
-        return _execute_park_or_block(bridge_cmd_parts, verdict, uuid, ctx, state_ids.get("blocked"), args.comment_file)
+        return _execute_park_or_block(
+            bridge_cmd_parts,
+            verdict,
+            uuid,
+            ctx,
+            state_ids.get("blocked"),
+            args.comment_file,
+        )
     if verb == "un-park":
         return _execute_unpark(bridge_cmd_parts, verdict, uuid, state_ids)
     if verb == "cancel":
-        return _execute_cancel(bridge_cmd_parts, verdict, uuid, ctx, state_ids, args.comment_file, args.related_id)
+        return _execute_cancel(
+            bridge_cmd_parts,
+            verdict,
+            uuid,
+            ctx,
+            state_ids,
+            args.comment_file,
+            args.related_id,
+        )
     return False, None
 
 
@@ -1512,6 +2180,7 @@ def format_output(report, executed_if_clean, executed, execution, elapsed_ms):
 # CLI
 # ---------------------------------------------------------------------
 
+
 def print_list_checks(verb):
     rows = CHECK_INVENTORY[verb] + CROSS_CUTTING
     print(json.dumps({"verb": verb, "checks": rows}, indent=2))
@@ -1520,7 +2189,7 @@ def print_list_checks(verb):
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Traffic-cone per-verb admission checks. Never mutates by default; "
-                     "--execute-if-clean fuses execution in-process on a clean ADMIT/NEEDS_INPUT verdict."
+        "--execute-if-clean fuses execution in-process on a clean ADMIT/NEEDS_INPUT verdict."
     )
     parser.add_argument("verb", nargs="?", choices=VERBS)
     parser.add_argument("target", nargs="?", default=None)
@@ -1531,41 +2200,84 @@ def main(argv=None):
     parser.add_argument("--caller-ack-wip", action="store_true")
     parser.add_argument("--deterministic-exempt", action="store_true")
     parser.add_argument("--deterministic-exempt-context", default="")
-    parser.add_argument("--project-id", default=None,
-                         help="required for claim — absent it, refuses with a config-gap message "
-                              "(without it wip_check never runs and C6 would auto-pass unchecked).")
-    parser.add_argument("--reverify", action="store_true",
-                         help="close-map only: CM9's scripted re-verify, run immediately before set-state.")
-    parser.add_argument("--accounting-document-id", default=None,
-                         help="close-map --reverify: the document id the execute step's createDocument just returned.")
-    parser.add_argument("--execute-if-clean", action="store_true",
-                         help="Fused mode: checks -> execute -> read-back in one process. "
-                              "ADMIT (zero judgment items) executes; REFUSE/JUDGMENT_REQUIRED stop. "
-                              "Not valid for close-map (keeps its own --reverify shape).")
-    parser.add_argument("--model-ruled", action="store_true",
-                         help="Post-ruling resume for J-C8: the session already compared itself to a model:* label.")
-    parser.add_argument("--exempt-ruled", action="store_true",
-                         help="Post-ruling resume for J-M-d: the deterministic exemption's applicability was already ruled.")
-    parser.add_argument("--mandate-type", default=None,
-                         help="Post-ruling resume for J-M3c: the type the caller already ruled the Done When text names.")
-    parser.add_argument("--blocker-verified", action="store_true",
-                         help="R-C: the un-parking session re-checked the named blocker condition itself.")
-    parser.add_argument("--receipt-audited", default=None, metavar="COMMENT-ID",
-                         help="Post-ruling resume for M3g: a CONFIRMED ticket-close [VALIDATION] comment id, "
-                              "verified mechanically (postdates the In Progress claim).")
-    parser.add_argument("--plan-attested", action="store_true",
-                         help="begin only, post-ruling resume for J-BG2: hitl attests operator-aligned + "
-                              "plan-attack, afk attests plan-attack alone (mirrors --model-ruled).")
-    parser.add_argument("--comment-file", default=None,
-                         help="Caller-composed ask/reason/routing text to post at execute when none exists yet "
-                              "(claim's NEEDS_INPUT routing, park's ask, cancel's reason).")
-    parser.add_argument("--closing-comment-file", default=None,
-                         help="mark_done only: optional closing note posted before the Done transition.")
-    parser.add_argument("--handoff-file", default=None,
-                         help="mark_done only: map-child [HANDOFF] comment text, posted before the Done "
-                              "transition when none exists yet on the ticket (M-h).")
-    parser.add_argument("--related-id", default=None,
-                         help="cancel only, optional: duplicate_of relation target (UUID).")
+    parser.add_argument(
+        "--project-id",
+        default=None,
+        help="required for claim — absent it, refuses with a config-gap message "
+        "(without it wip_check never runs and C6 would auto-pass unchecked).",
+    )
+    parser.add_argument(
+        "--reverify",
+        action="store_true",
+        help="close-map only: CM9's scripted re-verify, run immediately before set-state.",
+    )
+    parser.add_argument(
+        "--accounting-document-id",
+        default=None,
+        help="close-map --reverify: the document id the execute step's createDocument just returned.",
+    )
+    parser.add_argument(
+        "--execute-if-clean",
+        action="store_true",
+        help="Fused mode: checks -> execute -> read-back in one process. "
+        "ADMIT (zero judgment items) executes; REFUSE/JUDGMENT_REQUIRED stop. "
+        "Not valid for close-map (keeps its own --reverify shape).",
+    )
+    parser.add_argument(
+        "--model-ruled",
+        action="store_true",
+        help="Post-ruling resume for J-C8: the session already compared itself to a model:* label.",
+    )
+    parser.add_argument(
+        "--exempt-ruled",
+        action="store_true",
+        help="Post-ruling resume for J-M-d: the deterministic exemption's applicability was already ruled.",
+    )
+    parser.add_argument(
+        "--mandate-type",
+        default=None,
+        help="Post-ruling resume for J-M3c: the type the caller already ruled the Done When text names.",
+    )
+    parser.add_argument(
+        "--blocker-verified",
+        action="store_true",
+        help="R-C: the un-parking session re-checked the named blocker condition itself.",
+    )
+    parser.add_argument(
+        "--receipt-audited",
+        default=None,
+        metavar="COMMENT-ID",
+        help="Post-ruling resume for M3g: a CONFIRMED ticket-close [VALIDATION] comment id, "
+        "verified mechanically (postdates the In Progress claim).",
+    )
+    parser.add_argument(
+        "--plan-attested",
+        action="store_true",
+        help="begin only, post-ruling resume for J-BG2: hitl attests operator-aligned + "
+        "plan-attack, afk attests plan-attack alone (mirrors --model-ruled).",
+    )
+    parser.add_argument(
+        "--comment-file",
+        default=None,
+        help="Caller-composed ask/reason/routing text to post at execute when none exists yet "
+        "(claim's NEEDS_INPUT routing, park's ask, cancel's reason).",
+    )
+    parser.add_argument(
+        "--closing-comment-file",
+        default=None,
+        help="mark_done only: optional closing note posted before the Done transition.",
+    )
+    parser.add_argument(
+        "--handoff-file",
+        default=None,
+        help="mark_done only: map-child [HANDOFF] comment text, posted before the Done "
+        "transition when none exists yet on the ticket (M-h).",
+    )
+    parser.add_argument(
+        "--related-id",
+        default=None,
+        help="cancel only, optional: duplicate_of relation target (UUID).",
+    )
     args = parser.parse_args(argv)
 
     if args.list_checks:
@@ -1579,7 +2291,9 @@ def main(argv=None):
         parser.error("--reverify is close-map only")
 
     if args.execute_if_clean and args.verb == "close-map":
-        parser.error("--execute-if-clean does not apply to close-map — it keeps its own staged --reverify shape")
+        parser.error(
+            "--execute-if-clean does not apply to close-map — it keeps its own staged --reverify shape"
+        )
 
     if args.verb == "claim" and not args.project_id:
         print(
@@ -1618,10 +2332,14 @@ def main(argv=None):
 
         executed, execution = (False, None)
         if args.execute_if_clean and args.verb in EXECUTABLE_VERBS:
-            executed, execution = execute_if_clean(bridge_cmd_parts, args.verb, report, ctx, args)
+            executed, execution = execute_if_clean(
+                bridge_cmd_parts, args.verb, report, ctx, args
+            )
 
         elapsed_ms = int((time.monotonic() - start) * 1000)
-        output = format_output(report, args.execute_if_clean, executed, execution, elapsed_ms)
+        output = format_output(
+            report, args.execute_if_clean, executed, execution, elapsed_ms
+        )
         # Window-priced (item 3): the compact ADMIT block prints without
         # indentation — pretty-printing a "compact verdict block" would
         # spend back exactly the tokens the contraction is meant to save.
