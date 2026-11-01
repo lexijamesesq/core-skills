@@ -35,7 +35,7 @@ Before spawning anything, answer four questions (seconds, not minutes):
 These resolve to six shapes:
 
 | Shape | When |
-|---|---|
+| --- | --- |
 | Work it here | Fits in context, parts interdependent, no contamination concern |
 | One agent | Isolatable subtask with a clear mechanical check |
 | A team | Independent tracks, each checkable, parallelism justified |
@@ -104,7 +104,7 @@ Working it here changes who does the piece, not whether it names its proof.
 - A claim needs adversarial verification from a context with no authorship stake
 - The artifact must stand alone (comprehension test requires a naive reader)
 - Self-evaluation bias observed: identifying flaws then rationalizing acceptance
-- Fulfilled by `` `@attack-kitty` `` — the estate's non-author validator; spawned with a typed mandate, returns a verdict
+- Fulfilled by `` `@attack-kitty` `` — the estate's non-author validator; spawned with a typed mandate, returns a verdict. It never cleans up: its return ends with a `Left in place:` line, and the caller removes what that line names once the verdict is consumed.
 
 ## Anti-patterns — Hard Stops
 

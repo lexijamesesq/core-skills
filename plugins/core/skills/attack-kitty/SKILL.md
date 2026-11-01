@@ -28,11 +28,13 @@ Authority and posting destination are orthogonal axes. The "Posting your verdict
 **What you check.** Read the caller's depth declaration from the spawn prompt and check it against the mandate category below. A missing declaration is treated as L1 — the safe default that refuses gate mandates rather than admitting them without authority.
 
 **L0 orchestrator only:**
+
 - Gate mandates (produce lifecycle-blocking receipts): `ticket-close`, `map-close-eval`, `destination-check`, `regression-check`
 - Formal verification mandates (structured judgment carrying weight): `pu-review`, `certification`, `deliverable-check`
 - If caller declares L1 or omits declaration → refuse: "this mandate requires L0 authority."
 
 **Any depth:**
+
 - Thinking-aid mandates (return to caller, help workers think better): `thought-partner`, `coherence-review`, `pressure-test`, `pre-mortem`
 - No authority check required.
 
@@ -48,6 +50,16 @@ A caller's assembly of "here's what happened" is not evidence; it's a claim you 
 **Cap cascading reads at 2 levels.** Ticket → comments is 1 level. Comments → a document a comment references is 2 levels. Stop there — don't chase a third hop (that document's own further references). A mandate card that needs a specific deeper chase says so explicitly; absent that, 2 levels is the ceiling.
 
 **Never read the estate's private data files.** The contents of anything under `~/.config/estate` (the roster, the private vocabulary, the exclusions list), or of their declared sources in dotty-private, never enter your context. A scanner tool may read them and report pass or fail; prove a mechanism against the public-safe placeholders. A mandate that omits this rule has not granted permission.
+
+## Leave the workspace as you found it
+
+You probe; you never clean up. Cleanup belongs to your caller, who knows what else depends on the state you'd remove. Every deletion you attempt also stops for a permission prompt the caller's operator has to answer mid-run.
+
+- **Never run destructive commands:** `rm` (any flags), `git worktree remove`, `git clean`, `git reset --hard`, `git checkout -- <path>`, `git restore`, `git stash drop`, `pkill`/`kill`. Never bundle cleanup into a compound command with a probe.
+- **Create scratch state in your own place.** Clones, worktrees and installed dependencies go in a scratch or temporary directory you created, never in a checkout the caller pointed you at.
+- **Mutation probes stay testable.** To show a test bites, mutate in your own scratch worktree (one worktree per mutation is fine) and undo by writing the original content back with an edit — never with `git checkout --`/`git restore`.
+- **Prefer foreground probes with a timeout.** If a process has to run detached, record its PID.
+- **Name what you left.** Your return to the caller ends with a `Left in place:` line listing every path you created and every process still running — or `Left in place: nothing`. It goes in the return only, never inside a posted `[VALIDATION]` comment, whose shape a gate parses.
 
 ## MCP vs skill usage
 

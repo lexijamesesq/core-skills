@@ -37,7 +37,7 @@ Every GitHub action — branch, commit, push, PR, merge — goes through the pub
 Three roles, named once, used everywhere:
 
 | Role | Tier | Note |
-|---|---|---|
+| --- | --- | --- |
 | Map session | Fable | Charts, sweeps, resolves decisions, cuts slices with the operator; `model:*` pin overrides |
 | Researcher | `sonnet` absent `model:*` | Runs one blind investigation for a slice, blind to the map |
 | Validator / adversary | Per the mandate card (`@attack-kitty` § Tier policy) | Tier follows the mandate, never the work's label |
@@ -57,7 +57,7 @@ Every lifecycle transition is a **call to the `traffic-cone` gate** — hand it 
 Navigate a transition by its verb — the Invocation column is the whole call. Values in `"quotes"` are the semantic ones you supply (an ask, a condition, a reason); nothing mechanical is learned. This table is the resolver: every firing point below (and in the playbooks) names a verb and points here.
 
 | Action | Description | Invocation |
-|---|---|---|
+| --- | --- | --- |
 | **Claim** | Take a takeable ticket before any work (a map-child slice lands in Planning) | `traffic-cone claim <id>` |
 | **Begin** | Move a claimed slice from Planning to In Progress, once its plan is attacked | `traffic-cone begin <id> --plan-attested` |
 | **Park** | Pause on the operator; releases the claim | `traffic-cone park <id> --ask "<text>"` |
@@ -75,7 +75,7 @@ Claim's edge intents ride as flags when they apply — `--operator-directed` (a 
 
 **ADMIT** executed and reported. Anything else blocks the transition: **REFUSE** is binding — never re-run hoping, never hand-edit state around it; **NEEDS_INPUT** has already parked/routed the ticket in-process; **JUDGMENT_REQUIRED** waits on this session to rule the named kernel and resume. Verb-by-verb behavior and every kernel's question: `/traffic-cone` § Result handling and § Judgment kernels.
 
-`` `@attack-kitty` `` needs **mandate type** (a playbook card), **parameters** (varies by type), **caller depth** (`Caller: L0 orchestrator`/`L1 teammate`). Example: `map-close-eval mandate for <map-id>. Caller: L0 orchestrator`.
+`` `@attack-kitty` `` needs **mandate type** (a playbook card), **parameters** (varies by type), **caller depth** (`Caller: L0 orchestrator`/`L1 teammate`). Example: `map-close-eval mandate for <map-id>. Caller: L0 orchestrator`. Its return ends with a `Left in place:` line; remove what it names once you've consumed the verdict — it never cleans up after itself.
 
 Unsure how to compose `` `@attack-kitty` ``'s prompt, or it refuses? **Ask the agent** — never guess, never bypass.
 
@@ -102,7 +102,7 @@ Each ticket is a **child issue** of the map, sized to one 100K-token session; it
 State the test, never the vibe — a tone adjective ("elegantly simple", "robust") is an optimization target for every downstream session that loads it; name the checkable property.
 
 | Label | When set | Semantics |
-|---|---|---|
+| --- | --- | --- |
 | Loop (`hitl`/`afk`) | Create | Marks who drives (`playbooks/work-through.md` § Resolving a slice) |
 | `model:*` on an afk slice | Operator-acked | Sets the model (default `sonnet`) |
 | `model:*` on a hitl slice | Operator-acked | Pins main context — claim flags a mismatch |
@@ -110,7 +110,7 @@ State the test, never the vibe — a tone adjective ("elegantly simple", "robust
 
 **Claims** first, before any work, via the `claim` transition (§ Running transitions) — verified, stored in delegate; concurrent sessions skip it. Assignment differs: system-set on operator-directed claims, the operator's field to clear; assigned = never takeable.
 
-Blocking is the tracker's **native** dependency relationship — renders the frontier _visually_ in the tracker's UI, so the human sees what's takeable without opening the map. Unblocked = every blocker closed; the **frontier** is Todo, unblocked, unclaimed. Ordering is `/linear` frontier.md's rule, never restated — `map_sweep.py` computes it.
+Blocking is the tracker's **native** dependency relationship — renders the frontier *visually* in the tracker's UI, so the human sees what's takeable without opening the map. Unblocked = every blocker closed; the **frontier** is Todo, unblocked, unclaimed. Ordering is `/linear` frontier.md's rule, never restated — `map_sweep.py` computes it.
 
 The answer isn't in the body — recorded on resolution: a comment, findings as a **document on the ticket**, other assets linked, never pasted.
 
@@ -122,15 +122,15 @@ The Objective encodes purpose, not function. The Done When encodes fitness — q
 
 ## Fog of war
 
-The map is _deliberately_ incomplete: don't chart what you can't yet see. Beyond the live tickets lies the **fog of war** — decisions you can tell are coming but can't pin down, hung on questions still open. Resolving a ticket clears the fog ahead of it, graduating whatever's now specifiable into fresh tickets — one at a time, until the way to the destination is clear and no tickets remain.
+The map is *deliberately* incomplete: don't chart what you can't yet see. Beyond the live tickets lies the **fog of war** — decisions you can tell are coming but can't pin down, hung on questions still open. Resolving a ticket clears the fog ahead of it, graduating whatever's now specifiable into fresh tickets — one at a time, until the way to the destination is clear and no tickets remain.
 
-**Fog** holds that dim view — the suspected question, the area to revisit; write as loosely or fully as the view allows. It's the undiscovered frontier _toward_ the destination — everything here is in scope, just not sharp enough to ticket — and it doubles as a signpost for collaborators reading where the effort is headed.
+**Fog** holds that dim view — the suspected question, the area to revisit; write as loosely or fully as the view allows. It's the undiscovered frontier *toward* the destination — everything here is in scope, just not sharp enough to ticket — and it doubles as a signpost for collaborators reading where the effort is headed.
 
-**Fog or ticket?** Can you state the question precisely now — _not_ can you answer it. Sharp, even if blocked → ticket. Can't phrase it that sharply yet → Fog — don't pre-slice; one patch may graduate into several tickets, or none. Excludes what's decided, ticketed, or out of scope (below).
+**Fog or ticket?** Can you state the question precisely now — *not* can you answer it. Sharp, even if blocked → ticket. Can't phrase it that sharply yet → Fog — don't pre-slice; one patch may graduate into several tickets, or none. Excludes what's decided, ticketed, or out of scope (below).
 
 ## Out of scope
 
-Fog gathers only _toward_ the destination — work beyond it is **out of scope**, not fog. Its own section: work consciously ruled out. Scope, not sharpness, lands it here — never graduates, returns only if the destination is redrawn, as a fresh effort, not a resumption.
+Fog gathers only *toward* the destination — work beyond it is **out of scope**, not fog. Its own section: work consciously ruled out. Scope, not sharpness, lands it here — never graduates, returns only if the destination is redrawn, as a fresh effort, not a resumption.
 
 Ruling something out of scope is a scoping act, not a route step. A ticket sitting past the destination — mis-scoped while charting, or exposed by a resolution — propose the ruling to the operator; on confirmation, run the `cancel` transition (§ Running transitions) — reason: its out-of-scope line. One line in **Out of scope**: gist plus why, linking the ticket. Stays out of the **Decisions document** — a scope boundary isn't a step on the route.
 
@@ -139,7 +139,7 @@ Ruling something out of scope is a scoping act, not a route step. A ticket sitti
 One slice **in progress** at a time; a session chains to the next slice only after the full close — receipts posted, wrap done (work-through's per-close law). Context health is the limiter: chain while judgment stays sharp, hand off when it doesn't. **Blind investigations** run differently — the map session runs those as orchestrator, never the researcher (grind-in-main-context receipt), chaining them as they unblock, up to **three** per session; past that, the context's own findings begin to color how it briefs the next researcher (context-coloring receipt) — the chain caps before the quality does. A stance-landing slice is a HITL resolution: one per session in the operator's exchange.
 
 | Bring | Playbook |
-|---|---|
+| --- | --- |
 | A loose idea, no map yet | `playbooks/chart.md` |
 | A map (URL or number) | `playbooks/work-through.md` |
 
