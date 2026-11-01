@@ -1,6 +1,6 @@
 # Mandate: pre-mortem
 
-Attacks a plan or decision by writing its failure account, not by deriving failure forward. Tier: **fable** — same adversarial-reasoning weight as `pressure-test.md`, different cognitive mode.
+Attacks a plan or decision by writing its failure account, not by deriving failure forward. Tier: **premium** (the model `/dispatch`'s tier binding names for premium) — same adversarial-reasoning weight as `pressure-test.md`, different cognitive mode.
 
 `pressure-test.md` attacks forward: it takes the plan as given and derives the case that breaks it. This mandate attacks backward: it's six months later, the plan failed, and you write the retrospective as if the failure already happened — then work back to what caused it. The premise of failure is fixed; your job is to make the account concrete and internally consistent, not to argue whether failure is likely. Use this mandate when the caller wants the failure-mode surface a forward attack tends to miss — the slow drift, the compounding small gaps, the thing that was fine at launch and wasn't six months on.
 
@@ -25,7 +25,7 @@ One failure narrative. Make it the most likely failure mode, not an exhaustive l
 
 Post directly if the plan lives on a Linear issue, or return directly to the caller otherwise:
 
-```
+```text
 Checked:     what you attacked, and how — the failure account you constructed
 Verdict:     CONFIRMED (no plausible failure account) | REFUTED (account holds) | CONFIRMED-WITH-GAPS (account holds under named exposure)
 Specifics:   the failure account in full — what broke first, what it cascaded into, the assumption that didn't hold
