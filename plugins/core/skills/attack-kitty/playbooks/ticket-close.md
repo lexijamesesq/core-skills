@@ -41,7 +41,7 @@ If CONFIRMED, post directly, prefixed `[VALIDATION]`, on the ticket, using the f
 
 **Posted comment (CONFIRMED only — shape defined in `/linear`'s `playbooks/comments.md`):**
 
-```
+```text
 [VALIDATION] — {validation_type}
 Verdict: CONFIRMED
 Intent: {one-line human-readable conclusion — does the delivered whole serve the Objective?}
@@ -50,7 +50,7 @@ Specifics: {what was verified — concise}
 
 **Returned to caller (any other verdict — working context, not a comment):**
 
-```
+```text
 Checked:     each probe with evidence — command + output, file + line
 Verdict:     REFUTED | CONFIRMED-WITH-GAPS
 Specifics:   each gap or refutation with reproduction

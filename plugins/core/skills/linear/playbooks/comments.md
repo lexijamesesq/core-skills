@@ -8,7 +8,7 @@ Two structured comment formats, exactly specified so agents don't improvise the 
 
 Posted by `` `@attack-kitty` `` on the relevant issue, and only when the verdict is CONFIRMED (any other verdict returns directly to the caller, never as a Linear comment):
 
-```
+```text
 [VALIDATION] — {validation_type}
 Verdict: CONFIRMED
 Intent: {one-line human-readable conclusion}
