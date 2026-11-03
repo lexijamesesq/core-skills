@@ -14,23 +14,27 @@ Actively build and sharpen the project's domain model as you design. This is the
 
 ## File structure
 
-Domain glossaries and ADRs are knowledge docs in the project's Knowledge/ directory, filed under the structural contract (tags, frontmatter, index).
+Domain glossaries and ADRs are knowledge docs in the project's `Knowledge/` directory — a glossary in `Reference/` (`update: replace`, kept current), an ADR in `Decisions/` — carrying the four contract fields (`description`, `update`, `related`, `updated`; the wiki plugin's `spec/knowledge-files.md`).
 
 Most projects have a single domain context — one glossary doc:
 
-```
+```text
 Projects/<project>/Knowledge/
-├── domain-glossary.md
+├── Reference/
+│   └── domain-glossary.md
+├── Decisions/
+│   └── <adr>.md
 └── ...
 ```
 
 If a project spans multiple bounded contexts, a `domain-context-map.md` doc lists them and their relationships. Each context gets its own glossary doc:
 
-```
+```text
 Projects/<project>/Knowledge/
-├── domain-context-map.md
-├── ordering-glossary.md
-├── billing-glossary.md
+├── Reference/
+│   ├── domain-context-map.md
+│   ├── ordering-glossary.md
+│   └── billing-glossary.md
 └── ...
 ```
 
@@ -56,7 +60,7 @@ When the user states how something works, check whether the existing record agre
 
 ### Update the glossary inline
 
-When a term is resolved, update the glossary right there. Don't batch these up — capture them as they happen. Each entry is three parts: the **term** (bolded), a one-or-two-sentence **definition** (what it IS, not what it does), and an **_Avoid_** list of synonyms ruled out. The glossary itself is a knowledge doc in the project's Knowledge/ directory, filed under the structural contract.
+When a term is resolved, update the glossary right there. Don't batch these up — capture them as they happen. Each entry is three parts: the **term** (bolded), a one-or-two-sentence **definition** (what it IS, not what it does), and an ***Avoid*** list of synonyms ruled out. The glossary itself is a knowledge doc in the project's `Knowledge/Reference/`, filed under the knowledge-file contract.
 
 The glossary should be totally devoid of implementation details. Do not treat it as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
 
@@ -68,4 +72,4 @@ Only offer to create an ADR when all three are true:
 2. **Surprising without context** — a future reader will wonder "why did they do it this way?"
 3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
 
-If any of the three is missing, skip the ADR. Decision records file through the project's Knowledge/ directory under the structural contract; the gatekeeper handles disposition.
+If any of the three is missing, skip the ADR. Decision records file through the project's `Knowledge/Decisions/` under the knowledge-file contract; the gatekeeper handles disposition.

@@ -24,32 +24,32 @@ Discipline rules:
 **Objective.** Parse and write the CLAUDE.md orientation layer so consumers (session-start, session-closeout, new-project) get structured fields without re-implementing parsing. Enforce Re-entry Cue format.
 
 **Health Metrics:**
+
 - Re-entry Cue one-sentence invariant (validated pre-write; fail on violation)
 - Frontmatter fields parsed cleanly — missing required fields surfaced as data errors, never silently null
 
 **Decision Authority:**
+
 - **Autonomous:** all read parsing; Re-entry Cue validation; frontmatter `updated` writes
-- **Escalate:** CLAUDE.md missing → return null with error; hub type → return minimal structure; missing `linear_project_id` → data error; missing `description` → warning
+- **Escalate:** CLAUDE.md missing → return null with error; missing `linear_project_id` → data error; missing `description` → warning
 
 **Stop Rules:**
+
 - CLAUDE.md not found → fail with clear error
 - Re-entry Cue multi-sentence on write → fail; caller collapses before re-invoking
-- Hub when caller expected project → return type:hub; caller decides
 
 ## Navigation
 
 | Operation | Input | Output | Playbook |
-|---|---|---|---|
-| **read** | `project_root` (abs path) OR `"cwd"` OR project name | Structured: `type`, `description`, `status`, `last_updated`, `re_entry_cue`, `linear_project_id`, `linear_project_url`, `knowledge_layer_declared`, `knowledge_index_path` | `playbooks/read.md` |
+| --- | --- | --- | --- |
+| **read** | `project_root` (abs path) OR `"cwd"` OR project name | Structured: `description`, `status`, `last_updated`, `re_entry_cue`, `linear_project_id`, `linear_project_url`, `knowledge_intake`, `build_homes` | `playbooks/read.md` |
 | **write** | `project_root` + `last_updated` + `re_entry_cue` | Mutation: frontmatter `updated` + Re-entry Cue body; `fields_updated` list returned | `playbooks/write.md` |
 
 ## Cross-cutting
 
-**Project resolution.** When input is `"cwd"`, walk up from cwd until finding a `CLAUDE.md` whose frontmatter tags contain `type/claude-project` or `type/claude-hub`. When input is a project name, append to `workspace_root` (global CLAUDE.md > Configuration). When input is an absolute path, use directly. Fail if no `CLAUDE.md` exists.
+**Project resolution.** A project is identified by where its `CLAUDE.md` sits, not by anything inside it: `{projects_root}/<Name>/CLAUDE.md`, `{workspace_root}/System/CLAUDE.md`, or `{projects_root}/Agents/<Name>/CLAUDE.md` (keys from global CLAUDE.md > Configuration). `{projects_root}/CLAUDE.md` and the vault-root `CLAUDE.md` are not projects. When input is `"cwd"`, walk up from cwd to the first directory whose `CLAUDE.md` has one of those three shapes. When input is a project name, try the three shapes in order and take the first whose `CLAUDE.md` exists: `{projects_root}/<name>`, then `{workspace_root}/<name>` (this is how `System` resolves), then `{projects_root}/Agents/<name>`. More than one match → ask which; none → fail. When input is an absolute path, use it directly. Fail if no `CLAUDE.md` exists there.
 
-**Hub vs. project.** Frontmatter tag `type/claude-hub` → return `type: hub` with minimal structure; caller decides whether to recurse.
-
-**Frontmatter is the routing contract.** `linear_project_id` missing in a non-hub is a data error. `description` missing is a warning (project is invisible to routing). `knowledge_intake` absent defaults to false.
+**Frontmatter is the routing contract.** `linear_project_id` missing is a data error. `description` missing is a warning (project is invisible to routing). `knowledge_intake` absent defaults to false.
 
 ## What this skill does NOT do
 

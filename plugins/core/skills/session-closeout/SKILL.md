@@ -24,7 +24,7 @@ Preserve project state and knowledge artifacts for future session resumption. Co
 
 - Pre-flight discipline: substantive work pending = closeout pauses.
 - Three-layer separation: item-level on issues; session-level on Project Updates; orientation (Re-entry Cue only) on CLAUDE.md. Nothing else writes to CLAUDE.md.
-- Filing-time lint gate: zero HIGH findings before any new Knowledge page counts complete.
+- Contract lint: a new Knowledge page counts complete only when `contract_lint.py` exits clean on it.
 - Load-boundary-as-guard: PU review + hygiene review run as fresh subagents.
 
 **Decision Authority:**
@@ -37,7 +37,7 @@ Preserve project state and knowledge artifacts for future session resumption. Co
 
 - Pre-flight returns "pending" → halt; do the work; re-invoke.
 - Empty session → one-line stop message; no mutations.
-- Filing-time lint gate FAIL after 3 iterations → escalate.
+- Contract-lint FAIL on a filed page after 3 fix iterations → escalate.
 - Out-of-session-scope doc modification → halt; flag.
 
 ## Pre-flight gate
@@ -88,7 +88,6 @@ Output: `"Session was conversation-only. Nothing to record."` Stop.
    - `what_changed` — assessment text
    - `touched_docs[]` — knowledge/reference docs modified this session
    - `touched_paths[]` — all vault paths touched
-   - `session_topics[]` — topics the session's findings touched (for hub-cross-ref)
    - `has_synthesis` — did the session produce durable synthesis?
    - `scope_expanded` — did the project scope expand?
 
@@ -105,13 +104,11 @@ Run these in order. Batch A2's writes in the same turn — they target disjoint 
 
 #### Track B — Knowledge layer
 
-No dependency on Track A. Begin as soon as assessment (step 2) is complete. Skip B1–B4 if `touched_docs` is empty and `has_synthesis` is false; B5 (scope-lint) still runs when `touched_paths` is non-empty.
+No dependency on Track A. Begin as soon as assessment (step 2) is complete. Skip B1–B2 if `touched_docs` is empty and `has_synthesis` is false; B3 (scope-lint) still runs when `touched_paths` is non-empty.
 
-- **B1.** `/knowledge-layer hygiene` against `touched_docs`. Ambiguous patterns → spawn `/knowledge-layer hygiene-review` subagents. When the project carries root orientation files (`overview.md`, `area-*.md`), the hygiene pass also answers two scaffolding questions, acted on in place: Are the project's overview + area docs up to date? Are they template compliant? (Spec: `System/project-claude-template.md` § Orientation hierarchy.)
-- **B2.** If `has_synthesis`: `/knowledge-layer query-and-file`. Filing-time lint gate PASS required. If not, skip — do not load the playbook.
-- **B3.** If pages created/renamed/deleted (including by B2): `/knowledge-layer index-sync`.
-- **B4.** If project under a hub with shared Knowledge: `/knowledge-layer hub-cross-ref` with session topics.
-- **B5.** `/knowledge-layer scope-lint` with `touched_paths` + created files from B2. Run AFTER B2 so `created_paths` includes anything just filed.
+- **B1.** `/knowledge-layer hygiene` against `touched_docs`. Each doc's `update` mode decides what a fix may touch: `replace` files are fixed in place, `append` and `never` files are flagged for the operator. Ambiguous patterns → spawn `/knowledge-layer hygiene-review` subagents. When the project carries root orientation files (`overview.md`, `area-*.md`), the hygiene pass also answers two scaffolding questions, acted on in place: Are the project's overview + area docs up to date? Are they template compliant? (Spec: `System/project-claude-template.md` § Orientation hierarchy.)
+- **B2.** If `has_synthesis`: `/knowledge-layer query-and-file`, which hands the synthesis to the gatekeeper (`/gatekeeper assess candidates`). Every filed file must report a contract-lint PASS. If not, skip — do not load the playbook.
+- **B3.** `/knowledge-layer scope-lint` with `touched_paths` + created files from B2. Run AFTER B2 so `created_paths` includes anything just filed. Findings it could not fix go in the closeout summary.
 
 #### Join — final verification
 
@@ -133,7 +130,7 @@ Skip Track A's issue updates and scope-change check. Run:
 - **Resolve inputs** — `/project-state read` + assessment (only if a host project is in scope).
 - **A3** (only if a host project is in scope) — PU emphasizes what was filed/synthesized.
 - **A4** — subagent review of any PU written.
-- **Track B (skip B4 hub-cross-ref)** — B1 hygiene, B2 query-and-file (the knowledge flow's primary write surface), B3 index sync, B5 scope-lint.
+- **Track B** — B1 hygiene, B2 query-and-file (the knowledge flow's primary write surface), B3 scope-lint.
 - **Join** — verification scoped to knowledge layer.
 
 ### Mixed
