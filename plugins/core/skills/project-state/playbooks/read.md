@@ -4,7 +4,7 @@ Parse a project's `CLAUDE.md` and return structured Project State + routing fiel
 
 ## Input
 
-- `project_root` — absolute path to project folder, OR `"cwd"`, OR project name (resolved under `projects_root`; see SKILL.md › Project resolution).
+- `project_root` — absolute path to project folder, OR `"cwd"`, OR project name (resolved per SKILL.md › Project resolution: `{projects_root}/<name>`, `{workspace_root}/System`, or `{projects_root}/Agents/<name>`).
 
 ## Protocol
 

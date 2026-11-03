@@ -20,7 +20,10 @@ Most projects have a single domain context — one glossary doc:
 
 ```text
 Projects/<project>/Knowledge/
-├── domain-glossary.md
+├── Reference/
+│   └── domain-glossary.md
+├── Decisions/
+│   └── <adr>.md
 └── ...
 ```
 
@@ -28,9 +31,10 @@ If a project spans multiple bounded contexts, a `domain-context-map.md` doc list
 
 ```text
 Projects/<project>/Knowledge/
-├── domain-context-map.md
-├── ordering-glossary.md
-├── billing-glossary.md
+├── Reference/
+│   ├── domain-context-map.md
+│   ├── ordering-glossary.md
+│   └── billing-glossary.md
 └── ...
 ```
 

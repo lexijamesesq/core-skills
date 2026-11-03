@@ -42,7 +42,7 @@ Load project context and prepare for a working session. Composes the domain skil
 Inspect the argument:
 
 - **No argument** → **Universal Protocol**.
-- **Project name** matching a folder under `projects_root` → **Universal Protocol** scoped to that project.
+- **Project name** that resolves to a project (`/project-state` › Project resolution: a folder under `projects_root`, `System`, or a folder under `{projects_root}/Agents/`) → **Universal Protocol** scoped to that project.
 - **Anything else** (Linear issue ID, free-text intent) → **Intent-Driven Sequence**.
 
 Both branches share an **inviolable floor**: the project's `CLAUDE.md` is already loaded as system context. The Universal Protocol builds the full briefing from Linear; the Intent-Driven Sequence trims by load-bearing relevance.

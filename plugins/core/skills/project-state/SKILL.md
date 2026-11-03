@@ -47,7 +47,7 @@ Discipline rules:
 
 ## Cross-cutting
 
-**Project resolution.** A project is identified by where its `CLAUDE.md` sits, not by anything inside it: `{projects_root}/<Name>/CLAUDE.md`, `{workspace_root}/System/CLAUDE.md`, or `{workspace_root}/Agents/<Name>/CLAUDE.md` (keys from global CLAUDE.md > Configuration). `{projects_root}/CLAUDE.md` and the vault-root `CLAUDE.md` are not projects. When input is `"cwd"`, walk up from cwd to the first directory whose `CLAUDE.md` has one of those three shapes. When input is a project name, use `{projects_root}/<name>`. When input is an absolute path, use it directly. Fail if no `CLAUDE.md` exists there.
+**Project resolution.** A project is identified by where its `CLAUDE.md` sits, not by anything inside it: `{projects_root}/<Name>/CLAUDE.md`, `{workspace_root}/System/CLAUDE.md`, or `{projects_root}/Agents/<Name>/CLAUDE.md` (keys from global CLAUDE.md > Configuration). `{projects_root}/CLAUDE.md` and the vault-root `CLAUDE.md` are not projects. When input is `"cwd"`, walk up from cwd to the first directory whose `CLAUDE.md` has one of those three shapes. When input is a project name, try the three shapes in order and take the first whose `CLAUDE.md` exists: `{projects_root}/<name>`, then `{workspace_root}/<name>` (this is how `System` resolves), then `{projects_root}/Agents/<name>`. More than one match → ask which; none → fail. When input is an absolute path, use it directly. Fail if no `CLAUDE.md` exists there.
 
 **Frontmatter is the routing contract.** `linear_project_id` missing is a data error. `description` missing is a warning (project is invisible to routing). `knowledge_intake` absent defaults to false.
 
