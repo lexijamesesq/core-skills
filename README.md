@@ -70,7 +70,6 @@ Claude Code lifecycle hooks.
 | --- | --- | --- |
 | `session-init.sh` | SessionStart | Bootstraps the Claude cache and warns when vault configuration is missing |
 | `fix-obsidian-claude-sync.sh` | SessionStart | Works around Obsidian Sync skipping dot-prefixed directories |
-| `vault-mcp-redirect.sh` | PreToolUse | Sends vault file edits through the Obsidian MCP tools |
 | `gh-pr-body-guard.sh` | PreToolUse | Scans a PR title and body for secrets, and fails closed |
 | `gh-pr-body-template-guard.sh` | PreToolUse | Runs the estate's PR-body template check on a `gh pr create` / `gh pr edit` body before it reaches GitHub, and fails closed. The check is `hooks/pr-body-check.py`, a byte-identical copy of dotty's `.github/scripts/pr-body-check.py` from the matching dotty producer release, verified by the shared drift check; re-copied from dotty |
 | `git-hook-bypass-guard.sh` | PreToolUse | Blocks `--no-verify` and other attempts to skip the git hooks |

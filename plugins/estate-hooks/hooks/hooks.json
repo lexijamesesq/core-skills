@@ -22,16 +22,6 @@
       {
         "hooks": [
           {
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/vault-mcp-redirect.sh",
-            "timeout": 5,
-            "type": "command"
-          }
-        ],
-        "matcher": "Read|Grep|Edit|Write"
-      },
-      {
-        "hooks": [
-          {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/security-review-reminder.sh",
             "timeout": 5,
             "type": "command"

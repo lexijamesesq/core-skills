@@ -14,23 +14,27 @@ Preserve project state and knowledge artifacts for future session resumption. Co
 **Objective.** State preservation for resumption WITHOUT becoming substantive work.
 
 **Desired outcomes** (observable):
+
 1. Re-entry Cue is one sentence (or absent if nothing is mid-flight) — a future session can act on it immediately.
 2. Every Linear issue touched this session reflects reality.
 3. A Linear Project Update exists capturing session-level narrative (current state, waiting-for, decisions made — this is where that information lives now).
 4. Knowledge docs touched are free of the seven anti-patterns OR have follow-up Linear issues filed.
 
 **Health Metrics:**
+
 - Pre-flight discipline: substantive work pending = closeout pauses.
 - Three-layer separation: item-level on issues; session-level on Project Updates; orientation (Re-entry Cue only) on CLAUDE.md. Nothing else writes to CLAUDE.md.
 - Filing-time lint gate: zero HIGH findings before any new Knowledge page counts complete.
 - Load-boundary-as-guard: PU review + hygiene review run as fresh subagents.
 
 **Decision Authority:**
+
 - **Autonomous:** type detection, per-type dispatch, mechanical verifications, current-context hygiene fixes.
 - **Escalate via subagent:** ambiguous hygiene patterns (cap 3), PU body review (single pass).
 - **Escalate to operator:** uncertain query-and-file candidates, out-of-scope doc modifications, subagent FAIL after cap.
 
 **Stop Rules:**
+
 - Pre-flight returns "pending" → halt; do the work; re-invoke.
 - Empty session → one-line stop message; no mutations.
 - Filing-time lint gate FAIL after 3 iterations → escalate.
@@ -58,7 +62,7 @@ Classify by what the session actually produced.
 ### Signals
 
 - **File mutations:** project folders → project work; `Knowledge/`/`Wiki/` paths → knowledge work; `~/bin/dotty`/`~/.claude`/system config → out-of-vault project work (maps to System); vault notes outside projects → stewardship.
-- **MCP/API surface:** `linear_*` writes → project; `obsidian` Knowledge writes → knowledge.
+- **MCP/API surface:** `linear_*` writes → project; writes under `Knowledge/` or `Wiki/` → knowledge.
 - **Substantive vs. incidental:** a single edit alongside a long knowledge arc is mixed-with-knowledge-primary.
 
 ### Types

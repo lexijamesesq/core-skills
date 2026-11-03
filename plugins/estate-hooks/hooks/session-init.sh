@@ -24,15 +24,15 @@ if command -v jq >/dev/null 2>&1 && [[ -n "$INPUT" ]]; then
 fi
 
 # Warn if VAULT_ROOT is unset but we appear to be inside a vault.
-# Two hooks (vault-mcp-redirect, fix-obsidian-claude-sync) silently
-# disable when VAULT_ROOT is missing — this is the only signal.
+# fix-obsidian-claude-sync silently disables when VAULT_ROOT is missing —
+# this is the only signal.
 if [[ -z "${VAULT_ROOT:-}" && -n "$SESSION_CWD" ]]; then
 	d="$SESSION_CWD"
 	while [[ "$d" != "/" && "$d" != "." ]]; do
 		if [[ -d "$d/.obsidian" ]]; then
 			echo "session-init: WARNING — cwd is inside a vault ($d) but VAULT_ROOT is not set." >&2
-			echo "  vault-mcp-redirect and fix-obsidian-claude-sync are INACTIVE this session." >&2
-			echo "  Set VAULT_ROOT in settings.json env block to enable them." >&2
+			echo "  fix-obsidian-claude-sync is INACTIVE this session." >&2
+			echo "  Set VAULT_ROOT in settings.json env block to enable it." >&2
 			break
 		fi
 		d="$(dirname "$d")"

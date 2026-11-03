@@ -16,7 +16,7 @@ re_entry_cue: <string or null>     # required; ONE sentence when work is mid-fli
 
 2. **Read** `<project_root>/CLAUDE.md`.
 
-3. **Validate Re-entry Cue** (when non-null and not "No work in progress") is ONE sentence — if it contains multiple sentences (multiple `. ` or `! ` or `? ` followed by capital), fail with `"Re-entry Cue must be one sentence; got N sentences"`. The caller composed the cue; this skill enforces the format.
+3. **Validate Re-entry Cue** (when non-null and not "No work in progress") is ONE sentence — if it contains multiple sentences (multiple `.`, `!` or `?` each followed by a space and a capital), fail with `"Re-entry Cue must be one sentence; got N sentences"`. The caller composed the cue; this skill enforces the format.
 
 4. **Update frontmatter `updated`** via `update_frontmatter`.
 
@@ -35,6 +35,7 @@ file_path: <abs-path to CLAUDE.md>
 ## Fields removed from prior version
 
 These fields are no longer written to CLAUDE.md. They were session-level memory that now lives in Linear:
+
 - `current_state` — written as Linear Project Update via `/session-closeout`
 - `waiting_for` — tracked as Linear issue states
 - `decisions_needed` — tracked as Linear issue states
@@ -47,6 +48,5 @@ These fields are no longer written to CLAUDE.md. They were session-level memory 
 
 ## Tool notes
 
-- Use Obsidian MCP `update_frontmatter` for the `updated` field.
-- Use Obsidian MCP `patch_note` for the Re-entry Cue body replacement.
-- The harness's `vault-mcp-redirect` hook will route generic `Edit`/`Write` to MCP automatically; using MCP directly is faster and avoids the redirect.
+- Use `Edit` on the frontmatter for the `updated` field.
+- Use `Edit` for the Re-entry Cue body replacement.
