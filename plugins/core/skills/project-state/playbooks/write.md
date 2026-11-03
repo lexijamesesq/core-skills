@@ -18,7 +18,7 @@ re_entry_cue: <string or null>     # required; ONE sentence when work is mid-fli
 
 3. **Validate Re-entry Cue** (when non-null and not "No work in progress") is ONE sentence — if it contains multiple sentences (multiple `.`, `!` or `?` each followed by a space and a capital), fail with `"Re-entry Cue must be one sentence; got N sentences"`. The caller composed the cue; this skill enforces the format.
 
-4. **Update frontmatter `updated`** via `update_frontmatter`.
+4. **Update frontmatter `updated`** via `Edit`.
 
 5. **Update Re-entry Cue body.** Locate `## Re-entry Cue` (or `### Re-entry Cue` for legacy files). Replace the content below the heading through the start of the next section. If the heading doesn't exist, create it after `# {Project Title}` and the template comment.
 
