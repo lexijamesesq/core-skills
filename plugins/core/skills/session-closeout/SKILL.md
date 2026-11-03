@@ -107,7 +107,7 @@ Run these in order. Batch A2's writes in the same turn — they target disjoint 
 No dependency on Track A. Begin as soon as assessment (step 2) is complete. Skip B1–B2 if `touched_docs` is empty and `has_synthesis` is false; B3 (scope-lint) still runs when `touched_paths` is non-empty.
 
 - **B1.** `/knowledge-layer hygiene` against `touched_docs`. Each doc's `update` mode decides what a fix may touch: `replace` files are fixed in place, `append` and `never` files are flagged for the operator. Ambiguous patterns → spawn `/knowledge-layer hygiene-review` subagents. When the project carries root orientation files (`overview.md`, `area-*.md`), the hygiene pass also answers two scaffolding questions, acted on in place: Are the project's overview + area docs up to date? Are they template compliant? (Spec: `System/project-claude-template.md` § Orientation hierarchy.)
-- **B2.** If `has_synthesis`: `/knowledge-layer query-and-file`, which hands the synthesis to `/capture batch` and the gatekeeper. Every filed file must report a contract-lint PASS. If not, skip — do not load the playbook.
+- **B2.** If `has_synthesis`: `/knowledge-layer query-and-file`, which hands the synthesis to the gatekeeper (`/gatekeeper assess candidates`). Every filed file must report a contract-lint PASS. If not, skip — do not load the playbook.
 - **B3.** `/knowledge-layer scope-lint` with `touched_paths` + created files from B2. Run AFTER B2 so `created_paths` includes anything just filed. Findings it could not fix go in the closeout summary.
 
 #### Join — final verification
