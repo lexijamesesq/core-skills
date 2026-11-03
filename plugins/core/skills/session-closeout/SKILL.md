@@ -14,23 +14,27 @@ Preserve project state and knowledge artifacts for future session resumption. Co
 **Objective.** State preservation for resumption WITHOUT becoming substantive work.
 
 **Desired outcomes** (observable):
+
 1. Re-entry Cue is one sentence (or absent if nothing is mid-flight) — a future session can act on it immediately.
 2. Every Linear issue touched this session reflects reality.
 3. A Linear Project Update exists capturing session-level narrative (current state, waiting-for, decisions made — this is where that information lives now).
 4. Knowledge docs touched are free of the seven anti-patterns OR have follow-up Linear issues filed.
 
 **Health Metrics:**
+
 - Pre-flight discipline: substantive work pending = closeout pauses.
 - Three-layer separation: item-level on issues; session-level on Project Updates; orientation (Re-entry Cue only) on CLAUDE.md. Nothing else writes to CLAUDE.md.
 - Filing-time lint gate: zero HIGH findings before any new Knowledge page counts complete.
 - Load-boundary-as-guard: PU review + hygiene review run as fresh subagents.
 
 **Decision Authority:**
+
 - **Autonomous:** type detection, per-type dispatch, mechanical verifications, current-context hygiene fixes.
 - **Escalate via subagent:** ambiguous hygiene patterns (cap 3), PU body review (single pass).
 - **Escalate to operator:** uncertain query-and-file candidates, out-of-scope doc modifications, subagent FAIL after cap.
 
 **Stop Rules:**
+
 - Pre-flight returns "pending" → halt; do the work; re-invoke.
 - Empty session → one-line stop message; no mutations.
 - Filing-time lint gate FAIL after 3 iterations → escalate.
@@ -58,7 +62,7 @@ Classify by what the session actually produced.
 ### Signals
 
 - **File mutations:** project folders → project work; `Knowledge/`/`Wiki/` paths → knowledge work; `~/bin/dotty`/`~/.claude`/system config → out-of-vault project work (maps to System); vault notes outside projects → stewardship.
-- **MCP/API surface:** `linear_*` writes → project; `obsidian` Knowledge writes → knowledge.
+- **MCP/API surface:** `linear_*` writes → project; writes under `Knowledge/` or `Wiki/` → knowledge.
 - **Substantive vs. incidental:** a single edit alongside a long knowledge arc is mixed-with-knowledge-primary.
 
 ### Types
@@ -95,7 +99,7 @@ Run these in order. Batch A2's writes in the same turn — they target disjoint 
 - **A1.** `/project-state write` with `re_entry_cue` (one sentence if work is mid-flight; "No work in progress" if clean) and `last_updated=today`.
 - **A2.** Batch together:
   - **Issue updates** via direct MCP calls — `mcp__linear-tactic__linear_updateIssue`, `linear_createComment`, `linear_createIssue` as appropriate — with item-level mutations: `cancel`, `comment`, `move_state`, `create`, `update_description` — `cancel` (reason required) for work that won't be done; canceling a map child for scope reasons pairs it with the map's Out of scope line, invalidation cancels carry the reason only, and surface when unsure. Closing a map child is the map session's own act (a decision through its live exchange, a blind investigation through its researcher's completion) — so an open map child that looks finished at closeout is surfaced for the next map session, not closed here. For a ticket ready to close, run traffic-cone's fused `mark_done` (`cone_preflight.py mark_done <id> --execute-if-clean` — invocation per the traffic-cone skill's Dispatch table): the script verifies the `[VALIDATION]` receipt (exists, fresh, type-matched, well-formed) and executes Done in-process. REFUSE is binding — fix what the report names or file a follow-up; never re-run hoping. On `JUDGMENT_REQUIRED` (M3g, full-variant tickets only), dispatch `` `@attack-kitty` ``'s `ticket-close` mandate yourself, then resume with `--receipt-audited <comment-id>`.
-  - **Scope-change check** (if `scope_expanded`): update the `description` frontmatter in CLAUDE.md (via `update_frontmatter`) AND in Linear via `mcp__linear-tactic__linear_updateProject`.
+  - **Scope-change check** (if `scope_expanded`): update the `description` frontmatter in CLAUDE.md (via `Edit`) AND in Linear via `mcp__linear-tactic__linear_updateProject`.
 - **A3.** Create a Project Update via `mcp__linear-tactic__linear_createProjectUpdate` with structured body (title, items_worked, what_was_done, decisions_made, health). **This is where current state, waiting-for, and decisions-needed now live** — in the Project Update, not in CLAUDE.md.
 - **A4.** **[Background subagent — do not wait]** Spawn `@attack-kitty` with `pu-review` mandate (model override **sonnet**). Pass the PU body verbatim; declare `Caller: L0 orchestrator`. Single pass. Proceed immediately to Track B.
 

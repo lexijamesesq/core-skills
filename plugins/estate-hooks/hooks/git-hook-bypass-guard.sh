@@ -84,7 +84,7 @@
 set -uo pipefail
 
 # Fail-open: no jq, no opinion. (Matches the convention in the estate's other
-# PreToolUse hooks — vault-mcp-redirect.sh, session-init.sh.)
+# PreToolUse hooks — session-init.sh.)
 command -v jq >/dev/null 2>&1 || exit 0
 
 INPUT=$(cat 2>/dev/null)

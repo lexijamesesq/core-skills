@@ -12,7 +12,7 @@ Parse a project's `CLAUDE.md` and return structured Project State + routing fiel
 
 2. **Read** `<project_root>/CLAUDE.md`.
 
-3. **Parse frontmatter** (via `get_frontmatter`):
+3. **Parse frontmatter** (via `Read`):
    - `type/claude-project` tag → `type: project`; `type/claude-hub` tag → `type: hub` (hubs lack Project State; return minimal structure)
    - `description` → `description`
    - `status` → `status`
@@ -47,6 +47,7 @@ build_homes: <list of abs-paths, possibly empty>
 ## Fields removed from prior version
 
 These fields are no longer parsed from CLAUDE.md. They were session-level memory that now lives in Linear:
+
 - `current_state` — read from Linear Project Updates via `/session-start`
 - `waiting_for` — read from Linear issue states via `/session-start`
 - `decisions_needed` — read from Linear issue states via `/session-start`
@@ -61,5 +62,5 @@ These fields are no longer parsed from CLAUDE.md. They were session-level memory
 
 ## Parser notes
 
-- Use Obsidian MCP `get_frontmatter` for all structured fields. `read_note` only for the Re-entry Cue body parse.
+- Take all structured fields from the frontmatter block. Parse the body only for the Re-entry Cue.
 - The Re-entry Cue heading may be `## Re-entry Cue` or `### Re-entry Cue` (template uses `##`; legacy files may use `###`). Accept either.
