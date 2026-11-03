@@ -86,7 +86,7 @@
 # scanned command through unscanned. That is the safe direction.
 #
 # Tests: ../tests/gh-pr-body-guard.test.sh
-# Spec: {workspace_root}/System/Knowledge/leak-prevention-architecture.md
+# Spec: {workspace_root}/System/Knowledge/Reference/leak-prevention-architecture.md
 
 set -uo pipefail
 

@@ -79,7 +79,7 @@
 # "elaborate machinery" this control is scoped to avoid.
 #
 # Tests: .claude/eval/git-hook-bypass-guard.test.sh
-# Spec: {workspace_root}/System/Knowledge/leak-prevention-architecture.md
+# Spec: {workspace_root}/System/Knowledge/Reference/leak-prevention-architecture.md
 
 set -uo pipefail
 
