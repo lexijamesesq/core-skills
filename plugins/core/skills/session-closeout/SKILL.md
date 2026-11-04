@@ -31,7 +31,7 @@ Preserve project state and knowledge artifacts for future session resumption. Co
 
 - **Autonomous:** type detection, per-type dispatch, mechanical verifications, current-context hygiene fixes.
 - **Escalate via subagent:** ambiguous hygiene patterns (cap 3), PU body review (single pass). These spawns are pre-shaped (a separate critic on sonnet); this skill stands in for `/dispatch` on them, so `/dispatch` is not re-run before A4 or B1.
-- **Escalate to operator:** uncertain query-and-file candidates, out-of-scope doc modifications, subagent FAIL after cap.
+- **Escalate to operator:** a synthesis candidate whose home is unclear, out-of-scope doc modifications, subagent FAIL after cap.
 
 **Stop Rules:**
 
@@ -46,7 +46,7 @@ Before classifying session type:
 
 > Is there substantive work I have current session context for that should land BEFORE this closeout?
 
-If **yes** → stop closeout, do the work, re-invoke. For durable-synthesis candidates: NAME them explicitly — a fully-formed synthesis feeds Track B's query-and-file in this same run; a synthesis still needing work IS a "yes."
+If **yes** → stop closeout, do the work, re-invoke. For durable-synthesis candidates: NAME them explicitly — a fully-formed synthesis is written in Track B's B2 in this same run; a synthesis still needing work IS a "yes."
 
 If **no** → proceed to type detection.
 
@@ -108,7 +108,7 @@ Run these in order. Batch A2's writes in the same turn — they target disjoint 
 No dependency on Track A. Begin as soon as assessment (step 2) is complete. Skip B1–B2 if `touched_docs` is empty and `has_synthesis` is false; B3 (scope-lint) still runs when `touched_paths` is non-empty.
 
 - **B1.** `/knowledge-layer hygiene` against `touched_docs`. Each doc's `update` mode decides what a fix may touch: `replace` files are fixed in place, `append` and `never` files are flagged for the operator. Ambiguous patterns → spawn `/knowledge-layer hygiene-review` subagents. When the project carries root orientation files (`overview.md`, `area-*.md`), the hygiene pass also answers two scaffolding questions, acted on in place: Are the project's overview + area docs up to date? Are they template compliant? (Spec: `System/project-claude-template.md` § Orientation hierarchy.)
-- **B2.** If `has_synthesis`: `/knowledge-layer query-and-file`, which hands the synthesis to the gatekeeper (`/gatekeeper assess candidates`). Every filed file must report a contract-lint PASS. If not, skip — do not load the playbook.
+- **B2.** If `has_synthesis`: write each synthesis as a knowledge file directly, in the type folder of the project it belongs to (or the Wiki's `Knowledge/`), with the four fields and a `## Sources` section, per the `knowledge-description` skill. Each file must pass the contract lint before closeout continues. A synthesis whose home is unclear goes to the operator, not to a guessed folder. If not `has_synthesis`, skip.
 - **B3.** `/knowledge-layer scope-lint` with `touched_paths` + created files from B2. Run AFTER B2 so `created_paths` includes anything just filed. Findings it could not fix go in the closeout summary.
 
 #### Join — final verification
@@ -131,7 +131,7 @@ Skip Track A's issue updates and scope-change check. Run:
 - **Resolve inputs** — `/project-state read` + assessment (only if a host project is in scope).
 - **A3** (only if a host project is in scope) — PU emphasizes what was filed/synthesized.
 - **A4** — subagent review of any PU written.
-- **Track B** — B1 hygiene, B2 query-and-file (the knowledge flow's primary write surface), B3 scope-lint.
+- **Track B** — B1 hygiene, B2 write synthesis (the knowledge flow's primary write surface), B3 scope-lint.
 - **Join** — verification scoped to knowledge layer.
 
 ### Mixed
