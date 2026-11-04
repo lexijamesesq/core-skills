@@ -30,7 +30,7 @@ Preserve project state and knowledge artifacts for future session resumption. Co
 **Decision Authority:**
 
 - **Autonomous:** type detection, per-type dispatch, mechanical verifications, current-context hygiene fixes.
-- **Escalate via subagent:** ambiguous hygiene patterns (cap 3), PU body review (single pass).
+- **Escalate via subagent:** ambiguous hygiene patterns (cap 3), PU body review (single pass). These spawns are pre-shaped (a separate critic on sonnet); this skill stands in for `/dispatch` on them, so `/dispatch` is not re-run before A4 or B1.
 - **Escalate to operator:** uncertain query-and-file candidates, out-of-scope doc modifications, subagent FAIL after cap.
 
 **Stop Rules:**
@@ -63,6 +63,7 @@ Classify by what the session actually produced.
 
 - **File mutations:** project folders → project work; `Knowledge/`/`Wiki/` paths → knowledge work; `~/bin/dotty`/`~/.claude`/system config → out-of-vault project work (maps to System); vault notes outside projects → stewardship.
 - **MCP/API surface:** `linear_*` writes → project; writes under `Knowledge/` or `Wiki/` → knowledge.
+- **A `Knowledge/` write inside a project folder** matches both signals: treat it as knowledge work with a host project. Run the Knowledge flow, and run A1 (`/project-state write`) for the host so its Re-entry Cue and `updated` stay true.
 - **Substantive vs. incidental:** a single edit alongside a long knowledge arc is mixed-with-knowledge-primary.
 
 ### Types
@@ -100,7 +101,7 @@ Run these in order. Batch A2's writes in the same turn — they target disjoint 
   - **Issue updates** via direct MCP calls — `mcp__linear-tactic__linear_updateIssue`, `linear_createComment`, `linear_createIssue` as appropriate — with item-level mutations: `cancel`, `comment`, `move_state`, `create`, `update_description` — `cancel` (reason required) for work that won't be done; canceling a map child for scope reasons pairs it with the map's Out of scope line, invalidation cancels carry the reason only, and surface when unsure. Closing a map child is the map session's own act (a decision through its live exchange, a blind investigation through its researcher's completion) — so an open map child that looks finished at closeout is surfaced for the next map session, not closed here. For a ticket ready to close, run traffic-cone's fused `mark_done` (`cone_preflight.py mark_done <id> --execute-if-clean` — invocation per the traffic-cone skill's Dispatch table): the script verifies the `[VALIDATION]` receipt (exists, fresh, type-matched, well-formed) and executes Done in-process. REFUSE is binding — fix what the report names or file a follow-up; never re-run hoping. On `JUDGMENT_REQUIRED` (M3g, full-variant tickets only), dispatch `` `@attack-kitty` ``'s `ticket-close` mandate yourself, then resume with `--receipt-audited <comment-id>`.
   - **Scope-change check** (if `scope_expanded`): update the `description` frontmatter in CLAUDE.md (via `Edit`) AND in Linear via `mcp__linear-tactic__linear_updateProject`.
 - **A3.** Create a Project Update via `mcp__linear-tactic__linear_createProjectUpdate` with structured body (title, items_worked, what_was_done, decisions_made, health). **This is where current state, waiting-for, and decisions-needed now live** — in the Project Update, not in CLAUDE.md.
-- **A4.** **[Background subagent — do not wait]** Spawn `@attack-kitty` with `pu-review` mandate (model override **sonnet**). Pass the PU body verbatim; declare `Caller: L0 orchestrator`. Single pass. Proceed immediately to Track B.
+- **A4.** **[Background subagent — do not wait]** Spawn `@attack-kitty` with `pu-review` mandate (model override **sonnet**). Pass the PU body verbatim and declare your real depth: `Caller: L0 orchestrator` in an interactive session. A closeout running as an L1 teammate cannot spawn `pu-review` (an L0-only mandate): skip A4 and name the unreviewed PU in the closeout summary. Single pass. Proceed immediately to Track B.
 
 #### Track B — Knowledge layer
 
@@ -112,11 +113,11 @@ No dependency on Track A. Begin as soon as assessment (step 2) is complete. Skip
 
 #### Join — final verification
 
-If the A4 subagent notification has not arrived, wait for it here. Then:
+If A4 ran and its subagent notification has not arrived, wait for it here. If A4 was skipped (an L1 run), there is no verdict to wait for: the closeout summary names the PU as unreviewed and the Join proceeds. Then:
 
 - **Re-entry Cue** is one sentence or absent. Re-invoke `/project-state write` to fix if violated.
 - **Project Update was created** this session (verify via `mcp__linear-tactic__linear_getProjectUpdates` with `limit=1`).
-- **PU review verdict** received — fix cited findings if REVISE.
+- **PU review verdict** received — fix cited findings if REVISE. (Skipped A4: record "PU unreviewed, L1 run" in the summary instead.)
 - **Linear issues are immediately executable** — each touched issue in `Todo` or `In Progress` has a concrete next action or falsifiable acceptance criteria.
 
 ### Project (multi-project)

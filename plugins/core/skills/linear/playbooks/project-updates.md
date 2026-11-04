@@ -26,24 +26,24 @@ health: onTrack | atRisk | offTrack
 
    - **Task-level mechanics in `what_was_done`.** Bullets answer "what shifted in the project's overall state," not "what steps I took." Reject: file-by-file edits, tool call sequences, methodology/stage sequences ("ran as three stages: X, Y, Z"; "build → acceptance → review → gate"), per-step debug narrative. The rewrite test: "migrated all backlogs to Linear" (right) vs. "exported backlog.json, mapped enum, validated counts" (wrong — split: summary here, mechanics in issue comment). Most common regression.
    - **Ticket-ID mismatch.** Every ID in `items_worked` must appear in the body, and vice versa.
-   - **"What's next" framing.** Reject "Next session...", "Up next:", "TODO:", "Will:", `## Next steps`. **Exception:** `**Still open**` documenting incompleteness within the same arc (test: are items same-parent as what was moved Done?). "Next session we'll tackle <ticket-id>" → rejected (not worked this session; forward planning). "Still open: <ticket-id> — <parent-id>'s acceptance gate" → allowed when the ticket is a sub-ticket of the parent, which this session advanced (arc incompleteness).
-   - **Loose Threads / Provisional categories.** Reject "loose threads", "provisional", "ideas", "follow-ups to consider." Provisional → CLAUDE.md Current State (decays on overwrite); actionable → low-priority Linear issue.
+   - **"What's next" framing.** Reject "Next session...", "Up next:", "TODO:", "Will:", `## Next steps`. **Exception:** `**Still open**` documenting incompleteness within the same arc (test: are items same-parent as what was moved Done?). "Next session we'll tackle `<ticket-id>`" → rejected (not worked this session; forward planning). "Still open: `<ticket-id>` — `<parent-id>`'s acceptance gate" → allowed when the ticket is a sub-ticket of the parent, which this session advanced (arc incompleteness).
+   - **Loose Threads / Provisional categories.** Reject "loose threads", "provisional", "ideas", "follow-ups to consider." Provisional → the project's overview or area doc `## State` section when it is directional, otherwise dropped (CLAUDE.md Current State is retired); actionable → low-priority Linear issue.
 
 3. **Compose the body:**
 
-```markdown
-## {{title}}
+   ```markdown
+   ## {{title}}
 
-**Items worked:** {{items_worked joined by ", "}}
+   **Items worked:** {{items_worked joined by ", "}}
 
-**What was done:**
-- {{bullet 1}}
-...
+   **What was done:**
+   - {{bullet 1}}
+   ...
 
-**Decisions made:**
-- {{decision 1}}
-...
-```
+   **Decisions made:**
+   - {{decision 1}}
+   ...
+   ```
 
    Omit `Decisions made:` if empty.
 
