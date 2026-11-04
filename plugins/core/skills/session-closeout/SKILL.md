@@ -113,11 +113,11 @@ No dependency on Track A. Begin as soon as assessment (step 2) is complete. Skip
 
 #### Join — final verification
 
-If the A4 subagent notification has not arrived, wait for it here. Then:
+If A4 ran and its subagent notification has not arrived, wait for it here. If A4 was skipped (an L1 run), there is no verdict to wait for: the closeout summary names the PU as unreviewed and the Join proceeds. Then:
 
 - **Re-entry Cue** is one sentence or absent. Re-invoke `/project-state write` to fix if violated.
 - **Project Update was created** this session (verify via `mcp__linear-tactic__linear_getProjectUpdates` with `limit=1`).
-- **PU review verdict** received — fix cited findings if REVISE.
+- **PU review verdict** received — fix cited findings if REVISE. (Skipped A4: record "PU unreviewed, L1 run" in the summary instead.)
 - **Linear issues are immediately executable** — each touched issue in `Todo` or `In Progress` has a concrete next action or falsifiable acceptance criteria.
 
 ### Project (multi-project)
