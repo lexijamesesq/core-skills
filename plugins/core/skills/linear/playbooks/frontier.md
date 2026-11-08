@@ -8,7 +8,7 @@ Takeable = state Todo, unblocked (no open `blocked_by` relation), `assignee: nul
 
 Ordering: priority (Urgent → Low; `0`/no-priority sorts last — an unprioritized ticket never outranks a prioritized one), then age (`createdAt` ascending — oldest first).
 
-The claim lives in the `delegate` field, not `assignee` — `assignee` is system-set on operator-directed claims (a co-engagement record) and is the operator's field to clear, never a frontier filter.
+An agent actor's claim lives in the `delegate` field, not `assignee` — `assignee` is system-set on operator-directed claims (a co-engagement record) and is the operator's field to clear. A human operator's driven claim has no delegate: the claim is the assignee on a started ticket. Both are invisible to takeable-selection, which requires `assignee: null`, `delegate: null` and state Todo.
 
 **`delegate` isn't exposed by the tactic MCP** — every takeable-set query below goes through the GraphQL bridge (same bridge as `playbooks/claim.md`'s Step 6, resolved via `secrets.op_read` / `linear.app_token_ref` per CLAUDE.md > Configuration), never `linear_getIssues`/`linear_getProjectIssues` alone.
 
@@ -17,10 +17,12 @@ The claim lives in the `delegate` field, not `assignee` — `assignee` is system
 **Input:** `map_id`.
 
 **Protocol:**
+
 1. Run `map_sweep.py <map_id> --frontier-only` (this skill's `scripts/` dir) — it fetches through the bridge, applies the takeability filter and the Frontier-convention ordering above, and returns the ordered frontier and a `frontier_rule` string naming the rule, so no session re-derives it.
 2. The caller works each takeable child through its map session.
 
 **Output:**
+
 ```yaml
 frontier:
   - identifier: <TEAM>-N
@@ -34,10 +36,13 @@ frontier:
 **Input:** `project_id` (UUID).
 
 **Protocol:**
+
 1. Query Linear's GraphQL endpoint directly for the project via the bridge — the filter runs server-side:
+
    ```json
    {"query":"query { issues(filter: { project: { id: { eq: \"<project_id>\" } }, delegate: { null: true }, state: { type: { eq: \"unstarted\" } } }) { nodes { id identifier title priority createdAt parent { id } labels { nodes { name } } } } }"}
    ```
+
 2. Narrow client-side to `assignee: null`, no open `blocked_by` relation, no `map` label, **and no map-labeled parent** — fetch each unique parent once per scan (cache, like stateIds) and check its labels; a child of a `map`-labeled issue belongs to map sessions (Map-frontier above), never here, while an ordinary sub-task stays takeable.
 3. Return ordered by priority (Urgent → Low), then `createdAt` ascending as tiebreak.
 

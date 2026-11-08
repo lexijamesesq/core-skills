@@ -98,7 +98,14 @@ import linear_bridge as lb
 
 LOOP_LABELS = {"hitl", "afk"}
 COMPLETED_STATE_TYPES = {"completed", "canceled"}
-MAP_SECTION_ORDER = ["Destination", "Notes", "Decisions", "Fog", "Not yet specified", "Out of scope"]  # "Not yet specified" recognized for maps predating the Fog heading
+MAP_SECTION_ORDER = [
+    "Destination",
+    "Notes",
+    "Decisions",
+    "Fog",
+    "Not yet specified",
+    "Out of scope",
+]  # "Not yet specified" recognized for maps predating the Fog heading
 # The decision index is an attached document titled "Decisions — <map name>".
 # Match its title by prefix, tolerant of em-dash/en-dash/hyphen
 # separators so a hand-created doc isn't missed on a punctuation slip.
@@ -120,6 +127,7 @@ FRONTIER_RULE = (
 # stdlib-only contract)
 # --------------------------------------------------------------------------
 
+
 def parse_sections(description):
     """Split a ticket/map description into {heading: body} by `## Heading`
     lines. Duplicated from cone_preflight.py's own helper of the same name
@@ -137,7 +145,9 @@ def parse_sections(description):
 
 
 def labels_of(node):
-    return {l["name"] for l in ((node or {}).get("labels") or {}).get("nodes", [])}
+    return {
+        label["name"] for label in ((node or {}).get("labels") or {}).get("nodes", [])
+    }
 
 
 def comments_of(node):
@@ -208,6 +218,7 @@ def decisions_doc_text(documents):
 # compute_frontier — shared by the full sweep and --frontier-only
 # --------------------------------------------------------------------------
 
+
 def compute_frontier(children):
     frontier = []
     for c in children or []:
@@ -220,19 +231,24 @@ def compute_frontier(children):
             continue
         if c.get("assignee"):
             continue
-        frontier.append({
-            "identifier": c.get("identifier"),
-            "title": c.get("title"),
-            "priority": c.get("priority"),
-            "createdAt": c.get("createdAt"),
-        })
-    frontier.sort(key=lambda t: (priority_sort_key(t.get("priority")), t.get("createdAt") or ""))
+        frontier.append(
+            {
+                "identifier": c.get("identifier"),
+                "title": c.get("title"),
+                "priority": c.get("priority"),
+                "createdAt": c.get("createdAt"),
+            }
+        )
+    frontier.sort(
+        key=lambda t: (priority_sort_key(t.get("priority")), t.get("createdAt") or "")
+    )
     return frontier
 
 
 # --------------------------------------------------------------------------
 # compute_sweep — pure function; ctx is fully assembled, no network calls
 # --------------------------------------------------------------------------
+
 
 def compute_sweep(ctx, stale_days=7.0, now=None):
     if now is None:
@@ -260,33 +276,50 @@ def compute_sweep(ctx, stale_days=7.0, now=None):
     children_out = []
     for c in children:
         labels = labels_of(c)
-        children_out.append({
-            "identifier": c.get("identifier"),
-            "title": c.get("title"),
-            "state": c.get("state"),
-            "loop_label": loop_label_of(labels),
-            "delegate_set": bool(c.get("delegate")),
-            "assignee_set": bool(c.get("assignee")),
-            "updatedAt": c.get("updatedAt"),
-        })
+        children_out.append(
+            {
+                "identifier": c.get("identifier"),
+                "title": c.get("title"),
+                "state": c.get("state"),
+                "loop_label": loop_label_of(labels),
+                "delegate_set": bool(c.get("delegate")),
+                "assignee_set": bool(c.get("assignee")),
+                "updatedAt": c.get("updatedAt"),
+            }
+        )
 
     frontier = compute_frontier(children)
 
-    done_children = [c for c in children if (c.get("state") or {}).get("type") in COMPLETED_STATE_TYPES]
+    done_children = [
+        c
+        for c in children
+        if (c.get("state") or {}).get("type") in COMPLETED_STATE_TYPES
+    ]
 
-    missing_done = [c for c in done_children if c.get("identifier") and c["identifier"] not in decisions_text]
+    missing_done = [
+        c
+        for c in done_children
+        if c.get("identifier") and c["identifier"] not in decisions_text
+    ]
     decisions_missing = []
     for c in missing_done:
         resolution = newest_nonempty_comment(child_comments.get(c["id"], []))
-        decisions_missing.append({
-            "identifier": c.get("identifier"),
-            "title": c.get("title"),
-            "resolution_comment_text": resolution.get("body") if resolution else None,
-        })
+        decisions_missing.append(
+            {
+                "identifier": c.get("identifier"),
+                "title": c.get("title"),
+                "resolution_comment_text": resolution.get("body")
+                if resolution
+                else None,
+            }
+        )
 
-    completed_children = [c for c in children if (c.get("state") or {}).get("type") == "completed"]
+    completed_children = [
+        c for c in children if (c.get("state") or {}).get("type") == "completed"
+    ]
     missing_handoff = [
-        c for c in completed_children
+        c
+        for c in completed_children
         if not any(
             (cm.get("body") or "").strip().startswith("[HANDOFF]")
             for cm in child_comments.get(c["id"], [])
@@ -295,11 +328,15 @@ def compute_sweep(ctx, stale_days=7.0, now=None):
     handoff_missing = []
     for c in missing_handoff:
         resolution = newest_nonempty_comment(child_comments.get(c["id"], []))
-        handoff_missing.append({
-            "identifier": c.get("identifier"),
-            "title": c.get("title"),
-            "resolution_comment_text": resolution.get("body") if resolution else None,
-        })
+        handoff_missing.append(
+            {
+                "identifier": c.get("identifier"),
+                "title": c.get("title"),
+                "resolution_comment_text": resolution.get("body")
+                if resolution
+                else None,
+            }
+        )
 
     parked, blocked = [], []
     for c in children:
@@ -312,12 +349,19 @@ def compute_sweep(ctx, stale_days=7.0, now=None):
             entry["ask_excerpt"] = excerpt(comment.get("body")) if comment else None
             parked.append(entry)
         else:
-            entry["condition_excerpt"] = excerpt(comment.get("body")) if comment else None
+            entry["condition_excerpt"] = (
+                excerpt(comment.get("body")) if comment else None
+            )
             blocked.append(entry)
 
     stale_claims = []
     for c in children:
-        if not c.get("delegate"):
+        # A claim is a delegate (app actor) or, for a human operator driving the
+        # session, an assignee on a started ticket.
+        started_and_assigned = (c.get("state") or {}).get(
+            "type"
+        ) == "started" and c.get("assignee")
+        if not c.get("delegate") and not started_and_assigned:
             continue
         # Delegates are historical on finished tickets (operator ruling,
         # 2026-08-20): Done/Canceled with delegate set is the normal record
@@ -329,20 +373,30 @@ def compute_sweep(ctx, stale_days=7.0, now=None):
             continue
         days_since = (now - parse_dt(updated)).total_seconds() / 86400.0
         if days_since >= stale_days:
-            stale_claims.append({
-                "identifier": c.get("identifier"),
-                "title": c.get("title"),
-                "updatedAt": updated,
-                "days_stale": round(days_since, 1),
-            })
+            stale_claims.append(
+                {
+                    "identifier": c.get("identifier"),
+                    "title": c.get("title"),
+                    "updatedAt": updated,
+                    "days_stale": round(days_since, 1),
+                }
+            )
 
     last_resolved = None
     completed_done = [c for c in done_children if c.get("completedAt")]
     if completed_done:
         newest = max(completed_done, key=lambda c: c["completedAt"])
-        comments = sorted(child_comments.get(newest["id"], []), key=lambda c: c["createdAt"], reverse=True)
+        comments = sorted(
+            child_comments.get(newest["id"], []),
+            key=lambda c: c["createdAt"],
+            reverse=True,
+        )
         handoff_comment = next(
-            (cm for cm in comments if (cm.get("body") or "").strip().startswith("[HANDOFF]")),
+            (
+                cm
+                for cm in comments
+                if (cm.get("body") or "").strip().startswith("[HANDOFF]")
+            ),
             None,
         )
         last_resolved = {
@@ -357,10 +411,17 @@ def compute_sweep(ctx, stale_days=7.0, now=None):
     wedged_reasons = []
     if not frontier:
         if parked:
-            wedged_reasons.append(f"{len(parked)} parked ticket(s): {', '.join(p['identifier'] for p in parked)}")
+            wedged_reasons.append(
+                f"{len(parked)} parked ticket(s): {', '.join(p['identifier'] for p in parked)}"
+            )
         if blocked:
-            wedged_reasons.append(f"{len(blocked)} blocked ticket(s): {', '.join(b['identifier'] for b in blocked)}")
-    wedged = {"bool": bool(wedged_reasons), "reason": "; ".join(wedged_reasons) if wedged_reasons else None}
+            wedged_reasons.append(
+                f"{len(blocked)} blocked ticket(s): {', '.join(b['identifier'] for b in blocked)}"
+            )
+    wedged = {
+        "bool": bool(wedged_reasons),
+        "reason": "; ".join(wedged_reasons) if wedged_reasons else None,
+    }
 
     all_children_closed = bool(children) and all(
         (c.get("state") or {}).get("type") in COMPLETED_STATE_TYPES for c in children
@@ -391,6 +452,7 @@ def compute_sweep(ctx, stale_days=7.0, now=None):
 # gather_context — the only network-touching function
 # --------------------------------------------------------------------------
 
+
 def gather_context(bridge_cmd_parts, map_id):
     """Live fetch, assembled into the dict compute_sweep() consumes. Fetches
     comments/documents only for children a detection class actually needs
@@ -408,12 +470,28 @@ def gather_context(bridge_cmd_parts, map_id):
 
     decisions_text = decisions_doc_text(map_documents)
 
-    done_children = [c for c in children if (c.get("state") or {}).get("type") in COMPLETED_STATE_TYPES]
-    missing_done = [c for c in done_children if c.get("identifier") and c["identifier"] not in decisions_text]
+    done_children = [
+        c
+        for c in children
+        if (c.get("state") or {}).get("type") in COMPLETED_STATE_TYPES
+    ]
+    missing_done = [
+        c
+        for c in done_children
+        if c.get("identifier") and c["identifier"] not in decisions_text
+    ]
     completed_done = [c for c in done_children if c.get("completedAt")]
-    newest_done = max(completed_done, key=lambda c: c["completedAt"]) if completed_done else None
-    parked_or_blocked = [c for c in children if (c.get("state") or {}).get("name") in ("Needs Input", "Blocked")]
-    completed_children = [c for c in children if (c.get("state") or {}).get("type") == "completed"]
+    newest_done = (
+        max(completed_done, key=lambda c: c["completedAt"]) if completed_done else None
+    )
+    parked_or_blocked = [
+        c
+        for c in children
+        if (c.get("state") or {}).get("name") in ("Needs Input", "Blocked")
+    ]
+    completed_children = [
+        c for c in children if (c.get("state") or {}).get("type") == "completed"
+    ]
 
     comment_fetch_ids = []
     seen = set()
@@ -441,6 +519,7 @@ def gather_context(bridge_cmd_parts, map_id):
 # CLI
 # --------------------------------------------------------------------------
 
+
 def _print(obj):
     print(json.dumps(obj, indent=2))
 
@@ -452,7 +531,11 @@ def main(argv=None):
     parser.add_argument("map_id")
     parser.add_argument("--stale-days", type=float, default=7.0)
     parser.add_argument("--frontier-only", action="store_true")
-    parser.add_argument("--bridge-cmd", default=None, help="Bridge command; falls back to LINEAR_GQL_CMD.")
+    parser.add_argument(
+        "--bridge-cmd",
+        default=None,
+        help="Bridge command; falls back to LINEAR_GQL_CMD.",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -462,7 +545,13 @@ def main(argv=None):
             map_node = lb.resolve_issue_ref(bridge_cmd_parts, args.map_id)
             children = lb.fetch_children_full(bridge_cmd_parts, map_node["id"])
             frontier = compute_frontier(children)
-            _print({"map_id": map_node.get("identifier"), "frontier": frontier, "frontier_rule": FRONTIER_RULE})
+            _print(
+                {
+                    "map_id": map_node.get("identifier"),
+                    "frontier": frontier,
+                    "frontier_rule": FRONTIER_RULE,
+                }
+            )
         else:
             ctx = gather_context(bridge_cmd_parts, args.map_id)
             report = compute_sweep(ctx, args.stale_days)

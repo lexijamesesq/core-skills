@@ -513,6 +513,115 @@ class SubcommandShapeTests(unittest.TestCase):
         self.assertFalse(result["race_lost"])
         self.assertTrue(result["verified"])
 
+    def test_claim_write_assignee_only_sends_no_delegate_and_verifies(self):
+        # A human operator driving the session claims by assignee alone:
+        # Linear accepts only agent users as a delegate.
+        log_path = script_log()
+        script_responses(
+            [
+                {
+                    "stdout": {"data": {"issueUpdate": {"success": True}}},
+                    "returncode": 0,
+                },
+                {
+                    "stdout": {
+                        "data": {
+                            "issue": {
+                                "id": "uuid-1",
+                                "delegate": None,
+                                "state": {
+                                    "id": "state-ip",
+                                    "name": "In Progress",
+                                    "type": "started",
+                                },
+                                "assignee": {"id": "operator-1"},
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                },
+            ]
+        )
+        result = lb.claim_write(STUB_CMD, "uuid-1", "state-ip", None, "operator-1")
+        mutation = read_log(log_path)[0]
+        self.assertIn('assigneeId: "operator-1"', mutation)
+        self.assertNotIn("delegateId", mutation)
+        self.assertTrue(result["verified"])
+        self.assertFalse(result["race_lost"])
+
+    def test_claim_write_assignee_only_loses_race_to_another_assignee_or_a_delegate(
+        self,
+    ):
+        for observed_delegate, observed_assignee in (
+            (None, "someone-else"),
+            ("an-agent", "operator-1"),
+        ):
+            with self.subTest(delegate=observed_delegate, assignee=observed_assignee):
+                script_responses(
+                    [
+                        {
+                            "stdout": {"data": {"issueUpdate": {"success": True}}},
+                            "returncode": 0,
+                        },
+                        {
+                            "stdout": {
+                                "data": {
+                                    "issue": {
+                                        "id": "uuid-1",
+                                        "delegate": (
+                                            {"id": observed_delegate}
+                                            if observed_delegate
+                                            else None
+                                        ),
+                                        "state": {
+                                            "id": "state-ip",
+                                            "name": "In Progress",
+                                            "type": "started",
+                                        },
+                                        "assignee": {"id": observed_assignee},
+                                    }
+                                }
+                            },
+                            "returncode": 0,
+                        },
+                    ]
+                )
+                result = lb.claim_write(
+                    STUB_CMD, "uuid-1", "state-ip", None, "operator-1"
+                )
+                self.assertTrue(result["race_lost"])
+                self.assertFalse(result["verified"])
+
+    def test_claim_write_refuses_a_claim_with_neither_delegate_nor_assignee(self):
+        counter = script_responses([{"stdout": {"data": {}}, "returncode": 0}])
+        with self.assertRaises(ValueError):
+            lb.claim_write(STUB_CMD, "uuid-1", "state-ip")
+        self.assertEqual(call_count(counter), 0, "nothing may be sent")
+
+    def test_wip_check_by_assignee_filters_on_assignee_not_delegate(self):
+        log_path = script_log()
+        script_responses(
+            [
+                {
+                    "stdout": {
+                        "data": {
+                            "issues": {
+                                "nodes": [
+                                    {"id": "u", "identifier": "ACR-9", "title": "t"}
+                                ]
+                            }
+                        }
+                    },
+                    "returncode": 0,
+                }
+            ]
+        )
+        nodes = lb.wip_check(STUB_CMD, "operator-1", "proj-1", by="assignee")
+        query = read_log(log_path)[0]
+        self.assertIn('assignee: { id: { eq: "operator-1" } }', query)
+        self.assertNotIn("delegate:", query)
+        self.assertEqual(nodes[0]["identifier"], "ACR-9")
+
     def test_release_delegate_verified_when_cleared(self):
         script_responses(
             [
