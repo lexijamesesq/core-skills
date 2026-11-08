@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Test suite for estate-identity-guard.sh — PreToolUse enforcement of the
-# estate identity baseline, gated on enrollment being a DISK fact.
+# App and operator identity baselines, gated on enrollment being a DISK fact.
 #
 # Two baselines are accepted (the App baseline and the operator baseline); a
 # session must satisfy ONE completely. Enrollment is either baseline's
@@ -77,8 +77,7 @@ run_guard_op() {
 	local cmd="$1"
 	shift
 	run_guard "$cmd" GIT_CONFIG_GLOBAL="$OP/operator-mode.gitconfig" CLAUDE_ENV_FILE="$OP/operator-env.sh" \
-		GH_CONFIG_DIR="$OP/gh-config" GIT_AUTHOR_EMAIL="$OPERATOR" GIT_COMMITTER_EMAIL="$OPERATOR" \
-		GH_TOKEN="fixture-not-a-real-token" "$@"
+		GH_CONFIG_DIR="$OP/gh-config" GIT_AUTHOR_EMAIL="$OPERATOR" GIT_COMMITTER_EMAIL="$OPERATOR" "$@"
 }
 blocks_op() {
 	run_guard_op "$@"
@@ -164,18 +163,20 @@ section "Dual baseline — checks are per baseline, never mixed"
 blocks_op 'git commit -m x' GIT_AUTHOR_EMAIL="$BOT" GIT_COMMITTER_EMAIL="$BOT"
 
 section "Credential channel and delivery"
-# One case per distinct protection, not per variable name or code line.
 # No ambient token in an App session (an injected token would be what gh uses).
 blocks 'gh pr create' GH_TOKEN="injected"
+blocks 'gh pr create' GITHUB_TOKEN="injected"
 # The real App session carries the token vars SET BUT EMPTY; that must stay allowed.
 allows 'git status' GH_TOKEN="" GITHUB_TOKEN=""
-# The operator baseline requires the PAT.
-blocks_op 'gh pr create' GH_TOKEN=""
-# No env-injected config or askpass override on a valid baseline (identity and
-# credentials would come from the override, not the baseline).
+# No env-injected config or askpass override on either baseline.
+blocks 'git status' GIT_CONFIG_COUNT="1"
+blocks 'git status' GIT_ASKPASS="/tmp/askpass"
 blocks_op 'git status' GIT_CONFIG_COUNT="1"
 # Presence is not delivery: each operator file must hold content.
 printf '[user]\n\tuseConfigOnly = true\n' >"$OP/operator-mode.gitconfig" # content, no credential helper
+blocks_op 'git status'
+install_operator
+printf '[credential "https://github.com"]\n\thelper =\n' >"$OP/operator-mode.gitconfig" # only the bare reset line
 blocks_op 'git status'
 install_operator
 : >"$OP/operator-env.sh"

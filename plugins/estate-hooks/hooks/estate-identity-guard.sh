@@ -2,13 +2,13 @@
 # estate-identity-guard.sh
 #
 # PreToolUse (matcher: Bash) ENFORCEMENT for estate mode. A personal-profile
-# ("estate") Claude session must write to GitHub only as the App, through a
-# correctly-delivered baseline (the estate gitconfig, the CLAUDE_ENV_FILE that
-# prepends the gh adapter, the bot GIT_AUTHOR/COMMITTER, the isolated
-# GH_CONFIG_DIR). The identity ticket names "an automatic guard that refuses
-# any git or gh write on an inconsistent baseline": a SessionStart hook CANNOT
-# refuse (it is non-blocking), so the refusal lives HERE, where exit 2 blocks
-# the tool.
+# ("estate") Claude session must write to GitHub only through one
+# correctly-delivered identity baseline, either the App baseline (the estate
+# gitconfig, the CLAUDE_ENV_FILE that prepends the gh adapter, the bot
+# GIT_AUTHOR/COMMITTER, the isolated GH_CONFIG_DIR) or the operator baseline
+# below. The identity ticket names "an automatic guard that refuses any git or
+# gh write on an inconsistent baseline": a SessionStart hook CANNOT refuse (it
+# is non-blocking), so the refusal lives HERE, where exit 2 blocks the tool.
 #
 # TWO BASELINES ARE ACCEPTED during the transition, and a session passes if it
 # satisfies EITHER one completely (never a mix of the two):
@@ -21,17 +21,24 @@
 # machine is NOT enrolled. Reads and enrollment/bootstrap commands remain
 # available, but git push from any Claude profile requires enrollment. This
 # retains the former publishing guard's pre-enrollment scope without requiring
-# its retired publishing helper. Once enrolled, only personal sessions require
-# the estate baseline to be consistent --
+# its retired publishing helper. Once enrolled, only personal sessions must
+# match one of the two baselines completely --
 # the file present with the env missing is exactly the bad-relaunch case to
 # block, not to wave through.
 #
 # The checks are DETERMINISTIC disk/env facts, deliberately not "command -v"
 # probes: whether a PreToolUse hook process inherits the CLAUDE_ENV_FILE PATH
 # prepend is unproven, and an ssh-path check would encode a machine fact (a
-# Homebrew openssh). Instead: CLAUDE_ENV_FILE equals the declared path and the
-# file exists; the estate PATH dir holds exactly one entry, `gh`, a symlink to
-# the adapter. Those are true iff the wiring was actually delivered.
+# Homebrew openssh). Instead: CLAUDE_ENV_FILE equals the baseline's declared
+# path and the file exists; for the App baseline the estate PATH dir holds
+# exactly one entry, `gh`, a symlink to the adapter. Those are true iff the
+# wiring was actually delivered.
+#
+# Tokens are checked on the App baseline only. Its GH_TOKEN and GITHUB_TOKEN
+# come from settings env, which the hook reliably inherits, so they must be
+# empty there. The operator baseline's PAT reaches GH_TOKEN through the sourced
+# operator-env.sh, and that export is not proven to reach the hook, so its
+# presence is deliberately NOT checked here; it is verified live at cutover.
 #
 # Scope: pre-enrollment push refusal covers all Claude profiles. Enrolled
 # identity enforcement is personal-only; professional remains owner-routed by
@@ -193,7 +200,11 @@ check_app_baseline() {
 
 # The operator baseline drops the App/broker-specific checks (the single-gh PATH
 # dir and the estate credential helper): the operator's PAT is read by the
-# gitconfig's own helper, and no adapter is prepended to PATH.
+# gitconfig's own helper, and no adapter is prepended to PATH. The baseline is
+# identified by its gitconfig, emails and env file, all reliably inherited. The
+# PAT's presence in GH_TOKEN is not checked: its export through the sourced
+# operator-env.sh is not proven to reach this hook, and requiring it could block
+# every operator session. That is verified live at cutover.
 check_operator_baseline() {
 	{ [[ "${GIT_CONFIG_GLOBAL:-}" == "$OPERATOR_GITCONFIG" ]] && [[ -f "$OPERATOR_GITCONFIG" ]]; } ||
 		{
@@ -213,13 +224,6 @@ check_operator_baseline() {
 	[[ -z "${SSH_AUTH_SOCK:-}" ]] ||
 		{
 			REASON="SSH_AUTH_SOCK is set ('${SSH_AUTH_SOCK}') — an SSH agent leaked into the session"
-			return 1
-		}
-	# The operator baseline authenticates gh with the PAT that operator-env.sh puts
-	# in GH_TOKEN; without it gh would fall through to whatever else is available.
-	[[ -n "${GH_TOKEN:-}" ]] ||
-		{
-			REASON="GH_TOKEN is empty — the operator baseline needs the PAT from operator-env.sh"
 			return 1
 		}
 	no_credential_overrides || return 1
