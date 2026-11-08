@@ -2,10 +2,21 @@
 # Test suite for estate-identity-guard.sh — PreToolUse enforcement of the
 # estate identity baseline, gated on enrollment being a DISK fact.
 #
-# Two invariants matter most here and are both tested:
+# Two baselines are accepted (the App baseline and the operator baseline); a
+# session must satisfy ONE completely. Enrollment is either baseline's
+# gitconfig being installed. Three invariants matter most and are all tested:
 #  1. NOT ENROLLED -> Claude pushes across profiles block, but reads/bootstrap stay available.
 #  2. ENROLLED but the baseline is wrong -> the guard blocks (the bad-relaunch
 #     case). Every break is one flipped value on an otherwise-good baseline.
+#  3. Retiring one baseline's gitconfig must never drop the other baseline's
+#     sessions into the not-enrolled block-all-push branch.
+#
+# NOT covered here, by design: whether the hook process inherits the session's
+# settings env. The fixtures hand the hook an explicit env, so that inheritance
+# is a real-launch check carried to the cutover. Likewise an env-based guard
+# cannot see command-line `git -c` overrides or a repo-level core.sshCommand
+# (same for both baselines), and the scanner check keys on the payload cwd, not
+# the target repo of a `git -C`.
 #
 # Run: bash plugins/estate-hooks/tests/estate-identity-guard.test.sh
 set -uo pipefail
@@ -22,6 +33,7 @@ command -v jq >/dev/null 2>&1 || {
 }
 
 BOT="325510841+claude-the-enduring[bot]@users.noreply.github.com"
+OPERATOR="938162+lexijamesesq@users.noreply.github.com"
 
 # A scratch HOME with the estate baseline installed (i.e. ENROLLED).
 SCRATCH="$(mktemp -d)"
@@ -37,6 +49,16 @@ printf '#!/bin/sh\n' >"$SCRATCH/.config/op-agent/bin/git-credential-estate"
 chmod +x "$SCRATCH/.config/op-agent/bin/git-credential-estate"
 ln -s "$SCRATCH/.config/op-agent/bin/gh" "$CE/bin/gh"
 
+# The operator baseline's files live in their own directory and are installed
+# only where a section needs them (the enrollment gate needs neither present).
+OP="$SCRATCH/.config/claude-operator"
+install_operator() {
+	mkdir -p "$OP/gh-config"
+	printf '[credential "https://github.com"]\n\thelper =\n\thelper = !/fixture/pat-helper\n' >"$OP/operator-mode.gitconfig"
+	printf '# fixture operator env\n' >"$OP/operator-env.sh"
+}
+remove_operator() { rm -rf "$OP"; }
+
 mkjson() { jq -n --arg c "$1" --arg cwd "${PAYLOAD_CWD:-}" '{tool_name:"Bash",tool_input:{command:$c}} + (if $cwd == "" then {} else {cwd:$cwd} end)'; }
 # run_guard <cmd> [ENV_OVERRIDE...] -> RC. Good ENROLLED baseline, overrides win.
 run_guard() {
@@ -49,6 +71,22 @@ run_guard() {
 		SSH_AUTH_SOCK="" PATH="/usr/bin:/bin" \
 		"$@" bash "$HOOK" >/dev/null 2>&1
 	RC=$?
+}
+# Same as run_guard but a session on the good OPERATOR baseline; overrides win.
+run_guard_op() {
+	local cmd="$1"
+	shift
+	run_guard "$cmd" GIT_CONFIG_GLOBAL="$OP/operator-mode.gitconfig" CLAUDE_ENV_FILE="$OP/operator-env.sh" \
+		GH_CONFIG_DIR="$OP/gh-config" GIT_AUTHOR_EMAIL="$OPERATOR" GIT_COMMITTER_EMAIL="$OPERATOR" \
+		GH_TOKEN="fixture-not-a-real-token" "$@"
+}
+blocks_op() {
+	run_guard_op "$@"
+	assert_eq "BLOCK (operator): $1 ${*:2}" "2" "$RC"
+}
+allows_op() {
+	run_guard_op "$@"
+	assert_eq "allow (operator): $1 ${*:2}" "0" "$RC"
 }
 blocks() {
 	run_guard "$@"
@@ -95,6 +133,98 @@ blocks 'git commit -m x' CLAUDE_ENV_FILE="/wrong/estate-env.sh"
 blocks 'git commit -m x' SSH_AUTH_SOCK="/tmp/leaked.sock"
 blocks 'git commit -m x' GIT_AUTHOR_EMAIL="lexi@her.example"
 blocks 'git commit -m x' GIT_COMMITTER_EMAIL=""
+
+section "Operator baseline — allowed, and every break blocks"
+install_operator
+allows_op 'git status'
+allows_op 'gh pr list'
+allows_op 'git commit -m x'
+# professional/non-Claude stay out of scope on this baseline too
+allows_op 'git status' CLAUDE_CONFIG_DIR="$SCRATCH/.claude-professional"
+blocks_op 'git commit -m x' GIT_CONFIG_GLOBAL="/wrong"
+blocks_op 'gh pr create' GH_CONFIG_DIR=""
+blocks_op 'git commit -m x' CLAUDE_ENV_FILE="/wrong/operator-env.sh"
+blocks_op 'git commit -m x' SSH_AUTH_SOCK="/tmp/leaked.sock"
+blocks_op 'git commit -m x' GIT_AUTHOR_EMAIL="lexi@her.example"
+blocks_op 'git commit -m x' GIT_COMMITTER_EMAIL=""
+rm -f "$OP/operator-env.sh"
+blocks_op 'git status'
+printf '# fixture operator env\n' >"$OP/operator-env.sh"
+# The operator baseline does not need the App's adapter dir or credential helper.
+mv "$SCRATCH/.config/op-agent/bin/git-credential-estate" "$SCRATCH/helper.bak"
+rm -f "$CE/bin/gh"
+allows_op 'git status'
+blocks 'git status' # the App baseline still needs both
+mv "$SCRATCH/helper.bak" "$SCRATCH/.config/op-agent/bin/git-credential-estate"
+ln -s "$SCRATCH/.config/op-agent/bin/gh" "$CE/bin/gh"
+
+section "Dual baseline — checks are per baseline, never mixed"
+# The operator gitconfig carrying the bot identity: each value is valid in some
+# baseline, but the session satisfies neither baseline as a whole.
+blocks_op 'git commit -m x' GIT_AUTHOR_EMAIL="$BOT" GIT_COMMITTER_EMAIL="$BOT"
+
+section "Credential channel and delivery"
+# One case per distinct protection, not per variable name or code line.
+# No ambient token in an App session (an injected token would be what gh uses).
+blocks 'gh pr create' GH_TOKEN="injected"
+# The real App session carries the token vars SET BUT EMPTY; that must stay allowed.
+allows 'git status' GH_TOKEN="" GITHUB_TOKEN=""
+# The operator baseline requires the PAT.
+blocks_op 'gh pr create' GH_TOKEN=""
+# No env-injected config or askpass override on a valid baseline (identity and
+# credentials would come from the override, not the baseline).
+blocks_op 'git status' GIT_CONFIG_COUNT="1"
+# Presence is not delivery: each operator file must hold content.
+printf '[user]\n\tuseConfigOnly = true\n' >"$OP/operator-mode.gitconfig" # content, no credential helper
+blocks_op 'git status'
+install_operator
+: >"$OP/operator-env.sh"
+blocks_op 'git status'
+install_operator
+rm -rf "$OP/gh-config"
+: >"$OP/gh-config" # a file where the directory belongs
+blocks_op 'git status'
+rm -f "$OP/gh-config"
+install_operator
+
+section "Enrollment is either baseline's gitconfig, not estate-mode alone"
+repo="$SCRATCH/repo-enroll"
+mkdir -p "$repo"
+(cd "$repo" && GIT_CONFIG_GLOBAL=/dev/null git init -q)
+mkdir -p "$repo/.git/hooks"
+printf '#!/usr/bin/env bash\n# File generated by pre-commit: https://pre-commit.com\n' >"$repo/.git/hooks/pre-push"
+chmod +x "$repo/.git/hooks/pre-push"
+enrolled_push() { (
+	cd "$repo" && "$1" 'git push origin main'
+	echo "$RC"
+); }
+# estate-mode retired, operator gitconfig present: still enrolled and allowed
+mv "$CE/estate-mode.gitconfig" "$SCRATCH/estate-mode.gitconfig.bak"
+rc="$(enrolled_push run_guard_op)"
+assert_eq "operator-only install: operator push is enrolled and allowed" "0" "$rc"
+allows_op 'git status'
+blocks_op 'git status' GIT_AUTHOR_EMAIL="lexi@her.example" # enrolled, so a bad baseline still blocks
+# a leftover App-baseline session is not allowed once its gitconfig is gone
+blocks 'git status'
+mv "$SCRATCH/estate-mode.gitconfig.bak" "$CE/estate-mode.gitconfig"
+# the pre-push scanner requirement is shared by both baselines
+rm -f "$repo/.git/hooks/pre-push"
+rc="$(enrolled_push run_guard_op)"
+assert_eq "operator baseline push without scanner hook -> block" "2" "$rc"
+printf '#!/usr/bin/env bash\n# File generated by pre-commit: https://pre-commit.com\n' >"$repo/.git/hooks/pre-push"
+chmod +x "$repo/.git/hooks/pre-push"
+# the reverse: operator files absent, estate-mode present (today's machines)
+remove_operator
+allows 'git status'
+rc="$(enrolled_push run_guard)"
+assert_eq "App-only install: App push is enrolled and allowed" "0" "$rc"
+blocks_op 'git status'
+# neither present: not enrolled, push blocks for any profile
+mv "$CE/estate-mode.gitconfig" "$SCRATCH/estate-mode.gitconfig.bak"
+rc="$(enrolled_push run_guard)"
+assert_eq "neither baseline installed: push blocks" "2" "$rc"
+mv "$SCRATCH/estate-mode.gitconfig.bak" "$CE/estate-mode.gitconfig"
+install_operator
 
 section "CLAUDE_ENV_FILE points at a MISSING file -> block"
 rm -f "$CE/estate-env.sh"

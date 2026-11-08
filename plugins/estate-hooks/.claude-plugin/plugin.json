@@ -1,6 +1,6 @@
 {
   "name": "estate-hooks",
-  "version": "0.4.24",
+  "version": "0.4.25",
   "description": "The estate's Claude Code lifecycle hooks, shared helpers and vendored PR-body template checker, packaged as a plugin.",
   "author": {
     "name": "Lexi James",
