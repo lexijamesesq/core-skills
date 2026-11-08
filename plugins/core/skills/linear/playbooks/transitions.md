@@ -7,13 +7,15 @@ State-change discipline: `move_state` (Needs Input / Blocked / Todo), `cancel`, 
 **Protocol:** `mcp__linear-tactic__linear_updateIssue` with `stateId=<target>`. Target ∈ {`Needs Input`, `Blocked`, `Todo`, `Done`} — use `claim` for `In Progress`, and use `mark_done` below for an ordinary ticket's `Done` (not this action) — with the map lane as the one exception, both directions.
 
 **Park discipline.**
+
 - Moving to **Needs Input** requires a comment naming the specific ask — what the operator needs to decide or provide.
 - Moving to **Blocked** requires a checkable condition in a comment — a URL to poll, a version to check, a PR to look up, an API status, a date to wait for — something a session can probe mechanically to determine if the block has resolved.
-- **Parks release the claim.** Moving to Needs Input OR Blocked clears the claim via `linear_bridge.py release-delegate <issue-uuid>` (this skill's `scripts/` dir; sets `delegateId: null`, read-back verified) and posts resume state — the claim marks active work only; a parked ticket is re-claimable by any later session once returned to the frontier. Assignee is untouched by park — the operator's involvement record survives; clearing it is the operator's act. A parked ticket with assignee set stays off the autonomous frontier (`assignee: null` filter), routing it back to an operator session.
+- **Parks release the claim.** Moving to Needs Input OR Blocked clears the claim via `linear_bridge.py release-delegate <issue-uuid>` (this skill's `scripts/` dir; sets `delegateId: null`, read-back verified) and posts resume state — the claim marks active work only; a parked ticket is re-claimable by any later session once returned to the frontier. Assignee is untouched by park — the operator's involvement record survives; clearing it is the operator's act. A human operator's driven claim has no delegate, so `release-delegate` verifies there is none and changes nothing; the claim ends because the ticket leaves In Progress or Planning (Needs Input is itself a started-type state, which is why the claim is keyed on those two state names), and the assignee stays. A parked ticket with assignee set stays off the autonomous frontier (`assignee: null` filter), routing it back to an operator session.
 - **Todo** returns a park to the frontier — a confirmed un-park. The claim should already be cleared from the park; if not, surface it.
 - Optionally surface a WARNING if `move_state` is the only mutation for that issue in a batch.
 
 **Map lane (issues carrying the `map` label only).** `Done` is permitted, guarded on all three conditions — verify each; any missing → refuse:
+
 1. A `[VALIDATION]`-prefixed comment posted by the dispatched non-author e2e eval carrying verdict `CONFIRMED` in the standard vocabulary (any other verdict — including `CONFIRMED-WITH-GAPS` — routes to the operator).
 2. Zero open children.
 3. The accounting document present.

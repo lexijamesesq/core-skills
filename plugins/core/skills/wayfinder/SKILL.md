@@ -44,7 +44,7 @@ Three roles, named once, used everywhere:
 
 Default-plus-exception, never in-context judgment — a session choosing models for others defaults to its own class (self-selection bias); the defaults above are the countermeasure.
 
-**Claim** is the act and state of holding a ticket — Linear's `delegate` field (`` `@traffic-cone` `` `claim`); parks release it. "Delegate" names the field only, never an agent.
+**Claim** is the act and state of holding a ticket (`` `@traffic-cone` `` `claim`); parks release it. For an agent actor it is Linear's `delegate` field ("Delegate" names the field only, never an agent); for a session the operator drives under her own account it is the operator as `assignee` on a ticket in In Progress or Planning, with no delegate.
 
 Lifecycle transitions route through `` `@traffic-cone` ``; `` `@attack-kitty` `` executes none.
 
@@ -108,7 +108,7 @@ State the test, never the vibe — a tone adjective ("elegantly simple", "robust
 | `model:*` on a hitl slice | Operator-acked | Pins main context — claim flags a mismatch |
 | `model:*` on extraction spawn | — | Ignored — Roles' defaults |
 
-**Claims** first, before any work, via the `claim` transition (§ Running transitions) — verified, stored in delegate; concurrent sessions skip it. Assignment differs: system-set on operator-directed claims, the operator's field to clear; assigned = never takeable.
+**Claims** first, before any work, via the `claim` transition (§ Running transitions) — verified, stored in the delegate (agent) or as the operator-assignee (driven); concurrent sessions skip it. Assignment differs: system-set on operator-directed claims, the operator's field to clear; assigned = never takeable.
 
 Blocking is the tracker's **native** dependency relationship — renders the frontier *visually* in the tracker's UI, so the human sees what's takeable without opening the map. Unblocked = every blocker closed; the **frontier** is Todo, unblocked, unclaimed. Ordering is `/linear` frontier.md's rule, never restated — `map_sweep.py` computes it.
 

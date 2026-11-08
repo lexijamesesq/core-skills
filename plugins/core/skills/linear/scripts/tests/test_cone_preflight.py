@@ -327,6 +327,24 @@ class ClaimAdmitTests(unittest.TestCase):
         report = cp.run_checks("claim", ctx, fx.claim_flags())
         self.assertEqual(report["facts"]["assignee_gate"], "skip")
 
+    def test_human_operator_claim_never_skips_the_assignee(self):
+        # The assignee IS a human operator's claim, so the gate cannot skip even
+        # for an afk map child or an autonomous flag; a skip would leave the
+        # claim write with neither delegate nor assignee.
+        afk = fx.claim_map_child_ctx(
+            issue=dict(
+                fx.claim_map_child_ctx()["issue"],
+                labels={"nodes": [{"name": "research"}, {"name": "afk"}]},
+            )
+        )
+        for ctx, flags in (
+            (afk, fx.claim_flags()),
+            (fx.claim_full_ctx(), fx.claim_flags(autonomous=True)),
+        ):
+            ctx = dict(ctx, driven=True)
+            report = cp.run_checks("claim", ctx, flags)
+            self.assertEqual(report["facts"]["assignee_gate"], "set")
+
     def test_full_variant_autonomous_skips_assignee_gate(self):
         ctx = fx.claim_full_ctx()
         report = cp.run_checks("claim", ctx, fx.claim_flags(autonomous=True))
@@ -2095,6 +2113,75 @@ class ExecuteIfCleanAdmitTests(unittest.TestCase):
         self.assertNotIn(
             "checks", out, "ADMIT is window-priced — no full checks[] dump"
         )
+
+    def test_claim_by_a_human_operator_claims_by_assignee_alone(self):
+        # The viewer is a human (app false): no operator lookup, no delegate in
+        # the claim, WIP is checked on the assignee, the operator is the assignee.
+        log_path = tlb.script_log()
+        issue_node = _e2e_issue_node(identifier="ACR-61", id="uuid-claim-driven")
+        tlb.script_responses(
+            [
+                _issue_resp(issue_node),
+                _resp(
+                    {
+                        "viewer": {
+                            "id": "operator-1",
+                            "name": "Operator",
+                            "email": "o@x",
+                            "app": False,
+                        }
+                    }
+                ),
+                _states_resp(
+                    [
+                        ("In Progress", "state-ip", "started"),
+                        ("Needs Input", "state-ni", "triage"),
+                    ]
+                ),
+                _wip_resp([]),
+                _mutation_ok_resp(),
+                _resp(
+                    {
+                        "issue": {
+                            "id": "uuid-claim-driven",
+                            "delegate": None,
+                            "state": {
+                                "id": "state-ip",
+                                "name": "In Progress",
+                                "type": "started",
+                            },
+                            "assignee": {"id": "operator-1"},
+                        }
+                    }
+                ),
+            ]
+        )
+        code, out = _run_main_capture(
+            [
+                "claim",
+                "ACR-61",
+                "--project-id",
+                "proj-1",
+                "--execute-if-clean",
+                "--bridge-cmd",
+                " ".join(tlb.STUB_CMD),
+            ]
+        )
+        self.assertEqual(code, lb.EXIT_OK)
+        self.assertEqual(out["verdict"], "ADMIT")
+        self.assertTrue(out["executed"])
+        self.assertTrue(out["result"]["claim_write"]["verified"])
+        queries = tlb.read_log(log_path)
+        self.assertFalse(
+            any("users(" in q for q in queries),
+            "the viewer is the operator; no admin-user lookup",
+        )
+        wip = next(q for q in queries if "issues(filter" in q)
+        self.assertIn("assignee:", wip)
+        self.assertNotIn("delegate:", wip)
+        claim = next(q for q in queries if "issueUpdate" in q and "stateId" in q)
+        self.assertIn('assigneeId: "operator-1"', claim)
+        self.assertNotIn("delegateId", claim)
 
     def test_claim_lost_race_not_executed(self):
         issue_node = _e2e_issue_node(identifier="ACR-60", id="uuid-claim-race")

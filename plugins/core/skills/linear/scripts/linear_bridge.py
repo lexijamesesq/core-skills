@@ -11,7 +11,9 @@ CLAUDE.md > Configuration). This script never touches op paths, tokens, or vault
 refs; neither may appear in any file in this repo (public).
 
 Subcommands:
-    viewer                                   resolve app-actor id
+    viewer                                   resolve the acting identity (id, name,
+                                              email, app — app is false when the
+                                              session drives as a human operator)
     operator [--email E]                     resolve operator user id (first
                                               non-app admin, or --email filter)
     issue <id> [--body] [--comments] [--history]
@@ -25,9 +27,18 @@ Subcommands:
                                               map_sweep.py
     documents <id> [--content]                documents attached to an issue
     lint-body [FILE]                         reject bare @mentions (stdin or FILE)
-    wip-check --actor ID --project ID        In Progress issues delegated to actor
-    claim-write UUID --state ID --delegate ID [--assignee ID] [--dry-run]
-                                              claim mutation + built-in read-back
+    wip-check --actor ID --project ID [--by delegate|assignee]
+                                              issues claimed by the actor (delegate:
+                                              app actors, any started state;
+                                              assignee: a human operator driving the
+                                              session, In Progress or Planning)
+    claim-write UUID --state ID [--delegate ID] [--assignee ID] [--dry-run]
+                                              claim mutation + built-in read-back; at
+                                              least one of --delegate / --assignee. An
+                                              app actor claims by delegate; a human
+                                              operator claims by assignee alone
+                                              (Linear accepts only agent users as
+                                              delegates)
     release-delegate UUID                    clear delegateId, read-back verified
     set-state UUID --state ID                stateId mutation, read-back verified
     resolve-state TEAM-KEY STATE-NAME        workflow-state id lookup (cached
@@ -119,6 +130,7 @@ DECISIONS_APPEND_MAX_ATTEMPTS = 3  # default; overridable via --max-attempts
 # --------------------------------------------------------------------------
 # Error classes — each maps to one exit code in main()
 # --------------------------------------------------------------------------
+
 
 class BridgeConfigError(Exception):
     """Bridge command missing, not executable, or not configured. Exit 2."""
@@ -230,7 +242,9 @@ def resolve_bridge_cmd(bridge_cmd_arg: str):
         )
     parts = [os.path.expanduser(p) for p in shlex.split(raw)]
     if not parts:
-        raise BridgeConfigError("LINEAR_GQL_CMD / --bridge-cmd resolved to an empty command")
+        raise BridgeConfigError(
+            "LINEAR_GQL_CMD / --bridge-cmd resolved to an empty command"
+        )
     return parts
 
 
@@ -264,7 +278,9 @@ def _invoke_bridge(bridge_cmd_parts, payload):
             pass
 
 
-def run_graphql(bridge_cmd_parts, query, variables=None, retries=2, backoffs=RETRY_BACKOFFS):
+def run_graphql(
+    bridge_cmd_parts, query, variables=None, retries=2, backoffs=RETRY_BACKOFFS
+):
     """POST a GraphQL query through the bridge command and return the parsed
     `{"data": ...}` response. Raises a typed error on any non-success shape;
     transient failures (network, or Linear's 'App user not valid' scope
@@ -291,17 +307,26 @@ def run_graphql(bridge_cmd_parts, query, variables=None, retries=2, backoffs=RET
         if proc.returncode == 0 and isinstance(parsed, dict) and "errors" not in parsed:
             return parsed
 
-        if isinstance(parsed, dict) and isinstance(parsed.get("errors"), list) and parsed["errors"]:
+        if (
+            isinstance(parsed, dict)
+            and isinstance(parsed.get("errors"), list)
+            and parsed["errors"]
+        ):
             messages = " | ".join(e.get("message", "") for e in parsed["errors"])
             if SCOPE_TRANSIENT_PATTERN.search(messages):
                 last_exc = TransientBridgeError(f"transient scope failure: {messages}")
             elif AUTH_PATTERN.search(messages):
                 raise BridgeAuthError(f"bridge auth failure: {messages}")
             else:
-                raise GraphQLAPIError(f"GraphQL error: {messages}", payload={"errors": parsed["errors"]})
+                raise GraphQLAPIError(
+                    f"GraphQL error: {messages}", payload={"errors": parsed["errors"]}
+                )
         elif AUTH_PATTERN.search(combined):
             raise BridgeAuthError(f"bridge auth failure: {combined[:500]}")
-        elif TRANSIENT_PATTERN.search(combined) or proc.returncode in TRANSIENT_RETURNCODES:
+        elif (
+            TRANSIENT_PATTERN.search(combined)
+            or proc.returncode in TRANSIENT_RETURNCODES
+        ):
             last_exc = TransientBridgeError(
                 f"transient/network failure (exit {proc.returncode}): {combined[:500]}"
             )
@@ -381,7 +406,9 @@ def _blocked_by_open(issue_node):
     return out
 
 
-def resolve_issue_ref(bridge_cmd_parts, id_str, body=False, comments=False, history=False):
+def resolve_issue_ref(
+    bridge_cmd_parts, id_str, body=False, comments=False, history=False
+):
     """Fetch an issue by UUID or TEAM-N identifier. Tries `issue(id:)` first;
     on a GraphQL-level rejection, falls back to an `issues` filter on team key
     + number, per this module's identifier-resolution contract."""
@@ -397,16 +424,20 @@ def resolve_issue_ref(bridge_cmd_parts, id_str, body=False, comments=False, hist
 
     parsed = parse_identifier(id_str)
     if parsed is None:
-        raise GraphQLAPIError(f"issue not found and {id_str!r} is not a TEAM-N identifier to fall back on")
+        raise GraphQLAPIError(
+            f"issue not found and {id_str!r} is not a TEAM-N identifier to fall back on"
+        )
     team_key, number = parsed
     fallback_query = (
         f'query {{ issues(filter: {{ team: {{ key: {{ eq: "{team_key}" }} }}, '
-        f'number: {{ eq: {number} }} }}) {{ nodes {{ {fields} }} }} }}'
+        f"number: {{ eq: {number} }} }}) {{ nodes {{ {fields} }} }} }}"
     )
     resp = run_graphql(bridge_cmd_parts, fallback_query)
     nodes = resp.get("data", {}).get("issues", {}).get("nodes", [])
     if not nodes:
-        raise GraphQLAPIError(f"no issue found for {id_str!r} via id or team/number fallback")
+        raise GraphQLAPIError(
+            f"no issue found for {id_str!r} via id or team/number fallback"
+        )
     return nodes[0]
 
 
@@ -420,15 +451,19 @@ def fetch_children(bridge_cmd_parts, map_uuid, page_size=100):
     while True:
         after_clause = f', after: "{after}"' if after else ""
         query = (
-            f'query {{ issues(first: {page_size}{after_clause}, '
+            f"query {{ issues(first: {page_size}{after_clause}, "
             f'filter: {{ parent: {{ id: {{ eq: "{map_uuid}" }} }} }}) '
-            f'{{ nodes {{ id identifier title state {{ name type }} '
-            f'labels {{ nodes {{ name }} }} delegate {{ id }} }} '
-            f'pageInfo {{ hasNextPage endCursor }} }} }}'
+            f"{{ nodes {{ id identifier title state {{ name type }} "
+            f"labels {{ nodes {{ name }} }} delegate {{ id }} }} "
+            f"pageInfo {{ hasNextPage endCursor }} }} }}"
         )
         resp = run_graphql(bridge_cmd_parts, query)
         issues = resp.get("data", {}).get("issues")
-        if not isinstance(issues, dict) or "nodes" not in issues or "pageInfo" not in issues:
+        if (
+            not isinstance(issues, dict)
+            or "nodes" not in issues
+            or "pageInfo" not in issues
+        ):
             raise RuntimeError(
                 "children fetch returned a malformed page (missing nodes/pageInfo) — "
                 "refusing to report a partial child set"
@@ -481,14 +516,18 @@ def fetch_children_full(bridge_cmd_parts, map_uuid, page_size=100):
     while True:
         after_clause = f', after: "{after}"' if after else ""
         query = (
-            f'query {{ issues(first: {page_size}{after_clause}, '
+            f"query {{ issues(first: {page_size}{after_clause}, "
             f'filter: {{ parent: {{ id: {{ eq: "{map_uuid}" }} }} }}) '
-            f'{{ nodes {{ {CHILDREN_FULL_FIELDS} }} '
-            f'pageInfo {{ hasNextPage endCursor }} }} }}'
+            f"{{ nodes {{ {CHILDREN_FULL_FIELDS} }} "
+            f"pageInfo {{ hasNextPage endCursor }} }} }}"
         )
         resp = run_graphql(bridge_cmd_parts, query)
         issues = resp.get("data", {}).get("issues")
-        if not isinstance(issues, dict) or "nodes" not in issues or "pageInfo" not in issues:
+        if (
+            not isinstance(issues, dict)
+            or "nodes" not in issues
+            or "pageInfo" not in issues
+        ):
             raise RuntimeError(
                 "children-full fetch returned a malformed page (missing nodes/pageInfo) — "
                 "refusing to report a partial child set"
@@ -512,12 +551,14 @@ def fetch_documents(bridge_cmd_parts, issue_uuid, content=False):
     content_field = "\n        content" if content else ""
     query = (
         f'query {{ issue(id: "{issue_uuid}") {{ documents {{ nodes {{ '
-        f'id title archivedAt{content_field} }} }} }} }}'
+        f"id title archivedAt{content_field} }} }} }} }}"
     )
     resp = run_graphql(bridge_cmd_parts, query)
     node = resp.get("data", {}).get("issue")
     if node is None:
-        raise GraphQLAPIError(f"no issue found for {issue_uuid!r} while fetching documents")
+        raise GraphQLAPIError(
+            f"no issue found for {issue_uuid!r} while fetching documents"
+        )
     return node.get("documents", {}).get("nodes", [])
 
 
@@ -615,11 +656,19 @@ def _update_decisions_doc(bridge_cmd_parts, doc_id, content):
         "documentUpdate(id: $id, input: { content: $content }) { "
         "success document { id content } } }"
     )
-    resp = run_graphql(bridge_cmd_parts, mutation, variables={"id": doc_id, "content": content})
+    resp = run_graphql(
+        bridge_cmd_parts, mutation, variables={"id": doc_id, "content": content}
+    )
     return (resp.get("data") or {}).get("documentUpdate") or {}
 
 
-def decisions_append(bridge_cmd_parts, map_uuid, map_title, entry_text, max_attempts=DECISIONS_APPEND_MAX_ATTEMPTS):
+def decisions_append(
+    bridge_cmd_parts,
+    map_uuid,
+    map_title,
+    entry_text,
+    max_attempts=DECISIONS_APPEND_MAX_ATTEMPTS,
+):
     """Append one decision entry to the map's Decisions document, creating
     it (titled `Decisions — <map_title>`) on the map's first recorded
     decision. Makes the interim hand sequence this primitive replaces
@@ -661,7 +710,11 @@ def decisions_append(bridge_cmd_parts, map_uuid, map_title, entry_text, max_atte
                 existing_content=base_content,
             )
 
-        new_content = f"{base_content.rstrip()}\n\n{entry_text}\n" if base_content.strip() else f"{entry_text}\n"
+        new_content = (
+            f"{base_content.rstrip()}\n\n{entry_text}\n"
+            if base_content.strip()
+            else f"{entry_text}\n"
+        )
 
         if doc is None:
             title = f"Decisions — {map_title}"
@@ -673,7 +726,9 @@ def decisions_append(bridge_cmd_parts, map_uuid, map_title, entry_text, max_atte
         observed_content = (readback_doc.get("content") or "") if readback_doc else ""
 
         prefix_ok = observed_content.startswith(base_content)
-        entry_present = _normalize_autolinks(entry_text) in _normalize_autolinks(observed_content)
+        entry_present = _normalize_autolinks(entry_text) in _normalize_autolinks(
+            observed_content
+        )
         if prefix_ok and entry_present:
             return {
                 "verified": True,
@@ -726,13 +781,29 @@ def find_bare_mentions(text):
 # Mutations (all read-back verified)
 # --------------------------------------------------------------------------
 
-def claim_write(bridge_cmd_parts, issue_uuid, state_id, delegate_id, assignee_id=None, dry_run=False):
-    input_fields = f'stateId: "{state_id}", delegateId: "{delegate_id}"'
+
+def claim_write(
+    bridge_cmd_parts,
+    issue_uuid,
+    state_id,
+    delegate_id=None,
+    assignee_id=None,
+    dry_run=False,
+):
+    # Two claim shapes. An app actor claims by delegate (optionally recording the
+    # operator as assignee). A human operator driving the session claims by
+    # assignee alone: Linear's delegateId takes only agent users, so no delegate
+    # is written and the assignee IS the claim.
+    if not delegate_id and not assignee_id:
+        raise ValueError("claim_write: a claim needs a delegate, an assignee, or both")
+    input_fields = f'stateId: "{state_id}"'
+    if delegate_id:
+        input_fields += f', delegateId: "{delegate_id}"'
     if assignee_id:
         input_fields += f', assigneeId: "{assignee_id}"'
     mutation = (
         f'mutation {{ issueUpdate(id: "{issue_uuid}", '
-        f'input: {{ {input_fields} }}) {{ success }} }}'
+        f"input: {{ {input_fields} }}) {{ success }} }}"
     )
     if dry_run:
         return {"dry_run": True, "mutation": mutation}
@@ -745,14 +816,20 @@ def claim_write(bridge_cmd_parts, issue_uuid, state_id, delegate_id, assignee_id
     )
     node = readback.get("data", {}).get("issue") or {}
     observed_delegate = (node.get("delegate") or {}).get("id")
-    race_lost = observed_delegate != delegate_id
+    observed_assignee = (node.get("assignee") or {}).get("id")
+    if delegate_id:
+        race_lost = observed_delegate != delegate_id
+    else:
+        # Assignee-only claim: lost when someone else is now the assignee, or
+        # an agent delegate appeared on the ticket in the meantime.
+        race_lost = observed_assignee != assignee_id or observed_delegate is not None
     return {
         "dry_run": False,
         "verified": not race_lost,
         "race_lost": race_lost,
         "observed_delegate": observed_delegate,
         "observed_state": node.get("state"),
-        "observed_assignee": (node.get("assignee") or {}).get("id"),
+        "observed_assignee": observed_assignee,
     }
 
 
@@ -765,7 +842,10 @@ def release_delegate(bridge_cmd_parts, issue_uuid):
     )
     node = readback.get("data", {}).get("issue") or {}
     observed_delegate = (node.get("delegate") or {}).get("id")
-    return {"verified": observed_delegate is None, "observed_delegate": observed_delegate}
+    return {
+        "verified": observed_delegate is None,
+        "observed_delegate": observed_delegate,
+    }
 
 
 def set_state(bridge_cmd_parts, issue_uuid, state_id):
@@ -803,14 +883,20 @@ def create_comment(bridge_cmd_parts, issue_uuid, body):
         "commentCreate(input: { issueId: $issueId, body: $body }) { "
         "success comment { id } } }"
     )
-    resp = run_graphql(bridge_cmd_parts, mutation, variables={"issueId": issue_uuid, "body": body})
-    comment_id = (((resp.get("data") or {}).get("commentCreate") or {}).get("comment") or {}).get("id")
+    resp = run_graphql(
+        bridge_cmd_parts, mutation, variables={"issueId": issue_uuid, "body": body}
+    )
+    comment_id = (
+        ((resp.get("data") or {}).get("commentCreate") or {}).get("comment") or {}
+    ).get("id")
 
     readback = run_graphql(
         bridge_cmd_parts,
         f'query {{ issue(id: "{issue_uuid}") {{ comments {{ nodes {{ id body }} }} }} }}',
     )
-    nodes = (((readback.get("data") or {}).get("issue") or {}).get("comments") or {}).get("nodes", [])
+    nodes = (
+        ((readback.get("data") or {}).get("issue") or {}).get("comments") or {}
+    ).get("nodes", [])
     observed = next((n for n in nodes if n.get("id") == comment_id), None)
     return {
         "verified": observed is not None and observed.get("body") == body,
@@ -827,7 +913,7 @@ def create_relation(bridge_cmd_parts, issue_uuid, related_uuid, relation_type):
     mutation = (
         f'mutation {{ issueRelationCreate(input: {{ issueId: "{issue_uuid}", '
         f'relatedIssueId: "{related_uuid}", type: {relation_type} }}) '
-        f'{{ success issueRelation {{ id type relatedIssue {{ id }} }} }} }}'
+        f"{{ success issueRelation {{ id type relatedIssue {{ id }} }} }} }}"
     )
     run_graphql(bridge_cmd_parts, mutation)
 
@@ -835,9 +921,16 @@ def create_relation(bridge_cmd_parts, issue_uuid, related_uuid, relation_type):
         bridge_cmd_parts,
         f'query {{ issue(id: "{issue_uuid}") {{ relations {{ nodes {{ type relatedIssue {{ id }} }} }} }} }}',
     )
-    nodes = (((readback.get("data") or {}).get("issue") or {}).get("relations") or {}).get("nodes", [])
+    nodes = (
+        ((readback.get("data") or {}).get("issue") or {}).get("relations") or {}
+    ).get("nodes", [])
     observed = next(
-        (n for n in nodes if n.get("type") == relation_type and (n.get("relatedIssue") or {}).get("id") == related_uuid),
+        (
+            n
+            for n in nodes
+            if n.get("type") == relation_type
+            and (n.get("relatedIssue") or {}).get("id") == related_uuid
+        ),
         None,
     )
     return {"verified": observed is not None, "observed": observed}
@@ -854,18 +947,34 @@ def resolve_state(bridge_cmd_parts, team_key, state_name):
     if key not in _STATE_CACHE:
         query = f'query {{ workflowStates(filter: {{ team: {{ key: {{ eq: "{key}" }} }} }}) {{ nodes {{ id name type }} }} }}'
         resp = run_graphql(bridge_cmd_parts, query)
-        _STATE_CACHE[key] = resp.get("data", {}).get("workflowStates", {}).get("nodes", [])
+        _STATE_CACHE[key] = (
+            resp.get("data", {}).get("workflowStates", {}).get("nodes", [])
+        )
     for state in _STATE_CACHE[key]:
         if state.get("name", "").lower() == state_name.lower():
             return state
     raise GraphQLAPIError(f"no workflow state named {state_name!r} for team {key!r}")
 
 
-def wip_check(bridge_cmd_parts, actor_id, project_id):
+# The states a claim moves a ticket into. A human operator's driven claim has no
+# delegate, so these states plus the assignee are the claim. The `started` state
+# TYPE is too wide for that: Needs Input and Awaiting Acceptance are also started,
+# and a park leaves the operator assigned.
+CLAIM_STATE_NAMES = ("In Progress", "Planning")
+
+
+def wip_check(bridge_cmd_parts, actor_id, project_id, by="delegate"):
+    if by not in ("delegate", "assignee"):
+        raise ValueError(f"wip_check: by must be 'delegate' or 'assignee', got {by!r}")
+    if by == "assignee":
+        names = ", ".join(f'"{n}"' for n in CLAIM_STATE_NAMES)
+        state_filter = f"state: {{ name: {{ in: [{names}] }} }}"
+    else:
+        state_filter = 'state: { type: { eq: "started" } }'
     query = (
         f'query {{ issues(filter: {{ project: {{ id: {{ eq: "{project_id}" }} }}, '
-        f'delegate: {{ id: {{ eq: "{actor_id}" }} }}, state: {{ type: {{ eq: "started" }} }} }}) '
-        f'{{ nodes {{ id identifier title }} }} }}'
+        f'{by}: {{ id: {{ eq: "{actor_id}" }} }}, {state_filter} }}) '
+        f"{{ nodes {{ id identifier title }} }} }}"
     )
     resp = run_graphql(bridge_cmd_parts, query)
     return resp.get("data", {}).get("issues", {}).get("nodes", [])
@@ -880,7 +989,7 @@ def resolve_operator(bridge_cmd_parts, email=None):
             raise GraphQLAPIError(f"no user found for --email {email!r}")
         return nodes[0]
 
-    query = 'query { users(filter: { admin: { eq: true }, active: { eq: true } }) { nodes { id name email admin app } } }'
+    query = "query { users(filter: { admin: { eq: true }, active: { eq: true } }) { nodes { id name email admin app } } }"
     resp = run_graphql(bridge_cmd_parts, query)
     nodes = resp.get("data", {}).get("users", {}).get("nodes", [])
     candidates = [u for u in nodes if not u.get("app")]
@@ -896,7 +1005,7 @@ def resolve_operator(bridge_cmd_parts, email=None):
 
 
 def resolve_viewer(bridge_cmd_parts):
-    resp = run_graphql(bridge_cmd_parts, "query { viewer { id name email } }")
+    resp = run_graphql(bridge_cmd_parts, "query { viewer { id name email app } }")
     return resp.get("data", {}).get("viewer")
 
 
@@ -904,13 +1013,20 @@ def resolve_viewer(bridge_cmd_parts):
 # CLI
 # --------------------------------------------------------------------------
 
+
 def _print(obj):
     print(json.dumps(obj, indent=2))
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Linear GraphQL bridge transport + primitives.")
-    parser.add_argument("--bridge-cmd", default=None, help="Bridge command; falls back to LINEAR_GQL_CMD.")
+    parser = argparse.ArgumentParser(
+        description="Linear GraphQL bridge transport + primitives."
+    )
+    parser.add_argument(
+        "--bridge-cmd",
+        default=None,
+        help="Bridge command; falls back to LINEAR_GQL_CMD.",
+    )
     sub = parser.add_subparsers(dest="subcommand", required=True)
 
     sub.add_parser("viewer")
@@ -940,11 +1056,12 @@ def main(argv=None):
     p_wip = sub.add_parser("wip-check")
     p_wip.add_argument("--actor", required=True)
     p_wip.add_argument("--project", required=True)
+    p_wip.add_argument("--by", choices=("delegate", "assignee"), default="delegate")
 
     p_claim = sub.add_parser("claim-write")
     p_claim.add_argument("uuid")
     p_claim.add_argument("--state", required=True)
-    p_claim.add_argument("--delegate", required=True)
+    p_claim.add_argument("--delegate", default=None)
     p_claim.add_argument("--assignee", default=None)
     p_claim.add_argument("--dry-run", action="store_true")
 
@@ -971,7 +1088,9 @@ def main(argv=None):
     p_decisions_append = sub.add_parser("decisions-append")
     p_decisions_append.add_argument("map_id")
     p_decisions_append.add_argument("--entry-file", required=True)
-    p_decisions_append.add_argument("--max-attempts", type=int, default=DECISIONS_APPEND_MAX_ATTEMPTS)
+    p_decisions_append.add_argument(
+        "--max-attempts", type=int, default=DECISIONS_APPEND_MAX_ATTEMPTS
+    )
 
     args = parser.parse_args(argv)
 
@@ -996,7 +1115,9 @@ def main(argv=None):
     dry_run_no_bridge_needed = args.subcommand == "claim-write" and args.dry_run
 
     try:
-        bridge_cmd_parts = None if dry_run_no_bridge_needed else resolve_bridge_cmd(args.bridge_cmd)
+        bridge_cmd_parts = (
+            None if dry_run_no_bridge_needed else resolve_bridge_cmd(args.bridge_cmd)
+        )
 
         if args.subcommand == "viewer":
             _print({"viewer": resolve_viewer(bridge_cmd_parts)})
@@ -1005,7 +1126,9 @@ def main(argv=None):
             _print({"operator": resolve_operator(bridge_cmd_parts, args.email)})
 
         elif args.subcommand == "issue":
-            node = resolve_issue_ref(bridge_cmd_parts, args.id, args.body, args.comments, args.history)
+            node = resolve_issue_ref(
+                bridge_cmd_parts, args.id, args.body, args.comments, args.history
+            )
             node = dict(node)
             node["blocked_by_open"] = _blocked_by_open(node)
             _print({"issue": node})
@@ -1026,10 +1149,27 @@ def main(argv=None):
             _print({"issue_id": node.get("identifier"), "documents": docs})
 
         elif args.subcommand == "wip-check":
-            _print({"in_progress": wip_check(bridge_cmd_parts, args.actor, args.project)})
+            _print(
+                {
+                    "in_progress": wip_check(
+                        bridge_cmd_parts, args.actor, args.project, args.by
+                    )
+                }
+            )
 
         elif args.subcommand == "claim-write":
-            _print(claim_write(bridge_cmd_parts, args.uuid, args.state, args.delegate, args.assignee, args.dry_run))
+            if not args.delegate and not args.assignee:
+                parser.error("claim-write needs --delegate, --assignee, or both")
+            _print(
+                claim_write(
+                    bridge_cmd_parts,
+                    args.uuid,
+                    args.state,
+                    args.delegate,
+                    args.assignee,
+                    args.dry_run,
+                )
+            )
 
         elif args.subcommand == "release-delegate":
             _print(release_delegate(bridge_cmd_parts, args.uuid))
@@ -1050,7 +1190,11 @@ def main(argv=None):
             _print(create_comment(bridge_cmd_parts, args.uuid, body))
 
         elif args.subcommand == "create-relation":
-            _print(create_relation(bridge_cmd_parts, args.uuid, args.related_uuid, args.type))
+            _print(
+                create_relation(
+                    bridge_cmd_parts, args.uuid, args.related_uuid, args.type
+                )
+            )
 
         elif args.subcommand == "decisions-append":
             try:
@@ -1060,8 +1204,18 @@ def main(argv=None):
                 print(f"ERROR: failed to read --entry-file: {e}", file=sys.stderr)
                 return EXIT_CONFIG_GAP
             map_node = resolve_issue_ref(bridge_cmd_parts, args.map_id)
-            map_title = map_node.get("title") or map_node.get("identifier") or args.map_id
-            _print(decisions_append(bridge_cmd_parts, map_node["id"], map_title, entry_text, args.max_attempts))
+            map_title = (
+                map_node.get("title") or map_node.get("identifier") or args.map_id
+            )
+            _print(
+                decisions_append(
+                    bridge_cmd_parts,
+                    map_node["id"],
+                    map_title,
+                    entry_text,
+                    args.max_attempts,
+                )
+            )
 
         return EXIT_OK
 

@@ -181,7 +181,7 @@ CHECK_INVENTORY = {
         },
         {
             "id": "C6",
-            "name": "WIP: no other In Progress delegated to actor on project; override only on caller ack",
+            "name": "WIP: no other In Progress claimed by the actor on project (delegated for an app actor, assigned for a human operator); override only on caller ack",
             "home": "Script (detect); override disposition is Judgment",
         },
         {
@@ -201,7 +201,7 @@ CHECK_INVENTORY = {
         },
         {
             "id": "C10",
-            "name": "Claim write: viewer+operator resolution, single mutation state+delegate(+assignee)",
+            "name": "Claim write: viewer+operator resolution, single mutation state+delegate(+assignee) for an app actor, state+assignee alone for a human operator",
             "home": "Script (linear_bridge.py claim-write)",
         },
         {
@@ -573,6 +573,7 @@ def run_claim_checks(ctx, flags):
         "state_ids": ctx.get("state_ids", {}),
         "viewer_id": ctx.get("viewer_id"),
         "operator_id": ctx.get("operator_id"),
+        "driven": bool(ctx.get("driven")),
         "assignee_gate": None,
         "model_label": None,
         "refusal_reasons": [],
@@ -709,7 +710,8 @@ def run_claim_checks(ctx, flags):
     # C6 — WIP check
     wip_conflict = ctx.get("wip_conflict")
     if wip_conflict and not flags.get("caller_ack_wip"):
-        detail = f"actor already has {wip_conflict.get('identifier')} In Progress on this project — no --caller-ack-wip"
+        field = "assigned" if ctx.get("driven") else "delegated"
+        detail = f"actor already has {wip_conflict.get('identifier')} {field} and In Progress on this project — no --caller-ack-wip"
         checks.append(mk_check("C6", "claim", "FAIL", detail))
         refuse_reasons.append(detail)
     elif wip_conflict:
@@ -728,7 +730,9 @@ def run_claim_checks(ctx, flags):
                 "C6",
                 "claim",
                 "PASS",
-                "no other In Progress ticket delegated to actor on project",
+                "no other In Progress ticket "
+                + ("assigned to" if ctx.get("driven") else "delegated to")
+                + " actor on project",
             )
         )
 
@@ -776,6 +780,10 @@ def run_claim_checks(ctx, flags):
         assignee_gate = "skip" if flags.get("autonomous") else "set"
     else:
         assignee_gate = None
+    # A human operator driving the session claims AS the assignee, always: the
+    # assignee is the claim, so the gate cannot skip.
+    if ctx.get("driven") and assignee_gate is not None:
+        assignee_gate = "set"
     facts["assignee_gate"] = assignee_gate
     checks.append(mk_check("C9", "claim", "PASS", f"assignee_gate={assignee_gate}"))
 
@@ -1848,12 +1856,22 @@ def gather_context(bridge_cmd_parts, verb, issue_id, flags):
     issue["blocked_by_open"] = lb._blocked_by_open(issue)
     ctx = {"issue": issue}
 
-    ctx["viewer_id"] = (lb.resolve_viewer(bridge_cmd_parts) or {}).get("id")
+    viewer = lb.resolve_viewer(bridge_cmd_parts) or {}
+    ctx["viewer_id"] = viewer.get("id")
+    # Driven = the acting identity is a human (the API says app is false). An
+    # absent field is not evidence of a human, so it stays the app-actor path.
+    ctx["driven"] = viewer.get("app") is False
     if verb == "claim":
-        try:
-            ctx["operator_id"] = (lb.resolve_operator(bridge_cmd_parts) or {}).get("id")
-        except (lb.GraphQLAPIError, lb.AmbiguousOperatorError):
-            ctx["operator_id"] = None
+        if ctx["driven"]:
+            # The operator is the viewer; there is no one else to look up.
+            ctx["operator_id"] = ctx["viewer_id"]
+        else:
+            try:
+                ctx["operator_id"] = (lb.resolve_operator(bridge_cmd_parts) or {}).get(
+                    "id"
+                )
+            except (lb.GraphQLAPIError, lb.AmbiguousOperatorError):
+                ctx["operator_id"] = None
 
     team_key = (issue.get("team") or {}).get("key")
     state_names = {
@@ -1892,7 +1910,12 @@ def gather_context(bridge_cmd_parts, verb, issue_id, flags):
         actor_id = ctx["viewer_id"]
         project_id = flags.get("project_id")
         if actor_id and project_id:
-            conflicts = lb.wip_check(bridge_cmd_parts, actor_id, project_id)
+            conflicts = lb.wip_check(
+                bridge_cmd_parts,
+                actor_id,
+                project_id,
+                by="assignee" if ctx["driven"] else "delegate",
+            )
             ctx["wip_conflict"] = conflicts[0] if conflicts else None
 
     if verb == "close-map":
@@ -1961,7 +1984,7 @@ def _execute_claim(bridge_cmd_parts, verdict, uuid, facts, state_ids, args):
             bridge_cmd_parts,
             uuid,
             state_ids.get(target_key),
-            facts.get("viewer_id"),
+            None if facts.get("driven") else facts.get("viewer_id"),
             assignee_id,
         )
         # A lost race means back off and report, never proceed (claim.md) —
