@@ -8,7 +8,7 @@ Takeable = state Todo, unblocked (no open `blocked_by` relation), `assignee: nul
 
 Ordering: priority (Urgent → Low; `0`/no-priority sorts last — an unprioritized ticket never outranks a prioritized one), then age (`createdAt` ascending — oldest first).
 
-An agent actor's claim lives in the `delegate` field, not `assignee` — `assignee` is system-set on operator-directed claims (a co-engagement record) and is the operator's field to clear. A human operator's driven claim has no delegate: the claim is the assignee on a started ticket. Both are invisible to takeable-selection, which requires `assignee: null`, `delegate: null` and state Todo.
+An agent actor's claim lives in the `delegate` field, not `assignee` — `assignee` is system-set on operator-directed claims (a co-engagement record) and is the operator's field to clear. A human operator's driven claim has no delegate: the claim is the assignee on a ticket in In Progress or Planning. Both are invisible to takeable-selection, which requires `assignee: null`, `delegate: null` and state Todo.
 
 **`delegate` isn't exposed by the tactic MCP** — every takeable-set query below goes through the GraphQL bridge (same bridge as `playbooks/claim.md`'s Step 6, resolved via `secrets.op_read` / `linear.app_token_ref` per CLAUDE.md > Configuration), never `linear_getIssues`/`linear_getProjectIssues` alone.
 

@@ -620,6 +620,10 @@ class SubcommandShapeTests(unittest.TestCase):
         query = read_log(log_path)[0]
         self.assertIn('assignee: { id: { eq: "operator-1" } }', query)
         self.assertNotIn("delegate:", query)
+        # Claim states by NAME: Needs Input is a started-type state and a park
+        # leaves the operator assigned, so the state type would count parks.
+        self.assertIn('name: { in: ["In Progress", "Planning"] }', query)
+        self.assertNotIn('type: { eq: "started" }', query)
         self.assertEqual(nodes[0]["identifier"], "ACR-9")
 
     def test_release_delegate_verified_when_cleared(self):

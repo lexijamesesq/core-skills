@@ -225,6 +225,26 @@ class StaleClaimsTests(unittest.TestCase):
         report = map_sweep.compute_sweep(ctx, stale_days=7, now=NOW)
         self.assertEqual([s["identifier"] for s in report["stale_claims"]], ["ACR-62"])
 
+    def test_absent_for_an_assigned_ticket_that_is_not_in_a_claim_state(self):
+        # Needs Input is a started-type state and a park leaves the assignee, and
+        # a Todo ticket with an assignee was never claimed: neither is an
+        # abandoned claim.
+        parked = f.child(
+            "ACR-63",
+            state_name="Needs Input",
+            state_type="started",
+            assignee="operator-1",
+            updated_at="2026-01-25T00:00:00Z",
+        )
+        todo = f.child(
+            "ACR-64",
+            assignee="operator-1",
+            updated_at="2026-01-25T00:00:00Z",
+        )
+        ctx = f.base_ctx(children=[parked, todo])
+        report = map_sweep.compute_sweep(ctx, stale_days=7, now=NOW)
+        self.assertEqual(report["stale_claims"], [])
+
     def test_absent_when_recently_active(self):
         c = f.child(
             "ACR-61", delegate="viewer-1", updated_at="2026-02-09T00:00:00Z"

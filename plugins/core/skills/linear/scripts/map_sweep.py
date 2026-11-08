@@ -357,11 +357,13 @@ def compute_sweep(ctx, stale_days=7.0, now=None):
     stale_claims = []
     for c in children:
         # A claim is a delegate (app actor) or, for a human operator driving the
-        # session, an assignee on a started ticket.
-        started_and_assigned = (c.get("state") or {}).get(
-            "type"
-        ) == "started" and c.get("assignee")
-        if not c.get("delegate") and not started_and_assigned:
+        # session, an assignee on a ticket in a claim state (In Progress or
+        # Planning). Not the `started` state type: Needs Input is started too and
+        # a park leaves the assignee in place.
+        claimed_by_assignee = (c.get("state") or {}).get(
+            "name"
+        ) in lb.CLAIM_STATE_NAMES and c.get("assignee")
+        if not c.get("delegate") and not claimed_by_assignee:
             continue
         # Delegates are historical on finished tickets (operator ruling,
         # 2026-08-20): Done/Canceled with delegate set is the normal record

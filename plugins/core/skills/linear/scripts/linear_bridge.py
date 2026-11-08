@@ -28,9 +28,10 @@ Subcommands:
     documents <id> [--content]                documents attached to an issue
     lint-body [FILE]                         reject bare @mentions (stdin or FILE)
     wip-check --actor ID --project ID [--by delegate|assignee]
-                                              In Progress issues claimed by the actor
-                                              (delegate: app actors; assignee: a
-                                              human operator driving the session)
+                                              issues claimed by the actor (delegate:
+                                              app actors, any started state;
+                                              assignee: a human operator driving the
+                                              session, In Progress or Planning)
     claim-write UUID --state ID [--delegate ID] [--assignee ID] [--dry-run]
                                               claim mutation + built-in read-back; at
                                               least one of --delegate / --assignee. An
@@ -955,12 +956,24 @@ def resolve_state(bridge_cmd_parts, team_key, state_name):
     raise GraphQLAPIError(f"no workflow state named {state_name!r} for team {key!r}")
 
 
+# The states a claim moves a ticket into. A human operator's driven claim has no
+# delegate, so these states plus the assignee are the claim. The `started` state
+# TYPE is too wide for that: Needs Input and Awaiting Acceptance are also started,
+# and a park leaves the operator assigned.
+CLAIM_STATE_NAMES = ("In Progress", "Planning")
+
+
 def wip_check(bridge_cmd_parts, actor_id, project_id, by="delegate"):
     if by not in ("delegate", "assignee"):
         raise ValueError(f"wip_check: by must be 'delegate' or 'assignee', got {by!r}")
+    if by == "assignee":
+        names = ", ".join(f'"{n}"' for n in CLAIM_STATE_NAMES)
+        state_filter = f"state: {{ name: {{ in: [{names}] }} }}"
+    else:
+        state_filter = 'state: { type: { eq: "started" } }'
     query = (
         f'query {{ issues(filter: {{ project: {{ id: {{ eq: "{project_id}" }} }}, '
-        f'{by}: {{ id: {{ eq: "{actor_id}" }} }}, state: {{ type: {{ eq: "started" }} }} }}) '
+        f'{by}: {{ id: {{ eq: "{actor_id}" }} }}, {state_filter} }}) '
         f"{{ nodes {{ id identifier title }} }} }}"
     )
     resp = run_graphql(bridge_cmd_parts, query)

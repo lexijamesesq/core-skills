@@ -710,7 +710,8 @@ def run_claim_checks(ctx, flags):
     # C6 — WIP check
     wip_conflict = ctx.get("wip_conflict")
     if wip_conflict and not flags.get("caller_ack_wip"):
-        detail = f"actor already has {wip_conflict.get('identifier')} In Progress on this project — no --caller-ack-wip"
+        field = "assigned" if ctx.get("driven") else "delegated"
+        detail = f"actor already has {wip_conflict.get('identifier')} {field} and In Progress on this project — no --caller-ack-wip"
         checks.append(mk_check("C6", "claim", "FAIL", detail))
         refuse_reasons.append(detail)
     elif wip_conflict:
@@ -729,7 +730,9 @@ def run_claim_checks(ctx, flags):
                 "C6",
                 "claim",
                 "PASS",
-                "no other In Progress ticket delegated to actor on project",
+                "no other In Progress ticket "
+                + ("assigned to" if ctx.get("driven") else "delegated to")
+                + " actor on project",
             )
         )
 

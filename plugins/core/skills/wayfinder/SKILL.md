@@ -44,7 +44,7 @@ Three roles, named once, used everywhere:
 
 Default-plus-exception, never in-context judgment — a session choosing models for others defaults to its own class (self-selection bias); the defaults above are the countermeasure.
 
-**Claim** is the act and state of holding a ticket (`` `@traffic-cone` `` `claim`); parks release it. For an agent actor it is Linear's `delegate` field ("Delegate" names the field only, never an agent); for a session the operator drives under her own account it is the operator as `assignee` on a started ticket, with no delegate.
+**Claim** is the act and state of holding a ticket (`` `@traffic-cone` `` `claim`); parks release it. For an agent actor it is Linear's `delegate` field ("Delegate" names the field only, never an agent); for a session the operator drives under her own account it is the operator as `assignee` on a ticket in In Progress or Planning, with no delegate.
 
 Lifecycle transitions route through `` `@traffic-cone` ``; `` `@attack-kitty` `` executes none.
 
