@@ -5,9 +5,6 @@ identity and testing. Estate templates install native hooks in new agent clones;
 linked worktrees reuse their repository's hooks. Existing unprepared checkouts
 need the standard installation described there. Local checks run at Git events,
 independently of session startup. Preserve custom hook owners and `core.hooksPath`.
-Codex invokes estate Git/GitHub commands through
-`~/.config/op-agent/bin/estate-codex --mode estate -- <command>`, using `"$APP_GH"`
-inside its child shell for API operations. Claude uses its enrolled profile.
 Missing hooks require standard installation, never bypasses or another actor.
 
 For estate-hook changes run the affected `plugins/estate-hooks/tests/*.test.sh`
