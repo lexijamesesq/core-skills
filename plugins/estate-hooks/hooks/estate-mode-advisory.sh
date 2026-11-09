@@ -27,17 +27,18 @@ OPERATOR_GITCONFIG="$HOME/.config/claude-operator/operator-mode.gitconfig"
 
 case "$(basename "${CLAUDE_CONFIG_DIR:-}")" in
 .claude-personal)
-	case "${GIT_CONFIG_GLOBAL:-}" in
-	"$OPERATOR_GITCONFIG")
+	# Where the session's own env points, and whether that file is really installed, as the guard decides: a setting
+	# that names a baseline whose file is missing is not that baseline.
+	gcg="${GIT_CONFIG_GLOBAL:-}"
+	if [[ "$gcg" == "$OPERATOR_GITCONFIG" && -f "$OPERATOR_GITCONFIG" ]]; then
 		echo "Operator identity mode (personal profile): git and gh writes to GitHub authenticate as, and are authored by, the operator's own account (lexijamesesq), unsigned, with no co-author line -- not the Claude App. The estate-identity PreToolUse guard blocks any git/gh write if the baseline is inconsistent, and a git push additionally requires the pre-push scanner hook installed in the repo."
-		;;
-	"$ESTATE_GITCONFIG")
+	elif [[ "$gcg" == "$ESTATE_GITCONFIG" && -f "$ESTATE_GITCONFIG" ]]; then
 		echo "Estate identity mode (personal profile): git and gh writes to GitHub authenticate as, and are authored by, the Claude App (claude-the-enduring[bot]) alone — never as her, and with no co-author line. The estate-identity PreToolUse guard blocks any git/gh write if the baseline is inconsistent, and a git push additionally requires the pre-push scanner hook installed in the repo."
-		;;
-	*)
-		echo "Personal profile — NOT enrolled in an identity baseline (GIT_CONFIG_GLOBAL is '${GIT_CONFIG_GLOBAL:-<unset>}', neither the operator's nor the App's). git and gh behave as they did before the identity layer. Where a baseline is installed on this machine, the estate-identity guard blocks git/gh writes from a session that matches neither: relaunch the session, or ask the operator."
-		;;
-	esac
+	elif [[ ! -f "$ESTATE_GITCONFIG" && ! -f "$OPERATOR_GITCONFIG" ]]; then
+		echo "Personal profile — NOT enrolled in an identity baseline: no estate or operator gitconfig is installed on this machine (GIT_CONFIG_GLOBAL is '${gcg:-<unset>}'). git and gh behave as they did before the identity layer, except that the estate-identity guard blocks git push until the machine is enrolled (apply the blueprint and relaunch)."
+	else
+		echo "Personal profile — NOT enrolled in either identity baseline: GIT_CONFIG_GLOBAL is '${gcg:-<unset>}', which is neither the operator's nor the App's gitconfig, or names a file that is missing. A baseline is installed on this machine, so the estate-identity guard blocks every git and gh command from this session, reads included, until it is relaunched on a baseline: relaunch the session, or ask the operator."
+	fi
 	;;
 .claude-professional)
 	echo "Employer identity mode (professional profile): gh and git are owner-routed exactly as the credential includeIf is — repos under her own account use the Claude App, her employer's repos use her own login."
