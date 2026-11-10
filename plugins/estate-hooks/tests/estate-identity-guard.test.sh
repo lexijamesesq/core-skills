@@ -10,9 +10,8 @@
 # session uses, so the fixture environment carries no identity variables and a
 # session carrying any of them is allowed.
 #
-# NOT covered here, by design: an env-based guard cannot see command-line
-# `git -c` overrides or a repo-level core.sshCommand, and the scanner check
-# keys on the payload cwd, not the target repo of a `git -C`.
+# NOT covered here, by design: the scanner check keys on the payload cwd, not
+# the target repo of a `git -C`.
 #
 # Run: bash plugins/estate-hooks/tests/estate-identity-guard.test.sh
 set -uo pipefail

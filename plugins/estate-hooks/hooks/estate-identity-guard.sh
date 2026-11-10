@@ -23,8 +23,6 @@
 
 set -uo pipefail
 
-command -v jq >/dev/null 2>&1 || exit 0
-
 INPUT=$(cat 2>/dev/null)
 [[ -z "$INPUT" ]] && exit 0
 TOOL=$(jq -r '.tool_name // empty' <<<"$INPUT" 2>/dev/null)
