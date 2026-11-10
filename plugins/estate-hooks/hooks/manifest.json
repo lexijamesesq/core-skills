@@ -10,7 +10,6 @@
     "linear-transition-guard.sh",
     "fix-obsidian-claude-sync.sh",
     "session-init.sh",
-    "estate-identity-guard.sh",
-    "estate-mode-advisory.sh"
+    "estate-identity-guard.sh"
   ]
 }
