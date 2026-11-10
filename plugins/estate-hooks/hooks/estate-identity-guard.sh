@@ -7,9 +7,8 @@
 # entry decides whether a git or gh command runs.
 #
 # 1. NOT ENROLLED -> `git push` is refused for every Claude profile. Enrollment
-#    is a disk fact: either estate gitconfig is installed
-#    (~/.config/claude-estate/estate-mode.gitconfig or
-#    ~/.config/claude-operator/operator-mode.gitconfig). Reads and
+#    is a disk fact: the agents' gitconfig is installed
+#    (~/.config/claude-operator/operator-mode.gitconfig). Reads and
 #    enrollment/bootstrap commands stay available.
 # 2. A personal-profile `git push` requires the native pre-push scanner
 #    (an executable pre-commit shim at Git's effective hook path) in the
@@ -40,14 +39,12 @@ uses_gh=0
 [[ "$LOWER" =~ (^|$BND)gh($|$BND) ]] && uses_gh=1
 [[ "$uses_git" == 1 || "$uses_gh" == 1 ]] || exit 0
 
-# The two gitconfig paths whose presence on disk marks a machine as enrolled.
-EXPECT_GITCONFIG="$HOME/.config/claude-estate/estate-mode.gitconfig"
+# The gitconfig whose presence on disk marks a machine as enrolled.
 OPERATOR_GITCONFIG="$HOME/.config/claude-operator/operator-mode.gitconfig"
 
 # Pre-enrollment push protection covers every Claude profile; reads and setup
-# remain available. Human sessions returned above. Enrolled means EITHER
-# gitconfig is installed.
-if [[ ! -f "$EXPECT_GITCONFIG" && ! -f "$OPERATOR_GITCONFIG" ]]; then
+# remain available. Human sessions returned above.
+if [[ ! -f "$OPERATOR_GITCONFIG" ]]; then
 	if [[ "$uses_git" == 1 && "$LOWER" =~ (^|$BND)push($|$BND) ]]; then
 		echo "estate-identity-guard: BLOCKED — enroll this machine in estate identity and prepare the checkout before git push; ordinary native pushes are supported after setup." >&2
 		exit 2
