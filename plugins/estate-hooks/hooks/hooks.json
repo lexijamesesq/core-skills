@@ -79,11 +79,6 @@
             "type": "command"
           },
           {
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/estate-mode-advisory.sh",
-            "timeout": 5,
-            "type": "command"
-          },
-          {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
             "timeout": 30,
             "type": "command"
@@ -95,11 +90,6 @@
         "hooks": [
           {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
-            "timeout": 5,
-            "type": "command"
-          },
-          {
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/estate-mode-advisory.sh",
             "timeout": 5,
             "type": "command"
           },
