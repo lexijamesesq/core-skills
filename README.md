@@ -1,6 +1,6 @@
 # core-skills
 
-The `core` Claude Code plugin marketplace for the estate's harness: `core` (session-mechanics skills and the verification agent) and `estate-hooks` (lifecycle hooks). Publishing skills live in `publish-skills`, estate-maintenance skills in `system-skills`, and the authorial-voice skill in `personal-skills` — each its own marketplace. Both plugins install from this one marketplace; dotty (the public dotfiles repo this replaces the harness portion of) points here rather than carrying the content itself. Plugins live under `plugins/`; the marketplace manifest is `.claude-plugin/marketplace.json`.
+The `core` Claude Code plugin marketplace for the estate's harness: `core` (session-mechanics skills and the verification agent), `estate-hooks` (lifecycle hooks) and `orca-hooks` (session status for the Orca desktop app). Publishing skills live in `publish-skills`, estate-maintenance skills in `system-skills`, and the authorial-voice skill in `personal-skills` — each its own marketplace. Both plugins install from this one marketplace; dotty (the public dotfiles repo this replaces the harness portion of) points here rather than carrying the content itself. Plugins live under `plugins/`; the marketplace manifest is `.claude-plugin/marketplace.json`.
 
 ## Installation
 
@@ -76,6 +76,10 @@ Claude Code lifecycle hooks.
 | `pr-cache.sh` | SessionStart, PostToolUse | Caches PR metadata to cut redundant API calls |
 | `pr-verdict-watch-arm.sh` | PostToolUse | After a PR is opened (by `gh pr create` in any shape, or by the provisioner's caller rollout), tells the session to arm a Monitor on each new PR so verdicts and comments landing on the PR reach it |
 | `security-review-reminder.sh` | PreToolUse | Prints the run-a-security-review reminder before a `gh pr create` in any shape (advisory, never blocks) |
+
+### Orca status (`orca-hooks` plugin)
+
+Forwards each Claude Code lifecycle event to the hook script the [Orca](https://orca.dev) desktop app installs at `~/.orca/agent-hooks/claude-hook.sh`, so Orca shows exact session status. Orca writes these entries only into `~/.claude/settings.json`; this plugin delivers the same entries to profiles that use another config folder. Outside an Orca pane each entry drains its input and exits.
 
 ## CI and releases
 

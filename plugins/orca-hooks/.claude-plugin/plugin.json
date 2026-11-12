@@ -1,0 +1,16 @@
+{
+  "name": "orca-hooks",
+  "version": "0.1.0",
+  "description": "Reports Claude Code session events to the Orca desktop app when a session runs in an Orca pane. Does nothing anywhere else.",
+  "author": {
+    "name": "Lexi James",
+    "url": "https://github.com/lexijamesesq"
+  },
+  "repository": "https://github.com/lexijamesesq/core-skills",
+  "license": "MIT",
+  "keywords": [
+    "hooks",
+    "orca"
+  ],
+  "defaultEnabled": false
+}

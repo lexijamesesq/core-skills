@@ -13,6 +13,9 @@ repos:
       - id: release-version
         alias: estate-hooks-version
         args: [plugin, plugins/estate-hooks, estate-hooks]
+      - id: release-version
+        alias: orca-hooks-version
+        args: [plugin, plugins/orca-hooks, orca-hooks]
       - id: gitleaks-staged
         stages: [pre-commit]
       - id: gitleaks-commit-msg
