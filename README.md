@@ -1,6 +1,6 @@
 # core-skills
 
-The `core` Claude Code plugin marketplace for the estate's harness: `core` (session-mechanics skills and the verification agent), `estate-hooks` (lifecycle hooks) and `orca-hooks` (session status for the Orca desktop app). Publishing skills live in `publish-skills`, estate-maintenance skills in `system-skills`, and the authorial-voice skill in `personal-skills` — each its own marketplace. Both plugins install from this one marketplace; dotty (the public dotfiles repo this replaces the harness portion of) points here rather than carrying the content itself. Plugins live under `plugins/`; the marketplace manifest is `.claude-plugin/marketplace.json`.
+The `core` Claude Code plugin marketplace for the estate's harness: `core` (session-mechanics skills and the verification agent), `estate-hooks` (lifecycle hooks) and `orca-hooks` (session status for the Orca desktop app). Publishing skills live in `publish-skills`, estate-maintenance skills in `system-skills`, and the authorial-voice skill in `personal-skills` — each its own marketplace. All three plugins install from this one marketplace; dotty (the public dotfiles repo this replaces the harness portion of) points here rather than carrying the content itself. Plugins live under `plugins/`; the marketplace manifest is `.claude-plugin/marketplace.json`.
 
 ## Installation
 
@@ -80,6 +80,8 @@ Claude Code lifecycle hooks.
 ### Orca status (`orca-hooks` plugin)
 
 Forwards each Claude Code lifecycle event to the hook script the [Orca](https://orca.dev) desktop app installs at `~/.orca/agent-hooks/claude-hook.sh`, so Orca shows exact session status. Orca writes these entries only into `~/.claude/settings.json`; this plugin delivers the same entries to profiles that use another config folder. Outside an Orca pane each entry drains its input and exits.
+
+If Orca starts installing its hooks into custom config folders itself (stablyai/orca pull requests 31199 or 24894), disable this plugin in the same change, or every event is reported twice.
 
 ## CI and releases
 

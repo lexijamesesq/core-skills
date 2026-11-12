@@ -1,11 +1,11 @@
 {
-  "description": "Forwards each Claude Code lifecycle event to the hook script the Orca app installs at ~/.orca/agent-hooks/claude-hook.sh, so Orca can show exact session status. The event list and command mirror the entries Orca writes into ~/.claude/settings.json; Orca does not install them into other config folders (stablyai/orca issue 24873). Outside an Orca pane each entry drains its input and exits.",
+  "description": "Forwards each Claude Code lifecycle event to the hook script the Orca app installs at ~/.orca/agent-hooks/claude-hook.sh, so Orca can show exact session status. The event list mirrors the entries Orca writes into ~/.claude/settings.json; Orca does not install them into other config folders (stablyai/orca issue 24873). Outside an Orca pane each entry drains its input and exits.",
   "hooks": {
     "Elicitation": [
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -17,7 +17,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -29,7 +29,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -41,7 +41,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh quiet",
             "timeout": 10,
             "type": "command"
           }
@@ -52,7 +52,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -63,7 +63,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -75,7 +75,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -87,7 +87,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -99,7 +99,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -110,7 +110,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -121,7 +121,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -132,7 +132,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -143,7 +143,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -154,7 +154,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -165,7 +165,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
@@ -176,7 +176,7 @@
       {
         "hooks": [
           {
-            "command": "if [ -n \"${ORCA_PANE_KEY-}${ORCA_AGENT_PANE-}\" ] && [ -x \"${HOME-}/.orca/agent-hooks/claude-hook.sh\" ]; then ORCA_HOOK_AGENT_PID=\"${PPID:-}\"; export ORCA_HOOK_AGENT_PID; /bin/sh \"${HOME-}/.orca/agent-hooks/claude-hook.sh\"; else cat >/dev/null 2>&1 || :; printf '{}\\n'; fi",
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
             "timeout": 10,
             "type": "command"
           }
