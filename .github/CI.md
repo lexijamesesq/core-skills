@@ -10,7 +10,7 @@ marketplace publisher — not a duplicate of dotty's own record.
 
 **`claude plugin validate --strict` gates every push** (the `core-plugin-validation`
 pre-push hook).
-This repo IS a marketplace and two plugins; a manifest or plugin.json error
+This repo IS a marketplace and three plugins; a manifest or plugin.json error
 here breaks installation for every consumer, not just this repo's own tests.
 
 **`drift-check` and `standalone-check` are separate questions, separate
@@ -25,8 +25,8 @@ checked out alongside it.
 **Release: version check before push, split from push-time tag+Release.**
 Two steps, not one:
 
-- The `release-version` pre-push hooks (`core-version` and
-  `estate-hooks-version`, from dotty) compare each plugin's tree against its
+- The `release-version` pre-push hooks (`core-version`,
+  `estate-hooks-version` and `orca-hooks-version`, from dotty) compare each plugin's tree against its
   **highest existing tag**, not the tag matching the currently-declared
   version. Comparing against the declared-version tag would go silent
   during any window the push-time tagger is unhealthy — every PR merged in
@@ -36,9 +36,9 @@ Two steps, not one:
   Content changed with no version bump above that tag → fail loud,
   naming the plugin (receipt: `estate-hooks` shipped three distinct trees
   at version `0.2.0` within 73 minutes on 2026-09-03 — the failure this
-  check exists to catch). This repo publishes two
-  plugins, each with its own hook, so one plugin's fail doesn't let the
-  other's tag land on the wrong commit.
+  check exists to catch). This repo publishes three
+  plugins, each with its own hook, so one plugin's fail doesn't let
+  another's tag land on the wrong commit.
 - `release-tag` (`push` to `main`, in `plugin-release.yml`) re-runs the same
   comparison against the *declared* version specifically and, if untagged, cuts
   `claude plugin tag --push` + a GitHub Release. Idempotent — safe to

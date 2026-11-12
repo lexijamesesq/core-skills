@@ -1,0 +1,187 @@
+{
+  "description": "Forwards each Claude Code lifecycle event to the hook script the Orca app installs at ~/.orca/agent-hooks/claude-hook.sh, so Orca can show exact session status. The event list mirrors the entries Orca writes into ~/.claude/settings.json; Orca does not install them into other config folders (stablyai/orca issue 24873). Outside an Orca pane each entry drains its input and exits.",
+  "hooks": {
+    "Elicitation": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "ElicitationResult": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh quiet",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "ORCA_HOOK_AGENT_PID=\"${PPID:-}\" bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/orca-status.sh",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ]
+  }
+}
