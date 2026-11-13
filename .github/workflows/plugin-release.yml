@@ -16,4 +16,4 @@ jobs:
     uses: lexijamesesq/dotty/.github/workflows/estate-plugin-release.yml@v1
     with:
       dotty_ref: v1
-      plugins: '[{"path":"plugins/core","name":"core"},{"path":"plugins/estate-hooks","name":"estate-hooks"},{"path":"plugins/orca-hooks","name":"orca-hooks"}]'
+      plugins: '[{"path":"plugins/core","name":"core"},{"path":"plugins/estate-hooks","name":"estate-hooks"}]'
