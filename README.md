@@ -35,6 +35,7 @@ Bracket a working session — load state at the start, write it back at the end.
 | Artifact | Type | What it does |
 | --- | --- | --- |
 | `/linear` | Skill | Protocol reference for Linear operations — ticket creation, claiming, state transitions, and structured comment formats |
+| `/project-docs` | Skill | How a project's documentation in Notion is used and kept — the frame, plus a playbook each for getting oriented on a task, updating the docs after work, and setting them up |
 
 #### Authoring and machine state
 
