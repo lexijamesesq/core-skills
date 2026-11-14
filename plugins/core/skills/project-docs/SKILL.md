@@ -33,7 +33,7 @@ A session takes a path through the documentation. The task the operator gave dec
 
 ### What keeps it good
 
-Known issues and Decisions hold what someone who knew the project's history would tell you. Each row names its area, so a session reads the few that bear on its task and none of the history behind them.
+Known issues and Decisions hold what someone who knew the project's history would tell you. Each row names its area, so a session reads the few that bear on its task and none of the history behind them. A project whose pages were set up before these two existed has neither until `setup` adds them. In such a project, tell the operator, and say in your closing note what would have gone in them.
 
 The documentation is as good as the last session left it. It stays good because the sessions that use it also keep it: when your work changes what is true of the project, the page that describes it changes in the same piece of work. And it stays usable because each thing sits at the altitude of the sessions that need it: on the overview if every session does, on an area if every session working there does, in a knowledge document, a known issue or a decision if only some do.
 

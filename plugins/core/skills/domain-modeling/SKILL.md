@@ -18,6 +18,20 @@ The glossary and the decisions live in the project's documentation, which `/proj
 
 Most projects have a single domain context and one glossary. A project that spans several bounded contexts keeps a context map, a knowledge document that lists them and how they relate, and one glossary for each.
 
+Create documents lazily — only when you have something to write. If no glossary exists, create one when the first term is resolved.
+
+## During the session
+
+### Challenge against the glossary
+
+When the user uses a term that conflicts with the existing language in the domain glossary, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
+
+### Sharpen fuzzy language
+
+When the user uses vague or overloaded terms, propose a precise canonical term. "You're saying 'account' — do you mean the Customer or the User? Those are different things."
+
+### Discuss concrete scenarios
+
 When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that probe edge cases and force the user to be precise about the boundaries between concepts.
 
 ### Cross-reference with existing knowledge
