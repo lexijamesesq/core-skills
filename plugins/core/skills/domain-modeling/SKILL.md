@@ -52,4 +52,4 @@ Only offer to record a decision when all three are true:
 2. **Surprising without context** — a future reader will wonder "why did they do it this way?"
 3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
 
-If any of the three is missing, skip it. On the operator's yes, the decision becomes a row in the project's Decisions database.
+If any of the three is missing, skip it. Otherwise the decision becomes a row in the project's Decisions database, added through `/project-docs update`.

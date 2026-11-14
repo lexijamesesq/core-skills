@@ -22,7 +22,7 @@ The documentation is one of three places, and each holds its own kind.
 | — Overview, the project's page | The whole project: what it is, how work moves through it, which area a kind of task belongs to |
 | — Area, a sub-page | One part: what is true of it today, how to work there, where its detail is |
 | — Knowledge document, a row in the Knowledge database | One subject: design and reasons, research, procedures, records |
-| — Known issues, a database | What is wrong or surprising about the system as it is now, and what to do about it |
+| — Known issues, a database | What a session has to work around in the system as it is now, whether or not anyone means to change it |
 | — Decisions, a database | What was decided, why, and what was rejected, so that it is not undone or redone |
 
 Each thing is kept in one of these and pointed to from the others.

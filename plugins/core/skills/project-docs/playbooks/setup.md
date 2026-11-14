@@ -27,14 +27,14 @@ Move the project's existing documents into it and fill every field. For Update: 
 
 Two more databases on the project page, in every project, with these fields.
 
-**Known issues**: one row for each thing that is wrong or surprising about the system as it is now.
+**Known issues**: one row for each thing a session has to work around in the system as it is now.
 
 | Field | Type | Values |
 | --- | --- | --- |
 | Name | title | what happens, as a short statement |
 | Area | select | `Project-wide`, and one option per area |
 | What to do | text | how to work around it or avoid it |
-| Ticket | URL | the ticket for fixing it, if there is one |
+| Tracked at | URL | where a fix is tracked, if one is: a ticket or an upstream issue. Often empty |
 
 **Decisions**: one row for each decision a later session would otherwise undo or redo.
 
