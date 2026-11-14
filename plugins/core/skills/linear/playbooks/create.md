@@ -59,4 +59,4 @@ When `done_when` is omitted, write the deferral marker `_to be set at claim_` â€
 
 - Does NOT claim the ticket it creates (`playbooks/claim.md`).
 - Does NOT decompose an oversized ticket â€” sizing happens at claim (Too Big check, `playbooks/claim.md`).
-- Does NOT write map documents or Project Updates.
+- Does NOT write map documents.

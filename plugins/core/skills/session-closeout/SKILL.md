@@ -1,153 +1,36 @@
 ---
 name: session-closeout
-description: >
-  Triggers when the user says "Close out this session for [project]", "Session closeout",
-  "Close this session", or similar closeout phrases. Also triggers on "/session-closeout".
+description: Leave things so the next session can trust what it finds. Take stock of what this session touched, bring each thing to done, gone or handed over, and pass on what was learned. Use it when the operator says "close out", "close this session", "wrap up" or "/session-closeout", and at any pause where work is being set down — before a break, before handing work back, before a long task.
+disable-model-invocation: false
 ---
 
-# Session Closeout (Orchestrator)
+# session-closeout
 
-Preserve project state and knowledge artifacts for future session resumption. Composes the three domain skills — `/project-state`, `/linear`, `/knowledge-layer` — and adapts to what the session actually did.
+The next session starts from what this one leaves. It should be able to trust what it finds and begin, with nothing to wonder about. Four things make that so:
 
-## Intent
+- **Only one.** Nothing exists twice. What was replaced is gone.
+- **True.** What is written matches the system.
+- **Finished, or says so.** Everything this session touched is done, removed, or handed over with a note.
+- **Learned once.** What this session found out is left where the next one will meet it.
 
-**Objective.** State preservation for resumption WITHOUT becoming substantive work.
+## 1. Take stock
 
-**Desired outcomes** (observable):
+List what this session touched or created. You are the only one who knows. Think across everything the work reached: repositories and branches, pull requests, tickets, pages and documents, files and folders, running jobs, and anything you told the operator you would do. Those are examples; the list is whatever this session actually did.
 
-1. Re-entry Cue is one sentence (or absent if nothing is mid-flight) — a future session can act on it immediately.
-2. Every Linear issue touched this session reflects reality.
-3. A Linear Project Update exists capturing session-level narrative (current state, waiting-for, decisions made — this is where that information lives now).
-4. Knowledge docs touched are free of the seven anti-patterns OR have follow-up Linear issues filed.
+## 2. Bring each thing to one of three states
 
-**Health Metrics:**
+| State | It means |
+| --- | --- |
+| **Done** | Finished and in its home: merged, closed, true. A clone is back on its default branch and up to date |
+| **Gone** | Removed. This includes whatever a change replaced, and anything made only to get the work done |
+| **Handed over** | Still open, with a note where the next session will find it, saying what it is, where it stands, what you would do next, and whose it is. For a piece of work, the note is a comment on its ticket |
 
-- Pre-flight discipline: substantive work pending = closeout pauses.
-- Three-layer separation: item-level on issues; session-level on Project Updates; orientation (Re-entry Cue only) on CLAUDE.md. Nothing else writes to CLAUDE.md.
-- Contract lint: a new Knowledge page counts complete only when `contract_lint.py` exits clean on it.
-- Load-boundary-as-guard: PU review + hygiene review run as fresh subagents.
+Finish what is quick to finish. Remove what has no further use. Hand over the rest. Something you did not make stays as it is, and the operator hears about it.
 
-**Decision Authority:**
+## 3. Pass on what was learned
 
-- **Autonomous:** type detection, per-type dispatch, mechanical verifications, current-context hygiene fixes.
-- **Escalate via subagent:** ambiguous hygiene patterns (cap 3), PU body review (single pass). These spawns are pre-shaped (a separate critic on sonnet); this skill stands in for `/dispatch` on them, so `/dispatch` is not re-run before A4 or B1.
-- **Escalate to operator:** a synthesis candidate whose home is unclear, out-of-scope doc modifications, subagent FAIL after cap.
+If the work changed what is true of a project, or you tripped on something, decided something, or found something that behaves oddly, run `/project-docs update`. It puts each thing where the next session will meet it.
 
-**Stop Rules:**
+## 4. Tell the operator
 
-- Pre-flight returns "pending" → halt; do the work; re-invoke.
-- Empty session → one-line stop message; no mutations.
-- Contract-lint FAIL on a filed page after 3 fix iterations → escalate.
-- Out-of-session-scope doc modification → halt; flag.
-
-## Pre-flight gate
-
-Before classifying session type:
-
-> Is there substantive work I have current session context for that should land BEFORE this closeout?
-
-If **yes** → stop closeout, do the work, re-invoke. For durable-synthesis candidates: NAME them explicitly — a fully-formed synthesis is written in Track B's B2 in this same run; a synthesis still needing work IS a "yes."
-
-If **no** → proceed to type detection.
-
-## Trigger handling
-
-- **No argument** → run Session Type Detection.
-- **Argument override** (`project`, `knowledge`, `mixed`, `empty`) → skip detection.
-
-## Session Type Detection
-
-Classify by what the session actually produced.
-
-### Signals
-
-- **File mutations:** project folders → project work; `Knowledge/`/`Wiki/` paths → knowledge work; `~/bin/dotty`/`~/.claude`/system config → out-of-vault project work (maps to System); vault notes outside projects → stewardship.
-- **MCP/API surface:** `linear_*` writes → project; writes under `Knowledge/` or `Wiki/` → knowledge.
-- **A `Knowledge/` write inside a project folder** matches both signals: treat it as knowledge work with a host project. Run the Knowledge flow, and run A1 (`/project-state write`) for the host so its Re-entry Cue and `updated` stay true.
-- **Substantive vs. incidental:** a single edit alongside a long knowledge arc is mixed-with-knowledge-primary.
-
-### Types
-
-- **Project** — Linear-tracked work and/or project artifacts.
-- **Knowledge** — knowledge-layer pages, methodology synthesis, research filings.
-- **Mixed** — both. Project flow first, then knowledge.
-- **Empty** — conversation/exploration with no mutations.
-- **Stewardship** — vault notes outside any project.
-
-## Per-Type Dispatch
-
-### Empty
-
-Output: `"Session was conversation-only. Nothing to record."` Stop.
-
-### Project (single)
-
-#### Resolve inputs (once, during assessment)
-
-1. `/project-state read` for the project.
-2. **[Inline]** Assess what changed this session. Compute these values once and carry them forward — do not re-derive them in later steps:
-   - `what_changed` — assessment text
-   - `touched_docs[]` — knowledge/reference docs modified this session
-   - `touched_paths[]` — all vault paths touched
-   - `has_synthesis` — did the session produce durable synthesis?
-   - `scope_expanded` — did the project scope expand?
-
-#### Track A — Linear + project state
-
-Run these in order. Batch A2's writes in the same turn — they target disjoint systems.
-
-- **A1.** `/project-state write` with `re_entry_cue` (one sentence if work is mid-flight; "No work in progress" if clean) and `last_updated=today`. When the cue and `updated` already read exactly as they should, record "A1: no-op, fields at target" in the closeout summary instead of issuing an empty write; the step is still accounted for.
-- **A2.** Batch together:
-  - **Issue updates** via direct MCP calls — `mcp__linear-tactic__linear_updateIssue`, `linear_createComment`, `linear_createIssue` as appropriate — with item-level mutations: `cancel`, `comment`, `move_state`, `create`, `update_description` — `cancel` (reason required) for work that won't be done; canceling a map child for scope reasons pairs it with the map's Out of scope line, invalidation cancels carry the reason only, and surface when unsure. Closing a map child is the map session's own act (a decision through its live exchange, a blind investigation through its researcher's completion) — so an open map child that looks finished at closeout is surfaced for the next map session, not closed here. For a ticket ready to close, run traffic-cone's fused `mark_done` (`cone_preflight.py mark_done <id> --execute-if-clean` — invocation per the traffic-cone skill's Dispatch table): the script verifies the `[VALIDATION]` receipt (exists, fresh, type-matched, well-formed) and executes Done in-process. REFUSE is binding — fix what the report names or file a follow-up; never re-run hoping. On `JUDGMENT_REQUIRED` (M3g, full-variant tickets only), dispatch `` `@attack-kitty` ``'s `ticket-close` mandate yourself, then resume with `--receipt-audited <comment-id>`.
-  - **Scope-change check** (if `scope_expanded`): update the `description` frontmatter in CLAUDE.md (via `Edit`) AND in Linear via `mcp__linear-tactic__linear_updateProject`.
-- **A3.** Create a Project Update via `mcp__linear-tactic__linear_createProjectUpdate` with structured body (title, items_worked, what_was_done, decisions_made, health). **This is where current state, waiting-for, and decisions-needed now live** — in the Project Update, not in CLAUDE.md.
-- **A4.** **[Background subagent — do not wait]** Spawn `@attack-kitty` with `pu-review` mandate (model override **sonnet**). Pass the PU body verbatim and declare your real depth: `Caller: L0 orchestrator` in an interactive session. A closeout running as an L1 teammate cannot spawn `pu-review` (an L0-only mandate): skip A4 and name the unreviewed PU in the closeout summary. Single pass. Proceed immediately to Track B.
-
-#### Track B — Knowledge layer
-
-No dependency on Track A. Begin as soon as assessment (step 2) is complete. Skip B1–B2 if `touched_docs` is empty and `has_synthesis` is false; B3 (scope-lint) still runs when `touched_paths` is non-empty.
-
-- **B1.** `/knowledge-layer hygiene` against `touched_docs`. Each doc's `update` mode decides what a fix may touch: `replace` files are fixed in place, `append` and `never` files are flagged for the operator. Ambiguous patterns → spawn `/knowledge-layer hygiene-review` subagents. When the project carries root orientation files (`overview.md`, `area-*.md`), the hygiene pass also answers two scaffolding questions, acted on in place: Are the project's overview + area docs up to date? Are they template compliant? (Spec: `System/project-claude-template.md` § Orientation hierarchy.)
-- **B2.** If `has_synthesis`: write each synthesis as a knowledge file directly, in the type folder of the project it belongs to (or the Wiki's `Knowledge/`), with the four fields and a `## Sources` section, per the `knowledge-description` skill. Each file must pass the contract lint before closeout continues. A synthesis whose home is unclear goes to the operator, not to a guessed folder. If not `has_synthesis`, skip.
-- **B3.** `/knowledge-layer scope-lint` with `touched_paths` + created files from B2. Run AFTER B2 so `created_paths` includes anything just filed. Findings it could not fix go in the closeout summary.
-
-#### Join — final verification
-
-If A4 ran and its subagent notification has not arrived, wait for it here. If A4 was skipped (an L1 run), there is no verdict to wait for: the closeout summary names the PU as unreviewed and the Join proceeds. Then:
-
-- **Re-entry Cue** is one sentence or absent. Re-invoke `/project-state write` to fix if violated.
-- **Project Update was created** this session (verify via `mcp__linear-tactic__linear_getProjectUpdates` with `limit=1`).
-- **PU review verdict** received — fix cited findings if REVISE. (Skipped A4: record "PU unreviewed, L1 run" in the summary instead.)
-- **Linear issues are immediately executable** — each touched issue in `Todo` or `In Progress` has a concrete next action or falsifiable acceptance criteria.
-
-### Project (multi-project)
-
-Pick a **primary** (most substantive work). Primary: full sequence (both tracks). Each **incidental**: A2 issue updates + abbreviated A3 PU only.
-
-### Knowledge
-
-Skip Track A's issue updates and scope-change check. Run:
-
-- **Resolve inputs** — `/project-state read` + assessment (only if a host project is in scope).
-- **A3** (only if a host project is in scope) — PU emphasizes what was filed/synthesized.
-- **A4** — subagent review of any PU written.
-- **Track B** — B1 hygiene, B2 write synthesis (the knowledge flow's primary write surface), B3 scope-lint.
-- **Join** — verification scoped to knowledge layer.
-
-### Mixed
-
-Run both tracks as in Project flow. Fold knowledge work into the A3 Project Update.
-
-### Stewardship
-
-For each touched page: bump frontmatter `updated`. No CLAUDE.md edit, no Linear write. Output: brief summary.
-
-## Out-of-vault sessions
-
-Work in `~/bin/dotty`, `~/.claude`, system config → project-shaped. Resolve the host project (almost always System) and run the Project flow.
-
-## Discipline references
-
-- **Three-layer memory** (item / session / re-entry): the `/linear` SKILL.md discipline rules + `[[sustained-autonomous-agentic-workflows]]`.
-- **State on pick-up reciprocal**: `claim` opens the loop — the claim lives in the delegate field (the assignee field is the operator's hold), with variant discipline per ticket shape; `` `@traffic-cone` `` `mark_done` closes it through the non-author validation gate — a map child through the map session's own flow (a blind investigation through its researcher's completion, a HITL decision through the operator's exchange), never closeout's verb; work that won't be done through `cancel`. All per `/linear`'s and `` `@traffic-cone` ``'s Navigation.
-- **Closure form**: `Canceled` (not `Duplicate`); duplication via `duplicate_of` relation.
+One short closing note: what is handed over and where its note is, or that nothing is left open. Include anything you found that was not yours.
