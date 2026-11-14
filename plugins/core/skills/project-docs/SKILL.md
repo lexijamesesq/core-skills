@@ -21,7 +21,9 @@ The documentation is one of three places, and each holds its own kind.
 | **The documentation**, in Notion | What the project is, what is true of it now, and how to work in it. Three altitudes: |
 | — Overview, the project's page | The whole project: what it is, how work moves through it, which area a kind of task belongs to |
 | — Area, a sub-page | One part: what is true of it today, how to work there, where its detail is |
-| — Knowledge document, a row in the Knowledge database | One subject: design and reasons, decisions, research, procedures, records |
+| — Knowledge document, a row in the Knowledge database | One subject: design and reasons, research, procedures, records |
+| — Known issues, a database | What is wrong or surprising about the system as it is now, and what to do about it |
+| — Decisions, a database | What was decided, why, and what was rejected, so that it is not undone or redone |
 
 Each thing is kept in one of these and pointed to from the others.
 
@@ -31,7 +33,9 @@ A session takes a path through the documentation. The task the operator gave dec
 
 ### What keeps it good
 
-The documentation is as good as the last session left it. It stays good because the sessions that use it also keep it: when your work changes what is true of the project, the page that describes it changes in the same piece of work. And it stays usable because each thing sits at the altitude of the sessions that need it: on the overview if every session does, on an area if every session working there does, in a knowledge document if only some do.
+Known issues and Decisions hold what someone who knew the project's history would tell you. Each row names its area, so a session reads the few that bear on its task and none of the history behind them.
+
+The documentation is as good as the last session left it. It stays good because the sessions that use it also keep it: when your work changes what is true of the project, the page that describes it changes in the same piece of work. And it stays usable because each thing sits at the altitude of the sessions that need it: on the overview if every session does, on an area if every session working there does, in a knowledge document, a known issue or a decision if only some do.
 
 ## Where a project's pages are
 

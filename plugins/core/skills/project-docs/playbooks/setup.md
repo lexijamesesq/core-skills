@@ -15,13 +15,40 @@ One per project, on the project page, named `Knowledge`, with these fields, spel
 | Field | Type | Values |
 | --- | --- | --- |
 | Name | title | |
-| Type | select | Methods, Reference, Research, Decisions, Records |
+| Type | select | Methods, Reference, Research, Records |
 | Update | select | replace, append, never |
 | Updated | date | when the content was last true |
 | Description | text | one line: what it is and when to read it |
 | Related | relation | to this same database (add it once the database exists) |
 
-Move the project's existing documents into it and fill every field. For Update: a decision or a dated record is `never`, a log is `append`, anything else is `replace`. Write each Description for a session deciding whether to open the document.
+Move the project's existing documents into it and fill every field. For Update: a dated record is `never`, a log is `append`, anything else is `replace`. Write each Description for a session deciding whether to open the document.
+
+## Known issues and Decisions
+
+Two more databases on the project page, in every project, with these fields.
+
+**Known issues**: one row for each thing that is wrong or surprising about the system as it is now.
+
+| Field | Type | Values |
+| --- | --- | --- |
+| Name | title | what happens, as a short statement |
+| Area | select | `Project-wide`, and one option per area |
+| What to do | text | how to work around it or avoid it |
+| Ticket | URL | the ticket for fixing it, if there is one |
+
+**Decisions**: one row for each decision a later session would otherwise undo or redo.
+
+| Field | Type | Values |
+| --- | --- | --- |
+| Name | title | the decision, as a sentence |
+| Area | select | `Project-wide`, and one option per area |
+| Decided | date | when |
+| Why | text | the reason, in a line or two |
+| Rejected | text | what was considered and not chosen |
+| Source | URL | the ticket or map where it was decided |
+| Replaces | relation | to this same database (add it once the database exists) |
+
+A row's page body holds the longer reasoning when a decision needs it. An existing list of known issues, or existing decision documents, become rows.
 
 ## Areas
 
@@ -34,7 +61,7 @@ On the project page itself, in this order:
 - **What the project is**, in a paragraph, so a session knows it is in the right place.
 - **How work moves**: the few steps from a tracked piece of work to a change in the world.
 - **Areas**: a table. Each row is an area's name, linked, and "go here when…" written from the task's side.
-- **Where things live**: the repositories, the Knowledge database, where work is tracked.
+- **Where things live**: the repositories, the three databases (Knowledge, Known issues, Decisions), where work is tracked.
 - **Rules** that hold everywhere in the project.
 
 Try the area table on three tasks someone might bring, and adjust the wording until each lands on one row.
