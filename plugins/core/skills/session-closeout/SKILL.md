@@ -27,7 +27,9 @@ List what this session touched or created. You are the only one who knows. Think
 
 Finish what is quick to finish. Remove what has no further use. Hand over the rest.
 
-A ticket reaches Done through `/traffic-cone`'s `mark-done`, which checks that the work was verified before it closes anything. If it refuses, the ticket is handed over with what it named. A ticket that belongs to a map is closed by the session working that map, so here it is handed over too. Something you did not make stays as it is, and the operator hears about it.
+A ticket reaches Done through `/traffic-cone`'s `mark-done`, which checks that the work was verified before it closes anything. If it refuses, the ticket is handed over with what it named. A ticket that belongs to a map is closed by the session working that map, so here it is handed over too.
+
+What you found along the way and did not make ends in one of the same three states. Fix what is quick, safe and can be undone: a stale line, a clone that is behind, a dead reference. For anything that would destroy work or may be someone's work in progress, ask the operator what to do with it, with your recommendation, and act on her answer in this session. What is too big for now is handed over in a ticket.
 
 ## 3. Pass on what was learned
 
@@ -35,4 +37,4 @@ If the work changed what is true of a project, or you tripped on something, deci
 
 ## 4. Tell the operator
 
-One short closing note: what is handed over and where its note is, or that nothing is left open. Include anything you found that was not yours.
+One short closing note: what is handed over and where its note is, or that nothing is left open.
