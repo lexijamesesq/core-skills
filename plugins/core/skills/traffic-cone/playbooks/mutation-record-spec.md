@@ -1,8 +1,8 @@
 # Mutation-Record Spec
 
-How a mission record — a ticket description, a map body section, a Project Update, an accounting document — may legally be changed after it first lands. This spec governs `@traffic-cone`'s checks and the mutations it executes directly, following `/linear`'s playbooks for mechanical protocol; it is the reference to load before mutating anything that isn't a fresh append.
+How a mission record — a ticket description, a map body section, an accounting document — may legally be changed after it first lands. This spec governs `@traffic-cone`'s checks and the mutations it executes directly, following `/linear`'s playbooks for mechanical protocol; it is the reference to load before mutating anything that isn't a fresh append.
 
-A **mission record** is any artifact the lifecycle relies on to know what was decided or what is true: ticket descriptions, ticket comments, the map body (Destination / Done When / Notes / Fog / Out of scope), the map's Decisions document, Project Updates, the map's accounting document.
+A **mission record** is any artifact the lifecycle relies on to know what was decided or what is true: ticket descriptions, ticket comments, the map body (Destination / Done When / Notes / Fog / Out of scope), the map's Decisions document, the map's accounting document.
 
 ## Two mutation methods
 
@@ -15,7 +15,7 @@ A **mission record** is any artifact the lifecycle relies on to know what was de
 Every mission-record class has exactly one mode, fixed by what the record is *for* — not chosen per edit:
 
 - **Current-truth mode → mutate-in-place.** The record represents what is true *now*: a ticket's `## Objective` / `## Done When` / `## Constraints` / `## Context`, the map's `## Destination` / `## Done When` / `## Notes` / `## Fog` / `## Out of scope`.
-- **Evolution mode → append.** The record represents what happened *over time*, and the sequence itself is the value: ticket comments (progress notes, `[VALIDATION]` verdicts), the map's Decisions document (the decision index), Project Updates.
+- **Evolution mode → append.** The record represents what happened *over time*, and the sequence itself is the value: ticket comments (progress notes, `[VALIDATION]` verdicts), the map's Decisions document (the decision index).
 
 A record's mode never toggles per invocation. If a caller wants evolution-mode behavior from a current-truth record (or vice versa), that is a request to reclassify the record, not an edit — reclassifying is a map-intent change (see Standing Rule 2) and routes to the operator.
 
@@ -40,8 +40,7 @@ Every mission-record class carries a marker, readable at the point of use, that 
 
 - **Map Destination + Done When:** no runtime marker — the foundation-grade protection is a **convention gated by the operator**, not a surface flag. A Destination or Done When edit is a map-intent change, made only with the operator's approval (Standing Rule 1) — the same operator-gated discipline the wayfinder skill states for a claimed Done When.
 - **Ticket Done When:** the `_to be set at claim_` deferral marker signals "not yet current-truth" — mutable freely until claim sets real conditions, after which Objective/Done When edits route to the operator regardless of marker (claim Step 3's rule, unchanged by this spec).
-- **Ticket comments / map Decisions document:** no runtime marker needed — evolution mode is structural, but the two are held to it differently. For ticket comments (and Project Updates), the mechanical surface enforces it: `/linear` appends via `createComment`, never `updateComment` for a landed entry — the absence of an edit action on the surface *is* the marker. For the map's Decisions document the discipline is now also mechanically enforced, not convention alone: `linear_bridge.py decisions-append` is the only sanctioned write path — fetch immediately before write, refuse a duplicate entry, append, write, read back, and verify the pre-write content survives as an exact prefix, retrying on a detected race — closing the gap a whole-content-overwrite update surface otherwise leaves open. Its role as the append-only decision index — established by SKILL.md § The map body, honored as one dated entry per closed ticket, never a rewrite of a landed entry — is still the marker; the primitive is what makes a session honoring it mechanical rather than a hand sequence someone can get wrong under time pressure.
-- **Project Updates:** structural, same as above — each PU is a new record, never a rewrite of a prior one.
+- **Ticket comments / map Decisions document:** no runtime marker needed — evolution mode is structural, but the two are held to it differently. For ticket comments, the mechanical surface enforces it: `/linear` appends via `createComment`, never `updateComment` for a landed entry — the absence of an edit action on the surface *is* the marker. For the map's Decisions document the discipline is now also mechanically enforced, not convention alone: `linear_bridge.py decisions-append` is the only sanctioned write path — fetch immediately before write, refuse a duplicate entry, append, write, read back, and verify the pre-write content survives as an exact prefix, retrying on a detected race — closing the gap a whole-content-overwrite update surface otherwise leaves open. Its role as the append-only decision index — established by SKILL.md § The map body, honored as one dated entry per closed ticket, never a rewrite of a landed entry — is still the marker; the primitive is what makes a session honoring it mechanical rather than a hand sequence someone can get wrong under time pressure.
 
 The rule for any future mission-record class: if it doesn't already carry one of these structural markers, it needs an explicit one before it ships — a class with no readable marker is a class whose mutation discipline nobody can check.
 

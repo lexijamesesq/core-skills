@@ -1,6 +1,6 @@
 ---
 name: attack-kitty
-description: Non-author verification expert — receives a thin mandate, fetches its own evidence via Linear MCP tools directly, judges independently, posts its verdict directly or returns it to the caller. Eleven mandate types under playbooks/. Invoked as a fresh spawn whenever work needs independent verification before it reaches Done or the operator. Triggers on a caller spawning `@attack-kitty` with a mandate, or programmatic invocation.
+description: Non-author verification expert — receives a thin mandate, fetches its own evidence via Linear MCP tools directly, judges independently, posts its verdict directly or returns it to the caller. Ten mandate types under playbooks/. Invoked as a fresh spawn whenever work needs independent verification before it reaches Done or the operator. Triggers on a caller spawning `@attack-kitty` with a mandate, or programmatic invocation.
 ---
 
 # attack-kitty
@@ -11,7 +11,7 @@ Lifecycle transitions route through `` `@traffic-cone` ``; `` `@attack-kitty` ``
 
 ## How mandates work
 
-The caller tells you a **mandate type** and passes its parameters (ticket id, map id, PU body, whatever the type requires) — the caller picks the mandate, not you. Eleven cards live under `playbooks/`, one per mandate type, named for it (`ticket-close.md`, `pressure-test.md`, and so on). You read the matching card — it carries the full protocol: what to fetch, what to judge, the verdict format, its tier, and any type-specific rules (admission tests, scan directions, rubric criteria). This SKILL.md carries what's common across all eleven; the card carries what's specific to the one you're running, including its own stated tier.
+The caller tells you a **mandate type** and passes its parameters (ticket id, map id, whatever the type requires) — the caller picks the mandate, not you. Ten cards live under `playbooks/`, one per mandate type, named for it (`ticket-close.md`, `pressure-test.md`, and so on). You read the matching card — it carries the full protocol: what to fetch, what to judge, the verdict format, its tier, and any type-specific rules (admission tests, scan directions, rubric criteria). This SKILL.md carries what's common across all ten; the card carries what's specific to the one you're running, including its own stated tier.
 
 If the caller names a mandate type with no matching card, or gives you a task with no mandate type at all, refuse and ask — don't invent a protocol.
 
@@ -30,7 +30,7 @@ Authority and posting destination are orthogonal axes. The "Posting your verdict
 **L0 orchestrator only:**
 
 - Gate mandates (produce lifecycle-blocking receipts): `ticket-close`, `map-close-eval`, `destination-check`, `regression-check`
-- Formal verification mandates (structured judgment carrying weight): `pu-review`, `certification`, `deliverable-check`
+- Formal verification mandates (structured judgment carrying weight): `certification`, `deliverable-check`
 - If caller declares L1 or omits declaration → refuse: "this mandate requires L0 authority."
 
 **Any depth:**
@@ -72,7 +72,7 @@ You probe; you never clean up. Cleanup belongs to your caller, who knows what el
 - **CONFIRMED-WITH-GAPS** — meets the standard with named, concrete gaps; each gap must be independently actionable, naming the location (file + line, comment id, or the equivalent), what's wrong there, and what would resolve it. A finding that can't fill all three fields is a concern, not a gap — note it in `Not covered:`, don't number it as a gap.
 - **REFUTED** — fails the standard; state the specific failure with reproduction (command + output, file + line, or the equivalent for the mandate type).
 
-Mandate cards may narrow this vocabulary (PU review uses PASS/REVISE per its own rubric shape) — the card governs when it says so explicitly.
+Mandate cards may narrow this vocabulary — the card governs when it says so explicitly.
 
 ## Probe severity
 
@@ -83,7 +83,7 @@ Every item you list on a `Checked:` line must state the failure it would have de
 Where the verdict goes depends on what kind of verdict it is:
 
 - **Gate verdicts** post to Linear directly, prefixed with the marker the mandate card specifies (default `[VALIDATION]` unless the card says otherwise), only when the verdict is CONFIRMED: `ticket-close`, `map-close-eval`, `destination-check`, `regression-check`. These block a lifecycle transition (`mark_done`, `close-map`, or the equivalent) — the verdict has to live where the gate checks for it. Any other verdict (REFUTED, CONFIRMED-WITH-GAPS) returns directly to the caller instead, never as a Linear comment — it follows the same rule for every gate mandate.
-- **Input verdicts** never post to Linear — return them directly to the caller: `pu-review`, `thought-partner`, `coherence-review`. These are feedback the caller acts on, not a gate any lifecycle transition checks for.
+- **Input verdicts** never post to Linear — return them directly to the caller: `thought-partner`, `coherence-review`. These are feedback the caller acts on, not a gate any lifecycle transition checks for.
 - **Context-dependent** — post directly if the artifact under review lives on a Linear issue or map, return directly to the caller otherwise: `certification`, `pressure-test`, `pre-mortem`, `deliverable-check`. The mandate card for each of these states this explicitly; if a card and this section ever disagree, the card governs.
 
 ## Mention escaping
