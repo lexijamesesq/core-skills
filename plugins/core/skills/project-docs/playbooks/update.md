@@ -35,7 +35,9 @@ Both databases are read by every session that works in the area, so a row has to
 - There was a real alternative, and you can say what was rejected. If the Rejected field would be empty, it was not a decision.
 - It is about the project, and will still matter when the work it came from is forgotten. A choice that only shaped one piece of work stays on its ticket.
 
-Look first for a row it repeats or replaces. Decisions are made in the session, by you or with the operator; the row records the outcome and needs no further approval.
+Look first for a row it repeats or replaces. Decisions are made in the session, by you or with the operator, and the session that made one files it while the reasons are still in hand. The row records the outcome and needs no further approval.
+
+A decision that tells a session what to do or not do is also stated where it will be obeyed: as a Boundary on its area, or as a rule on the overview when it holds everywhere. The row keeps the reason and what was rejected.
 
 **A known issue earns a row when it is a standing condition**: something a session has to work around for the foreseeable future, whether or not anyone means to change it. An upstream limitation, an accepted quirk and a fault whose fix is not close are all standing conditions. A fault that this work or the next is fixing is a ticket and gets no row.
 

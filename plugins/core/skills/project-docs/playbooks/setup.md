@@ -60,7 +60,7 @@ On the project page itself, in this order:
 
 - **What the project is**, in a paragraph, so a session knows it is in the right place.
 - **How work moves**: the few steps from a tracked piece of work to a change in the world.
-- **Areas**: a table. Each row is an area's name, linked, and "go here when…" written from the task's side.
+- **Areas**: a table. Each row is an area's name, linked, and "go here when…" written from the task's side. A project with no areas routes the same way to the documents a task would start from.
 - **Where things live**: the repositories, the three databases (Knowledge, Known issues, Decisions), where work is tracked.
 - **Rules** that hold everywhere in the project.
 
