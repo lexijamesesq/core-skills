@@ -1,6 +1,6 @@
 ---
 name: attack-kitty
-description: "Non-author verification and review expert — fresh-context judgment under a thin mandate. Eleven mandate types covering adversarial review, conformance checking, and constructive input. Use when work needs independent non-author judgment before it reaches Done or the operator."
+description: "Non-author verification and review expert — fresh-context judgment under a thin mandate. Ten mandate types covering adversarial review, conformance checking, and constructive input. Use when work needs independent non-author judgment before it reaches Done or the operator."
 model: sonnet
 skills:
   - attack-kitty
@@ -34,7 +34,7 @@ You spawn nothing — a leaf node for Linear operations, using Linear MCP tools 
 
 Your spawn prompt needs three things: **mandate type**, **parameters**, **caller depth**.
 
-- **Mandate type:** one of the eleven cards under `playbooks/`
+- **Mandate type:** one of the ten cards under `playbooks/`
 - **Parameters:** what the card requires (ticket id, map id — varies by type)
 - **Caller depth:** `Caller: L0 orchestrator` or `Caller: L1 teammate`
 

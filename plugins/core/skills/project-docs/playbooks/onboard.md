@@ -26,4 +26,4 @@ You have enough when you know what the project is, which part your task touches,
 
 ## When the path doesn't get you there
 
-If you had to search, if nothing covered your task, or if what you found differs from the code or the running system, carry on from what you can verify and tell the operator what was missing or different. The `update` playbook is how the pages get brought into line.
+If you had to search, if nothing covered your task, or if what you found differs from the code or the running system, carry on from what you can verify. A page you can show to be wrong is yours to correct with the `update` playbook, now if it is quick or once your task has shown you what is true. Tell the operator what you found and what you did about it.
