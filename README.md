@@ -20,22 +20,20 @@ Plugin install state is shared across Claude Code profiles on one machine; each 
 
 ### Skills (`core` plugin)
 
-#### Session orchestration
+#### Sessions and project documentation
 
-Bracket a working session — load state at the start, write it back at the end.
+Get context for a task from a project's documentation, keep it true, and leave things so the next session can trust what it finds.
 
 | Artifact | Type | What it does |
 | --- | --- | --- |
-| `/session-start` | Skill | Loads project state, recent progress, and the pending backlog |
-| `/session-closeout` | Skill | Writes state back, records what changed |
-| `/project-state` | Skill | Reads and writes the Project State section of a project's CLAUDE.md |
+| `/project-docs` | Skill | How a project's documentation in Notion is used and kept — the frame, plus a playbook each for getting oriented on a task, updating the docs after work, and setting them up |
+| `/session-closeout` | Skill | Takes stock of what a session touched and brings each thing to done, gone or handed over |
 
 #### Projects and backlog
 
 | Artifact | Type | What it does |
 | --- | --- | --- |
 | `/linear` | Skill | Protocol reference for Linear operations — ticket creation, claiming, state transitions, and structured comment formats |
-| `/project-docs` | Skill | How a project's documentation in Notion is used and kept — the frame, plus a playbook each for getting oriented on a task, updating the docs after work, and setting them up |
 
 #### Authoring and machine state
 
