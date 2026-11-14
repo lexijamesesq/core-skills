@@ -46,10 +46,4 @@ The glossary should be totally devoid of implementation details. Do not treat it
 
 ### Offer decisions sparingly
 
-Only offer to record a decision when all three are true:
-
-1. **Hard to reverse** — the cost of changing your mind later is meaningful
-2. **Surprising without context** — a future reader will wonder "why did they do it this way?"
-3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
-
-If any of the three is missing, skip it. Otherwise the decision becomes a row in the project's Decisions database, added through `/project-docs update`.
+Offer to record a decision only when it passes the test in `/project-docs update`, under "What earns a row". When it does, it becomes a row in the project's Decisions database, added through that playbook.
