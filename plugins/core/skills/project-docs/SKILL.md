@@ -48,6 +48,8 @@ notion_knowledge: <the project's Knowledge database>
 
 Reach them with the Notion connector. If the file has no pointers, tell the operator.
 
+Read a database through its view: fetch the database, take the view it lists, and query that view. It returns every row with its fields, and it is the one way of querying that the workspace does not ration. A query that is refused has told you nothing about the rows. Say so and read the view; never take a refusal for an empty database.
+
 ## Playbooks
 
 Load the one for what you need now.
