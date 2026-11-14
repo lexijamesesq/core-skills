@@ -16,10 +16,14 @@ For each thing that is now true, ask which sessions need it.
 | --- | --- |
 | Every session on the project: a new area, a change in how work moves, a rule that holds everywhere | The overview |
 | Every session working in one area: what exists, works or is missing there, or how to work there | That area page, under State or Boundaries |
-| A session doing one particular thing: how something is designed and why, a procedure, a decision | The knowledge document on that subject, or a new one |
+| A session doing one particular thing: how something is designed and why, a procedure | The knowledge document on that subject, or a new one |
+| A session that would meet the same odd behaviour: something wrong or surprising that this work did not fix | A row in Known issues: what happens, the area, what to do about it, and the ticket if there is one |
+| A session that might undo or redo a choice: what was decided, why, and what was rejected | A row in Decisions, on the operator's yes |
 | A session reading one piece of code: why it is the way it is | A comment at that code |
 
 Most finished work comes to one changed line on an area page, sometimes with a knowledge document or a comment. Some comes to nothing, because the ticket and the code already hold all of it.
+
+If you got something wrong along the way because nothing warned you, leave the warning for the next session: a Boundary on the area page, a row in Known issues, or a comment at the code.
 
 ## An example
 
@@ -35,8 +39,14 @@ Read the page as it is now. Find the line that describes what changed and rewrit
 
 In a knowledge document, follow its Update value: `replace` is rewritten in place, `append` takes a new entry below the others, and `never` stays as it is while you write a new document and relate the two. Give a new document every field, and link it from the area it belongs to. Set Updated to today when you know the whole document is true.
 
+A row in Known issues is removed when the issue is fixed. A row in Decisions is never edited: when a decision is reversed, add a new row and name the one it replaces.
+
 If the same fact appears at another altitude, such as a row of the overview's area table, bring it into line too. Then read back what you wrote.
+
+## Decisions from a map
+
+While a map is being worked, its decisions are recorded on the map in Linear. When the map closes, read that record and bring over the decisions a session outside the map would need. Write each one for a reader who never saw the map, and give the map as its source.
 
 ## With the operator
 
-Agree first before adding or removing an area, changing a rule on the overview or a boundary on an area, or creating a Decisions document. When you're done, tell the operator what you changed and where.
+Agree first before adding or removing an area, changing a rule on the overview or a boundary on an area, or adding a row to Decisions. When you're done, tell the operator what you changed and where.
