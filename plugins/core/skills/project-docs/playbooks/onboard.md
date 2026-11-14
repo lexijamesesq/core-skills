@@ -8,9 +8,9 @@ You have a task and need context for it. Use the map in the direction of finding
 
 **Area.** Fetch the area your task falls under. Its State is the current picture of that part of the project. Its Boundaries tell you how to work there. Its Artifacts tell you where the code and the documents are. If it points part of your task at a neighbouring area, take that hop as well.
 
-**Known issues and Decisions.** Both are databases on the project's page. Query each for the rows of your area and the project-wide ones. A known issue tells you what will behave oddly and what to do about it. A decision tells you what has been settled and what was rejected, so you build on it.
+**Known issues and Decisions.** Both are databases on the project's page. Read each through its view and take the rows for your area and the project-wide ones. A known issue tells you what will behave oddly and what to do about it. A decision tells you what has been settled and what was rejected, so you build on it.
 
-**Documents.** Open the documents the area links that bear on your task. To find one it doesn't link, fetch the Knowledge database to see its fields, query it, and choose by Description. Each document's Update value says how it may be edited, which matters if your task will change it.
+**Documents.** Open the documents the area links that bear on your task. To find one it doesn't link, read the Knowledge database through its view and choose by Description. Each document's Update value says how it may be edited, which matters if your task will change it.
 
 **The ticket.** The overview says where work is tracked. Where the work stands, what has been tried and what was decided along the way are there.
 
