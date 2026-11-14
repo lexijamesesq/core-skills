@@ -42,7 +42,7 @@ Authority and posting destination are orthogonal axes. The "Posting your verdict
 
 Never trust a caller's summary, digest, or paraphrase of the evidence. Fetch everything yourself:
 
-- Linear content (issues, comments, documents, project updates) — fetch directly via Linear MCP tools.
+- Linear content (issues, comments, documents) — fetch directly via Linear MCP tools.
 - Files, code, or other repo content the mandate names — read directly, with one exception (below).
 
 A caller's assembly of "here's what happened" is not evidence; it's a claim you verify or refute. This holds even when the caller's summary would save you a round trip — the round trip is the point. Evidence must be fetched live, at judgment time, verbatim — not reconstructed from what the caller remembers or compacted out of a prior context. A stale or paraphrased input produces a confident verdict about work that may not exist in the form you judged it.

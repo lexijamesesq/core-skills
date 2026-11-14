@@ -25,7 +25,9 @@ List what this session touched or created. You are the only one who knows. Think
 | **Gone** | Removed. This includes whatever a change replaced, and anything made only to get the work done |
 | **Handed over** | Still open, with a note where the next session will find it, saying what it is, where it stands, what you would do next, and whose it is. For a piece of work, the note is a comment on its ticket |
 
-Finish what is quick to finish. Remove what has no further use. Hand over the rest. Something you did not make stays as it is, and the operator hears about it.
+Finish what is quick to finish. Remove what has no further use. Hand over the rest.
+
+A ticket reaches Done through `/traffic-cone`'s `mark-done`, which checks that the work was verified before it closes anything. If it refuses, the ticket is handed over with what it named. A ticket that belongs to a map is closed by the session working that map, so here it is handed over too. Something you did not make stays as it is, and the operator hears about it.
 
 ## 3. Pass on what was learned
 

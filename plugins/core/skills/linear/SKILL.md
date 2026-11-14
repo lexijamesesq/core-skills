@@ -44,7 +44,7 @@ Backtick-escape agent names (`@linear`, `@attack-kitty`, `@traffic-cone`) in com
 
 ### Project ID handling
 
-Project IDs are UUIDs; a URL slug is not a valid `projectId`. Read it from the `linear_project_id` key in the front matter of the project's instruction file (`CLAUDE.md` at the root of its repository, or of the folder its sessions start in). No lookup-by-name fallback — a missing ID is a data error to surface, not a name-search to run.
+Project IDs are UUIDs; a URL slug is not a valid `projectId`. Read it from the `linear_project_id` key in the front matter of the project's instruction file: `CLAUDE.md`, or `AGENTS.md` where that is the file carrying front matter, at the root of the project's repository or of the folder its sessions start in. For a project other than the one you started in, read that project's own instruction file. No lookup-by-name fallback — a missing ID is a data error to surface, not a name-search to run.
 
 ### Label discipline
 
