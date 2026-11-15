@@ -86,7 +86,7 @@
 # scanned command through unscanned. That is the safe direction.
 #
 # Tests: ../tests/gh-pr-body-guard.test.sh
-# Spec: {workspace_root}/System/Knowledge/Reference/leak-prevention-architecture.md
+# Spec: the maintainer's "Leak-Prevention Architecture" document (private)
 
 set -uo pipefail
 
@@ -94,6 +94,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -r "$HERE/gitleaks-common.sh" ]]; then
 	source "$HERE/gitleaks-common.sh"
 else
+	# shellcheck source=/dev/null # fallback path exists only in a dotty checkout
 	source "$HERE/../../git-hooks/gitleaks-common.sh"
 fi
 
