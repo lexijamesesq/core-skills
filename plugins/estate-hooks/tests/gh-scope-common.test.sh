@@ -5,7 +5,7 @@
 # hook consumes it rather than carrying its own copy.
 #
 # Three things are proven here:
-#   1. Conformance: each of the five PR hooks sources gh-scope-common.sh by a
+#   1. Conformance: each of the four PR hooks sources gh-scope-common.sh by a
 #      ${BASH_SOURCE[0]}-relative path, and NO hook defines the rule locally
 #      (no `_GH_CMD=`, no inline copy of the regex). This is the drift guard
 #      the non-author review asked for: the rule was five comment-synced

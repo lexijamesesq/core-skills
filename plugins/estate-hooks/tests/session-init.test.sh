@@ -3,7 +3,7 @@
 #
 # Covers:
 #   - Cache directory bootstrap (mkdir, 0700 perms)
-#   - Tolerant of missing jq (hook always exits 0)
+#   - Tolerant of missing or malformed input (hook always exits 0)
 #   - Hook always exits 0 (never blocks session)
 #
 # Run: bash ~/bin/dotty/.claude/eval/session-init.test.sh
