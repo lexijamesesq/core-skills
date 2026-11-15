@@ -5,11 +5,6 @@
       {
         "hooks": [
           {
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
-            "timeout": 30,
-            "type": "command"
-          },
-          {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-verdict-watch-arm.sh",
             "timeout": 15,
             "type": "command"
@@ -69,18 +64,8 @@
       {
         "hooks": [
           {
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/fix-obsidian-claude-sync.sh",
-            "timeout": 10,
-            "type": "command"
-          },
-          {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
             "timeout": 5,
-            "type": "command"
-          },
-          {
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
-            "timeout": 30,
             "type": "command"
           }
         ],
@@ -91,11 +76,6 @@
           {
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-init.sh",
             "timeout": 5,
-            "type": "command"
-          },
-          {
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}\"/hooks/pr-cache.sh",
-            "timeout": 30,
             "type": "command"
           }
         ],

@@ -3,7 +3,6 @@
 #
 # SessionStart hook: bootstraps per-session state.
 #   - Ensures ~/.cache/claude/ exists with 0700 permissions
-#   - Warns if VAULT_ROOT is unset inside what looks like a vault
 #
 # Tolerant: failures here would block all sessions. Stderr-warn but exit 0.
 
@@ -15,28 +14,5 @@ mkdir -p "$CACHE" 2>/dev/null || {
 	exit 0
 }
 chmod 700 "$CACHE" 2>/dev/null || true
-
-# Read hook input from stdin
-INPUT=$(cat 2>/dev/null || true)
-SESSION_CWD=""
-if command -v jq >/dev/null 2>&1 && [[ -n "$INPUT" ]]; then
-	SESSION_CWD=$(jq -r '.cwd // empty' <<<"$INPUT" 2>/dev/null || true)
-fi
-
-# Warn if VAULT_ROOT is unset but we appear to be inside a vault.
-# fix-obsidian-claude-sync silently disables when VAULT_ROOT is missing —
-# this is the only signal.
-if [[ -z "${VAULT_ROOT:-}" && -n "$SESSION_CWD" ]]; then
-	d="$SESSION_CWD"
-	while [[ "$d" != "/" && "$d" != "." ]]; do
-		if [[ -d "$d/.obsidian" ]]; then
-			echo "session-init: WARNING — cwd is inside a vault ($d) but VAULT_ROOT is not set." >&2
-			echo "  fix-obsidian-claude-sync is INACTIVE this session." >&2
-			echo "  Set VAULT_ROOT in settings.json env block to enable it." >&2
-			break
-		fi
-		d="$(dirname "$d")"
-	done
-fi
 
 exit 0

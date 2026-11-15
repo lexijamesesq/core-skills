@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # gh-scope-common.sh — the ONE definition of "a `gh pr <verb>` in command
 # position", shared by every hook that decides its own scope on a PR
-# command: gh-pr-body-guard.sh, gh-pr-body-template-guard.sh, pr-cache.sh,
+# command: gh-pr-body-guard.sh, gh-pr-body-template-guard.sh,
 # pr-verdict-watch-arm.sh and security-review-reminder.sh.
 #
 # WHY ONE FILE: the rule used to be copied into each hook and kept in step

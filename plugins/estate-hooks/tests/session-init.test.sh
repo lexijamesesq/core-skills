@@ -3,9 +3,7 @@
 #
 # Covers:
 #   - Cache directory bootstrap (mkdir, 0700 perms)
-#   - VAULT_ROOT-unset warning when cwd is inside a vault
-#   - No warning when VAULT_ROOT is set, or cwd is outside a vault
-#   - Tolerant of missing jq (hook always exits 0)
+#   - Tolerant of missing or malformed input (hook always exits 0)
 #   - Hook always exits 0 (never blocks session)
 #
 # Run: bash ~/bin/dotty/.claude/eval/session-init.test.sh
@@ -59,43 +57,6 @@ elif [ -n "${CI:-}" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
 	echo "  SKIP: cache dir mode is $PERMS (CI runner umask; 0700 verified locally)"
 else
 	fail "cache dir is mode 0700" "got $PERMS"
-fi
-
-# === VAULT_ROOT warning ===
-section "VAULT_ROOT-unset warning"
-
-# Create a fake vault (has .obsidian/)
-reset
-mkdir -p "$TMPDIR/fake-vault/.obsidian" "$TMPDIR/fake-vault/Projects/Test"
-
-# cwd inside vault, VAULT_ROOT unset -> should warn
-fire "{\"cwd\":\"$TMPDIR/fake-vault/Projects/Test\"}" env -u VAULT_ROOT
-assert_eq "hook exits 0 even when warning" "0" "$RC"
-if grep -q "VAULT_ROOT" "$STDERR_FILE"; then
-	pass "warns when VAULT_ROOT unset inside vault"
-else
-	fail "warns when VAULT_ROOT unset inside vault" "no warning on stderr"
-fi
-
-# cwd inside vault, VAULT_ROOT set -> no warning
-reset
-mkdir -p "$TMPDIR/fake-vault/.obsidian" "$TMPDIR/fake-vault/Projects/Test"
-fire "{\"cwd\":\"$TMPDIR/fake-vault/Projects/Test\"}" env VAULT_ROOT="$TMPDIR/fake-vault"
-assert_eq "hook exits 0 with VAULT_ROOT set" "0" "$RC"
-if grep -q "VAULT_ROOT" "$STDERR_FILE"; then
-	fail "no warning when VAULT_ROOT is set" "got warning: $(cat "$STDERR_FILE")"
-else
-	pass "no warning when VAULT_ROOT is set"
-fi
-
-# cwd outside any vault -> no warning regardless
-reset
-fire '{"cwd":"/tmp"}' env -u VAULT_ROOT
-assert_eq "hook exits 0 outside vault" "0" "$RC"
-if grep -q "VAULT_ROOT" "$STDERR_FILE"; then
-	fail "no warning when cwd is outside vault" "got warning: $(cat "$STDERR_FILE")"
-else
-	pass "no warning when cwd is outside vault"
 fi
 
 # === Tolerance: missing or malformed input ===
