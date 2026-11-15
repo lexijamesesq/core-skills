@@ -85,7 +85,7 @@ notion_project: <URL of the project's page>
 notion_knowledge: <the Knowledge database's data-source URL>
 ```
 
-and a line in its body pointing a session to `/project-docs onboard`. These replace any pointer to an earlier location. When the file is in a repository, the change goes through that repository's review.
+The pointers are all the file needs. The global instruction file tells a session to run `/project-docs onboard` wherever an instruction file names `notion_project`, so the file does not repeat that. These replace any pointer to an earlier location. When the file is in a repository, the change goes through that repository's review.
 
 ## Walk it
 
