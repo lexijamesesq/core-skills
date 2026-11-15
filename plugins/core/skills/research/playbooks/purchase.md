@@ -1,6 +1,6 @@
 # Purchase Research
 
-How to find the right product to buy. Load domain context from the vault first — context pages and domain knowledge carry prior research, hard constraints, and validated preferences that prevent rediscovering established ground.
+How to find the right product to buy. Load domain context from Notion first — the area's page under Life and the documents beneath it carry prior research, hard constraints, and validated preferences that prevent rediscovering established ground.
 
 ## Before Searching
 
@@ -15,11 +15,12 @@ How to find the right product to buy. Load domain context from the vault first �
 **Use the funnel for exploratory purchases.** When the user is discovering what to buy, landscape scan first — what exists in this category, what are the axes of differentiation. Do not jump to specific products from parametric knowledge. When the user already knows the exact product (lookup mode), skip the funnel and go directly to validation — verify current availability, pricing, and formulation against live sources.
 
 **Discover through domain-appropriate channels.** Keyword search against product databases produces generic, interchangeable results for many product categories. Discovery mechanisms vary by domain:
+
 - Products evaluated visually or by feel: editorial roundups, styled photography, curated selections filtered by specific body/context/use-case
 - Products evaluated by formulation or composition: ingredient databases, formulation-aware review sites, community testing data
 - Products evaluated by performance: specialist reviewers with disclosed methodology, community forums with real-use data, professional tool reviews
 
-If the vault carries a domain methodology, it specifies which discovery channels work for that domain. Use it.
+If Notion carries a domain methodology, it specifies which discovery channels work for that domain. Use it.
 
 **Evidence over marketing copy.** Verify claims against independent sources. Swatch or sample databases for visual attributes. Ingredient or spec databases for formulation and composition. Reviews by people with similar constraints for fit, performance, and real-world behavior.
 
