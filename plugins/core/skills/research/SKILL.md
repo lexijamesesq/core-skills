@@ -28,7 +28,7 @@ Research discipline that prevents the two root failures: reasoning before resear
 Before constructing any query, classify the task:
 
 | Signal | Exploratory | Lookup |
-|---|---|---|
+| --- | --- | --- |
 | User knows exactly what they want | No | Yes |
 | User knows domain vocabulary | No | Yes |
 | Shopping, researching, or discovering | Yes | No |
@@ -41,15 +41,19 @@ Before constructing any query, classify the task:
 ## The Funnel
 
 ### Stage 1: Landscape Scan
+
 Category-level queries. Acquire the domain's taxonomy and axes of differentiation before applying them.
 
 ### Stage 2: Vocabulary Acquisition
+
 Extract terms and facets from Stage 1. Transform user language into domain language. Map the axes that differentiate options in this space.
 
 ### Stage 3: Guided Narrowing
+
 Use terms discovered through the funnel, not assumed at start. Combine 2-3 facets per query. Follow information scent — new vocabulary in results warrants investigation before committing to a path. When results are sparse, expand (broader terms, synonyms, adjacent categories). When too broad, add a facet.
 
 ### Stage 4: Convergence
+
 Targeted lookups are now appropriate. Decompose verification into separate targeted queries rather than one broad sweep. Verify against independent sources, not marketing copy. What convergence looks like varies by search type — the active playbook defines it.
 
 **The session is the unit of work, not the query.** Each result informs the next. Evolving queries across turns is correct behavior. Static one-shot queries are the primary failure mode in research — adaptive multi-turn refinement is what produces good results.
@@ -57,6 +61,7 @@ Targeted lookups are now appropriate. Decompose verification into separate targe
 ## Retrieval Tactics
 
 **Fetch first, browser when fetch fails.** API-based retrieval (web search, web fetch) is fast and sufficient for most content. Fall back to browser automation when:
+
 - A site returns 403 or minimal content (anti-bot protection)
 - Content is JavaScript-rendered and fetch returns only the shell
 - Results require scrolling, pagination, or interaction to fully load
@@ -67,12 +72,12 @@ Targeted lookups are now appropriate. Decompose verification into separate targe
 
 ## Domain Context
 
-Before searching, check the vault for existing domain knowledge. Context pages and domain knowledge docs carry prior research, hard constraints, calibrated preferences, and validated methodology. Loading domain context BEFORE searching prevents rediscovering established ground and violating constraints already established.
+Before searching, check Notion for existing domain knowledge: the area's page under Life, and the documents and databases beneath it. They carry prior research, hard constraints, calibrated preferences, and validated methodology. Loading domain context BEFORE searching prevents rediscovering established ground and violating constraints already established.
 
 ## Navigation
 
 | Search type | Signal | Playbook |
-|---|---|---|
+| --- | --- | --- |
 | Purchase research | Shopping, buying, comparing products, "which one should I get" | `playbooks/purchase.md` |
 | Exploratory research | Learning a domain, informing a decision, understanding options | `playbooks/exploratory.md` |
 | Primary-source investigation | Analyzing a derivative (video, blog, thread) about someone else's work | `playbooks/primary-source.md` |
@@ -95,4 +100,4 @@ For any playbook-routed task, load the matching playbook before proceeding. If t
 ## What This Skill Is NOT
 
 - Not a heavy multi-agent workflow for exhaustive cited reports — this skill is single-session research discipline.
-- Not a substitute for domain-specific methodology docs in the vault. Those carry domain expertise (what to look for, how to evaluate quality in a specific domain); this skill carries search discipline (how to search, when to validate, how to handle retrieval failures).
+- Not a substitute for domain-specific methodology docs in Notion. Those carry domain expertise (what to look for, how to evaluate quality in a specific domain); this skill carries search discipline (how to search, when to validate, how to handle retrieval failures).

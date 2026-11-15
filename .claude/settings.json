@@ -1,20 +1,13 @@
 {
   "enabledPlugins": {
     "core@core": true,
-    "estate-hooks@core": true,
-    "wiki@wiki": true
+    "estate-hooks@core": true
   },
   "extraKnownMarketplaces": {
     "core": {
       "source": {
         "repo": "lexijamesesq/core-skills",
         "source": "github"
-      }
-    },
-    "wiki": {
-      "source": {
-        "source": "github",
-        "repo": "lexijamesesq/wiki"
       }
     }
   }
