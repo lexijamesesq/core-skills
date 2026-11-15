@@ -94,7 +94,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -r "$HERE/gitleaks-common.sh" ]]; then
 	source "$HERE/gitleaks-common.sh"
 else
-	# shellcheck source=/dev/null # fallback path exists only in a dotty checkout
+	# shellcheck source=/dev/null # fallback layout (hooks/ beside git-hooks/), used by a dotty checkout and by this hook's tests; not present when shellcheck runs here
 	source "$HERE/../../git-hooks/gitleaks-common.sh"
 fi
 
