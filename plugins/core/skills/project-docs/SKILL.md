@@ -46,7 +46,7 @@ notion_project: <the project's page — the overview>
 notion_knowledge: <the project's Knowledge database>
 ```
 
-Reach them with the Notion connector. If the file has no pointers, tell the operator.
+The front matter is not in your context: Claude Code gives you the file's body only. Read the file's first lines from disk to get the pointers. Reach the pages with the Notion connector. If the file has no pointers, tell the operator.
 
 Read a database through its view: fetch the database, take the view it lists, and query that view. It returns the rows with their fields, up to a hundred at a time: while the result says there are more, ask for the next page, and treat what you have as partial until it says there are none. It is the one way of querying that the workspace does not ration. A query that is refused has told you nothing about the rows. Say so and read the view; never take a refusal for an empty database.
 

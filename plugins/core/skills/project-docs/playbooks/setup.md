@@ -85,7 +85,7 @@ notion_project: <URL of the project's page>
 notion_knowledge: <the Knowledge database's data-source URL>
 ```
 
-The pointers are all the file needs. The global instruction file tells a session to run `/project-docs onboard` wherever an instruction file names `notion_project`, so the file does not repeat that. These replace any pointer to an earlier location. When the file is in a repository, the change goes through that repository's review.
+A session does not see these pointers: Claude Code loads an instruction file's body and drops its front matter. What makes them work is the global instruction file, which tells a session to read the instruction file's first lines from disk before a task and to run `/project-docs onboard` when they name `notion_project`. So the body needs no line of its own for that on a machine that has the global instruction file. Where a project is also worked on without it (another engine, a cloud session), add a line in the body saying the project's documentation is in Notion and that the pointers are in this file's front matter. These replace any pointer to an earlier location. When the file is in a repository, the change goes through that repository's review.
 
 ## Walk it
 
