@@ -12,8 +12,8 @@
 #      copies, and this test fails the moment a sixth appears.
 #   2. The rule itself: every shape the estate uses matches; look-alikes and
 #      mere mentions do not.
-#   3. Missing helper, per contract: the fail-open hooks (pr-cache,
-#      pr-verdict-watch-arm, security-review-reminder) say nothing and exit
+#   3. Missing helper, per contract: the fail-open hooks (pr-verdict-watch-arm,
+#      security-review-reminder) say nothing and exit
 #      0; the fail-closed guards (gh-pr-body-guard, gh-pr-body-template-guard)
 #      BLOCK (exit 2) naming the missing file.
 #
@@ -34,8 +34,8 @@ command -v jq >/dev/null 2>&1 || {
 	exit 2
 }
 
-CONSUMERS=(gh-pr-body-guard.sh gh-pr-body-template-guard.sh pr-cache.sh pr-verdict-watch-arm.sh security-review-reminder.sh)
-FAIL_OPEN=(pr-cache.sh pr-verdict-watch-arm.sh security-review-reminder.sh)
+CONSUMERS=(gh-pr-body-guard.sh gh-pr-body-template-guard.sh pr-verdict-watch-arm.sh security-review-reminder.sh)
+FAIL_OPEN=(pr-verdict-watch-arm.sh security-review-reminder.sh)
 FAIL_CLOSED=(gh-pr-body-guard.sh gh-pr-body-template-guard.sh)
 
 # ============================================================================
@@ -63,7 +63,11 @@ for f in "$HOOKS_DIR"/*.sh; do
 		pass "$b carries no local copy of the rule"
 	fi
 done
-grep -qF "$FRAG" "$HELPER" && pass "the helper carries the rule" || fail "the helper carries the rule" "fragment absent"
+if grep -qF "$FRAG" "$HELPER"; then
+	pass "the helper carries the rule"
+else
+	fail "the helper carries the rule" "fragment absent"
+fi
 
 # ============================================================================
 # 2. The rule.
@@ -77,12 +81,24 @@ for c in 'gh pr create --fill' '/opt/estate/bin/gh pr create --title x' '~/.loca
 done
 
 section "gh_pr_in_command_position: verb alternation and non-matches"
-gh_pr_in_command_position 'gh pr edit 3 --body x' "create|edit" && pass "edit via alternation" || fail "edit via alternation" "no match"
-gh_pr_in_command_position 'gh pr merge 3' "create|merge" && pass "merge via alternation" || fail "merge via alternation" "no match"
+if gh_pr_in_command_position 'gh pr edit 3 --body x' "create|edit"; then
+	pass "edit via alternation"
+else
+	fail "edit via alternation" "no match"
+fi
+if gh_pr_in_command_position 'gh pr merge 3' "create|merge"; then
+	pass "merge via alternation"
+else
+	fail "merge via alternation" "no match"
+fi
 for c in 'echo "gh pr create"' 'echo "$GH pr create"' 'grep "gh pr create" f' '/opt/bin/ghost pr create' 'gh pr createfoo' 'gh pr view 3' 'git status' 'c=create; gh pr $c'; do
 	if gh_pr_in_command_position "$c" create; then fail "does not match: $c" "matched"; else pass "does not match: $c"; fi
 done
-gh_pr_in_command_position 'gh pr edit 3' create && fail "edit is not create" "matched" || pass "edit is not create"
+if gh_pr_in_command_position 'gh pr edit 3' create; then
+	fail "edit is not create" "matched"
+else
+	pass "edit is not create"
+fi
 
 section "gh_scope_normalize (a trailing space from tr is expected; the rule tolerates it)"
 norm() {
